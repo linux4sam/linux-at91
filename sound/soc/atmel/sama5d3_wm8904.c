@@ -45,22 +45,7 @@ static int sama5d3_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret;
-
-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S |
-		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
-	if (ret < 0) {
-		pr_err("%s - Failed to set CODEC DAI format.", __func__);
-		return ret;
-	}
-
-	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
-		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
-	if (ret < 0) {
-		pr_err("%s - Failed to set CPU DAI format.", __func__);
-		return ret;
-	}
 
 	ret = snd_soc_dai_set_pll(codec_dai, WM8904_FLL_MCLK, WM8904_FLL_MCLK,
 		32768, params_rate(params) * 256);
@@ -128,6 +113,9 @@ static struct snd_soc_dai_link sama5d3ek_dai = {
 	.stream_name = "WM8904 PCM",
 	.codec_dai_name = "wm8904-hifi",
 	.init = sama5d3_wm8904_init,
+	.dai_fmt = SND_SOC_DAIFMT_I2S
+		| SND_SOC_DAIFMT_NB_NF
+		| SND_SOC_DAIFMT_CBM_CFM,
 	.ops = &sama5d3_soc_ops,
 };
 
