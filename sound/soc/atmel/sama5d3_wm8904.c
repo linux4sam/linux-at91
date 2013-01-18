@@ -35,9 +35,10 @@
 
 static struct clk *mclk;
 
-static const struct snd_soc_dapm_route intercon[] = {
-	{ "MICBIAS", NULL, "IN1L" },
-	{ "Left Capture Mux", NULL, "MICBIAS" },
+static const struct snd_soc_dapm_widget sama5ek_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_MIC("Mic", NULL),
+	SND_SOC_DAPM_LINE("Line In Jack", NULL),
 };
 
 static int sama5d3_hw_params(struct snd_pcm_substream *substream,
@@ -68,34 +69,6 @@ static struct snd_soc_ops sama5d3_soc_ops = {
 	.hw_params = sama5d3_hw_params,
 };
 
-static int sama5d3_wm8904_init(struct snd_soc_pcm_runtime *rtd)
-{
-	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
-
-	pr_debug("ASoC: sama5d3_wm8904_init() called\n");
-
-	snd_soc_dapm_nc_pin(dapm, "IN1R");
-	snd_soc_dapm_nc_pin(dapm, "IN3L");
-	snd_soc_dapm_nc_pin(dapm, "IN3R");
-	
-	snd_soc_dapm_nc_pin(dapm, "LINEOUTL");
-	snd_soc_dapm_nc_pin(dapm, "LINEOUTR");
-
-	snd_soc_dapm_enable_pin(dapm, "HPOUTL");
-	snd_soc_dapm_enable_pin(dapm, "HPOUTR");
-	snd_soc_dapm_enable_pin(dapm, "IN1L");
-	snd_soc_dapm_enable_pin(dapm, "IN2L");
-	snd_soc_dapm_enable_pin(dapm, "IN2R");
-	snd_soc_dapm_enable_pin(dapm, "MICBIAS");
-
-	snd_soc_dapm_add_routes(dapm, intercon, ARRAY_SIZE(intercon));
-
-	snd_soc_dapm_sync(dapm);
-
-	return 0;
-}
-
 int sama5d3ek_snd_suspend_pre(struct snd_soc_card *card)
 {
 	clk_disable(mclk);
@@ -112,7 +85,6 @@ static struct snd_soc_dai_link sama5d3ek_dai = {
 	.name = "WM8904",
 	.stream_name = "WM8904 PCM",
 	.codec_dai_name = "wm8904-hifi",
-	.init = sama5d3_wm8904_init,
 	.dai_fmt = SND_SOC_DAIFMT_I2S
 		| SND_SOC_DAIFMT_NB_NF
 		| SND_SOC_DAIFMT_CBM_CFM,
@@ -125,6 +97,9 @@ static struct snd_soc_card snd_soc_sama5d3ek = {
 	.num_links = 1,
 	.suspend_pre = sama5d3ek_snd_suspend_pre,
 	.resume_pre = sama5d3ek_snd_resume_pre,
+	.dapm_widgets = sama5ek_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(sama5ek_dapm_widgets),
+	.fully_routed = true,
 };
 
 static int sama5d3ek_wm8904_dt_init(struct platform_device *pdev)
