@@ -211,8 +211,9 @@ static int sama5d3ek_wm8904_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
-	atmel_ssc_put_audio(0);
+	clk_disable(mclk);
 	snd_soc_unregister_card(card);
+	atmel_ssc_put_audio(0);
 
 	return 0;
 }
