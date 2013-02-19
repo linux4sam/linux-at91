@@ -239,5 +239,5 @@ module_platform_driver(sama5d3ek_wm8904_driver);
 
 /* Module information */
 MODULE_AUTHOR("Bo Shen <voice.shen@atmel.com>");
-MODULE_DESCRIPTION("ALSA SoC machine driver for AT91SAMA5D3 - WM8904");
+MODULE_DESCRIPTION("ALSA SoC machine driver for SAMA5D3 - WM8904");
 MODULE_LICENSE("GPL");
