@@ -720,6 +720,14 @@
 					};
 				};
 
+				i2c0 {
+					pinctrl_i2c0: i2c0-0 {
+						atmel,pins =
+							<AT91_PIOA 23 AT91_PERIPH_A AT91_PINCTRL_NONE   /* PA23 periph A I2C0 data */
+							 AT91_PIOA 24 AT91_PERIPH_A AT91_PINCTRL_NONE>; /* PA24 periph A I2C0 clock */
+					};
+				};
+
 				pioA: gpio@fffff400 {
 					compatible = "atmel,at91rm9200-gpio";
 					reg = <0xfffff400 0x200>;
@@ -869,6 +877,8 @@
 				interrupts = <11 IRQ_TYPE_LEVEL_HIGH 6>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_i2c0>;
 				clocks = <&twi0_clk>;
 				status = "disabled";
 			};
