@@ -973,6 +973,9 @@
 				reg = <0xfffff200 0x200>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH 7>;
 				pinctrl-names = "default";
+				dmas = <&dma1 1 0x8>,
+				       <&dma1 1 0x209>;
+				dma-names = "tx", "rx";
 				pinctrl-0 = <&pinctrl_dbgu>;
 				clocks = <&mck>;
 				clock-names = "usart";
@@ -983,6 +986,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf801c000 0x200>;
 				interrupts = <5 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma0 1 0x3>,
+				       <&dma0 1 0x204>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart0>;
 				clocks = <&usart0_clk>;
@@ -994,6 +1000,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8020000 0x200>;
 				interrupts = <6 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma0 1 0x5>,
+				       <&dma0 1 0x204>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart1>;
 				clocks = <&usart1_clk>;
@@ -1005,6 +1014,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8024000 0x200>;
 				interrupts = <7 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma1 1 0xc>,
+				       <&dma1 1 0x20d>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart2>;
 				clocks = <&usart2_clk>;
@@ -1016,6 +1028,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8028000 0x200>;
 				interrupts = <8 4 5>;
+				dmas = <&dma1 1 0xe>,
+				       <&dma1 1 0x20f>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart3>;
 				clocks = <&usart3_clk>;
