@@ -2259,10 +2259,19 @@ static const struct i2c_device_id wm8904_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, wm8904_i2c_id);
 
+static const struct of_device_id wm8904_of_match[] = {
+	{ .compatible = "wlf,wm8904", },
+	{ .compatible = "wlf,wm8912", },
+	{ .compatible = "wlf,wm8918", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, wm8904_of_match);
+
 static struct i2c_driver wm8904_i2c_driver = {
 	.driver = {
 		.name = "wm8904",
 		.owner = THIS_MODULE,
+		.of_match_table = wm8904_of_match,
 	},
 	.probe =    wm8904_i2c_probe,
 	.remove =   wm8904_i2c_remove,
