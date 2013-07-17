@@ -20,6 +20,10 @@
 				status = "okay";
 			};
 
+			ssc0: ssc@f0008000 {
+				status = "okay";
+			};
+
 			can0: can@f000c000 {
 				status = "okay";
 			};
