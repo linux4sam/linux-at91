@@ -63,6 +63,9 @@ static int gpio_banks;
 #define DEGLITCH	(1 << 2)
 #define PULL_DOWN	(1 << 3)
 #define DIS_SCHMIT	(1 << 4)
+#define SET_DRIVE_STRENGTH	(1 << 5)
+#define DRIVE_STRENGTH_SHIFT  	6
+#define DRIVE_STRENGTH   ( 0x3 << DRIVE_STRENGTH_SHIFT )
 #define DEBOUNCE	(1 << 16)
 #define DEBOUNCE_VAL_SHIFT	17
 #define DEBOUNCE_VAL	(0x3fff << DEBOUNCE_VAL_SHIFT)
@@ -149,6 +152,8 @@ struct at91_pinctrl_mux_ops {
 	void (*set_deglitch)(void __iomem *pio, unsigned mask, bool in_on);
 	bool (*get_debounce)(void __iomem *pio, unsigned pin, u32 *div);
 	void (*set_debounce)(void __iomem *pio, unsigned mask, bool in_on, u32 div);
+	int (*get_drivestrength)(void __iomem *pio, unsigned pin);
+	void (*set_drivestrength)(void __iomem *pio, unsigned pin, u32 strength);
 	bool (*get_pulldown)(void __iomem *pio, unsigned pin);
 	void (*set_pulldown)(void __iomem *pio, unsigned mask, bool in_on);
 	bool (*get_schmitt_trig)(void __iomem *pio, unsigned pin);
@@ -448,6 +453,28 @@ static void at91_mux_pio3_set_debounce(void __iomem *pio, unsigned mask,
 	}
 }
 
+static int at91_mux_pio3_get_drivestrength(void __iomem *pio, unsigned pin)
+{
+	unsigned reg = pio + ( (pin > 15) ? PIO_DRIVER2 : PIO_DRIVER1 );
+	unsigned shift = ( 2*( (pin >= 16) ? pin - 16 : pin ) );
+	
+	return ( readl_relaxed(reg) >> shift ) & 0x3;
+}
+
+static void at91_mux_pio3_set_drivestrength(void __iomem *pio, unsigned pin, u32 strength)
+{
+	unsigned shift = ( 2*( (pin >= 16) ? pin - 16 : pin ) );
+	unsigned pinmask = 0x3 << shift;
+	unsigned strmask = strength << shift;
+	unsigned reg = pio + ( (pin > 15) ? PIO_DRIVER2 : PIO_DRIVER1 );
+
+	unsigned tmp = readl_relaxed(reg);
+	tmp &= ~pinmask;
+	tmp |= strmask;
+
+	writel_relaxed( tmp, reg);
+}
+
 static bool at91_mux_pio3_get_pulldown(void __iomem *pio, unsigned pin)
 {
 	return (__raw_readl(pio + PIO_PPDSR) >> pin) & 0x1;
@@ -489,6 +516,8 @@ static struct at91_pinctrl_mux_ops at91sam9x5_ops = {
 	.set_debounce	= at91_mux_pio3_set_debounce,
 	.get_pulldown	= at91_mux_pio3_get_pulldown,
 	.set_pulldown	= at91_mux_pio3_set_pulldown,
+	.get_drivestrength	= at91_mux_pio3_get_drivestrength,
+	.set_drivestrength	= at91_mux_pio3_set_drivestrength,
 	.get_schmitt_trig = at91_mux_pio3_get_schmitt_trig,
 	.disable_schmitt_trig = at91_mux_pio3_disable_schmitt_trig,
 	.irq_type	= alt_gpio_irq_type,
@@ -717,6 +746,7 @@ static int at91_pinconf_get(struct pinctrl_dev *pctldev,
 	void __iomem *pio;
 	unsigned pin;
 	int div;
+	int strength;
 
 	dev_dbg(info->dev, "%s:%d, pin_id=%d, config=0x%lx", __func__, __LINE__, pin_id, *config);
 	pio = pin_to_controller(info, pin_to_bank(pin_id));
@@ -732,6 +762,8 @@ static int at91_pinconf_get(struct pinctrl_dev *pctldev,
 		*config |= DEGLITCH;
 	if (info->ops->get_debounce && info->ops->get_debounce(pio, pin, &div))
 		*config |= DEBOUNCE | (div << DEBOUNCE_VAL_SHIFT);
+	if (info->ops->get_drivestrength )
+		*config |= DRIVE_STRENGTH | ( info->ops->get_drivestrength(pio, pin) << DRIVE_STRENGTH_SHIFT);
 	if (info->ops->get_pulldown && info->ops->get_pulldown(pio, pin))
 		*config |= PULL_DOWN;
 	if (info->ops->get_schmitt_trig && info->ops->get_schmitt_trig(pio, pin))
@@ -746,16 +778,21 @@ static int at91_pinconf_set(struct pinctrl_dev *pctldev,
 	struct at91_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
 	unsigned mask;
 	void __iomem *pio;
+	unsigned pin;
 
 	dev_dbg(info->dev, "%s:%d, pin_id=%d, config=0x%lx", __func__, __LINE__, pin_id, config);
 	pio = pin_to_controller(info, pin_to_bank(pin_id));
-	mask = pin_to_mask(pin_id % MAX_NB_GPIO_PER_BANK);
+	pin = pin_id % MAX_NB_GPIO_PER_BANK;
+	mask = pin_to_mask(pin);
 
 	if (config & PULL_UP && config & PULL_DOWN)
 		return -EINVAL;
 
 	at91_mux_set_pullup(pio, mask, config & PULL_UP);
 	at91_mux_set_multidrive(pio, mask, config & MULTI_DRIVE);
+	if( info->ops->set_drivestrength && config & SET_DRIVE_STRENGTH )
+		info->ops->set_drivestrength(pio, pin,
+				(config & DRIVE_STRENGTH) >> DRIVE_STRENGTH_SHIFT);
 	if (info->ops->set_deglitch)
 		info->ops->set_deglitch(pio, mask, config & DEGLITCH);
 	if (info->ops->set_debounce)
