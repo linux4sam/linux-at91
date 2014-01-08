@@ -1765,6 +1765,13 @@ static void atmel_shutdown(struct uart_port *port)
 	struct atmel_uart_port *atmel_port = to_atmel_uart_port(port);
 
 	/*
+	 * Prevent any tasklets being scheduled during
+	 * cleanup
+	 */
+	if (!atmel_port->is_usart)
+		del_timer_sync(&atmel_port->uart_timer);
+
+	/*
 	 * Clear out any scheduled tasklets before
 	 * we destroy the buffers
 	 */
@@ -1796,9 +1803,6 @@ static void atmel_shutdown(struct uart_port *port)
 					 DMA_FROM_DEVICE);
 			kfree(pdc->buf);
 		}
-
-		if (!atmel_port->is_usart)
-			del_timer_sync(&atmel_port->uart_timer);
 	}
 	if (atmel_use_pdc_tx(port)) {
 		struct atmel_dma_buffer *pdc = &atmel_port->pdc_tx;
