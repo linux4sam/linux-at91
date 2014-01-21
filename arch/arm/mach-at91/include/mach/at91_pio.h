@@ -66,6 +66,15 @@
 #define PIO_FRLHSR	0xd8	/* Fall/Rise - Low/High Status Register */
 #define PIO_SCHMITT	0x100	/* Schmitt Trigger Register */
 
+#if defined(CONFIG_SOC_SAMA5D3)
+	#define PIO_DRIVER1	0x118	/* Drive Strength Register 1 */
+	#define PIO_DRIVER2	0x11C	/* Drive Strength Register 2 */
+#else
+	//SAMA9x5,SAM9G35, SAM9G25
+	#define PIO_DRIVER1	0x114	/* Drive Strength Register 1 */
+	#define PIO_DRIVER2	0x118	/* Drive Strength Register 2 */
+#endif
+
 #define ABCDSR_PERIPH_A	0x0
 #define ABCDSR_PERIPH_B	0x1
 #define ABCDSR_PERIPH_C	0x2
