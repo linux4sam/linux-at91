@@ -825,40 +825,57 @@ static void atmel_rx_from_dma(struct uart_port *port)
 	struct dma_chan *chan = atmel_port->chan_rx;
 	struct dma_tx_state state;
 	enum dma_status dmastat;
-	size_t pending, count;
+	size_t pending, count, sg_len;
 
 
 	/* Reset the UART timeout early so that we don't miss one */
 	UART_PUT_CR(port, ATMEL_US_STTTO);
-	dmastat = dmaengine_tx_status(chan,
-				atmel_port->cookie_rx,
-				&state);
-	/* Restart a new tasklet if DMA status is error */
-	if (dmastat == DMA_ERROR) {
-		dev_dbg(port->dev, "Get residue error, restart tasklet\n");
-		UART_PUT_IER(port, ATMEL_US_TIMEOUT);
-		tasklet_schedule(&atmel_port->tasklet);
-		return;
-	}
-	/* current transfer size should no larger than dma buffer */
-	pending = sg_dma_len(&atmel_port->sg_rx) - state.residue;
-	BUG_ON(pending > sg_dma_len(&atmel_port->sg_rx));
 
-	/*
-	 * This will take the chars we have so far,
-	 * ring->head will record the transfer size, only new bytes come
-	 * will insert into the framework.
+	sg_len = sg_dma_len(&atmel_port->sg_rx);
+
+	/* Loop untill all data are transferred from the ring buffer.
+	 * dmaengine_tx_status() calculates residue taking in account only
+         * state of oldest sg buffer, so we should retry in case there is data
+	 * in the new one.
 	 */
-	if (pending > ring->head) {
-		count = pending - ring->head;
+	while (1) {
+		dmastat = dmaengine_tx_status(chan,
+					atmel_port->cookie_rx,
+					&state);
+		/* Restart a new tasklet if DMA status is error */
+		if (dmastat == DMA_ERROR) {
+			dev_dbg(port->dev,
+				"Get residue error, restart tasklet\n");
+			UART_PUT_IER(port, ATMEL_US_TIMEOUT);
+			tasklet_schedule(&atmel_port->tasklet);
+			return;
+		}
+		/* current transfer size should no larger than dma buffer */
+		pending = sg_len - state.residue;
+		BUG_ON(pending > sg_len);
 
-		atmel_flip_buffer_rx_dma(port, ring->buf + ring->head, count);
+		/* DMA has filled ring buffer up to `pending`, and data
+                 * up to `ring->head` was already transferred to TTY layer.
+		 *
+		 * Sometimes we have already rewound ring->head to 0, but
+		 * `pending` is still at `sg_len` if no bytes were transferred.
+		 * Second subcondition deals with this case.
+		 */
+		if ((pending > ring->head) &&
+		    (pending - ring->head != sg_len)) {
+			count = pending - ring->head;
 
-		ring->head += count;
-		if (ring->head == sg_dma_len(&atmel_port->sg_rx))
-			ring->head = 0;
+			atmel_flip_buffer_rx_dma(port, ring->buf + ring->head,
+				count);
 
-		port->icount.rx += count;
+			ring->head += count;
+			if (ring->head == sg_len)
+				ring->head = 0;
+
+			port->icount.rx += count;
+		} else {
+			break;
+		}
 	}
 
 	UART_PUT_IER(port, ATMEL_US_TIMEOUT);
@@ -874,6 +891,9 @@ static int atmel_prepare_rx_dma(struct uart_port *port)
 	int ret, nent;
 
 	ring = &atmel_port->rx_ring;
+	ring->head = 0;
+
+	port = &(atmel_port->uart);
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_CYCLIC, mask);
@@ -887,7 +907,7 @@ static int atmel_prepare_rx_dma(struct uart_port *port)
 	spin_lock_init(&atmel_port->lock_rx);
 	sg_init_table(&atmel_port->sg_rx, 1);
 	/* UART circular rx buffer is an aligned page. */
-	BUG_ON((int)port->state->xmit.buf & ~PAGE_MASK);
+	BUG_ON((int)ring->buf & ~PAGE_MASK);
 	sg_set_page(&atmel_port->sg_rx,
 			virt_to_page(ring->buf),
 			ATMEL_SERIAL_RINGSIZE,
