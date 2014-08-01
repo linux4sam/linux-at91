@@ -79,27 +79,9 @@
 
 	ahb {
 		apb {
-			lcd_bus@f0000000 {
+			hlcdc: hlcdc@f0000000 {
 				status = "okay";
 
-				lcd@f0000000 {
-					status = "okay";
-				};
-
-				lcdovl1@f0000140 {
-					status = "okay";
-				};
-
-				lcdovl2@f0000240 {
-					status = "okay";
-				};
-
-				lcdheo1@f0000340 {
-					status = "okay";
-				};
-			};
-
-			hlcdc: hlcdc@f0000000 {
 				hlcdc-display-controller {
 					pinctrl-names = "default";
 					pinctrl-0 = <&pinctrl_lcd_base &pinctrl_lcd_rgb666>;
