@@ -26,7 +26,6 @@
 
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
-#include <mach/gpio.h>
 
 #include "../codecs/wm8904.h"
 #include "atmel_ssc_dai.h"
