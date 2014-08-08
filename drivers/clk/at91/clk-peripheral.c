@@ -151,6 +151,14 @@ static void clk_sam9x5_peripheral_autodiv(struct clk_sam9x5_peripheral *periph)
 			if (parent_rate >> shift <= periph->range.max)
 				break;
 		}
+
+		if (shift == PERIPHERAL_MAX_SHIFT) {
+			shift--;
+			printk(KERN_WARNING "clk: setting frequency of clock "
+				"per_id=%d to value %lu above upper limit %lu\n",
+				periph->id, parent_rate >> shift,
+				periph->range.max);
+		}
 	}
 
 	periph->auto_div = false;
