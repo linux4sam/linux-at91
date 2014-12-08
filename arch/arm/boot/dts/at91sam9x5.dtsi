@@ -26,6 +26,7 @@
 		serial1 = &usart0;
 		serial2 = &usart1;
 		serial3 = &usart2;
+		serial4 = &usart3;
 		gpio0 = &pioA;
 		gpio1 = &pioB;
 		gpio2 = &pioC;
@@ -275,6 +276,11 @@
 					usart2_clk: usart2_clk {
 						#clock-cells = <0>;
 						reg = <7>;
+					};
+
+					usart3_clk: usart3_clk {
+						#clock-cells = <0>;
+						reg = <8>;
 					};
 
 					twi0_clk: twi0_clk {
@@ -567,6 +573,29 @@
 					pinctrl_usart2_sck: usart2_sck-0 {
 						atmel,pins =
 							<AT91_PIOB 2 AT91_PERIPH_B AT91_PINCTRL_NONE>;	/* PB2 periph B */
+					};
+				};
+
+				usart3 {
+					pinctrl_usart3: usart3-0 {
+						atmel,pins =
+							<AT91_PIOC 22 AT91_PERIPH_B AT91_PINCTRL_PULL_UP	/* PC22 periph B with pullup */
+							 AT91_PIOC 23 AT91_PERIPH_B AT91_PINCTRL_NONE>;	/* PC23 periph B */
+					};
+
+					pinctrl_usart3_rts: usart3_rts-0 {
+						atmel,pins =
+							<AT91_PIOC 24 AT91_PERIPH_B AT91_PINCTRL_NONE>;	/* PC24 periph B */
+					};
+
+					pinctrl_usart3_cts: usart3_cts-0 {
+						atmel,pins =
+							<AT91_PIOC 25 AT91_PERIPH_B AT91_PINCTRL_NONE>;	/* PC25 periph B */
+					};
+
+					pinctrl_usart3_sck: usart3_sck-0 {
+						atmel,pins =
+							<AT91_PIOC 26 AT91_PERIPH_B AT91_PINCTRL_NONE>;	/* PC26 periph B */
 					};
 				};
 
@@ -944,6 +973,9 @@
 				reg = <0xfffff200 0x200>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH 7>;
 				pinctrl-names = "default";
+				dmas = <&dma1 1 0x8>,
+				       <&dma1 1 0x209>;
+				dma-names = "tx", "rx";
 				pinctrl-0 = <&pinctrl_dbgu>;
 				clocks = <&mck>;
 				clock-names = "usart";
@@ -954,6 +986,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf801c000 0x200>;
 				interrupts = <5 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma0 1 0x3>,
+				       <&dma0 1 0x204>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart0>;
 				clocks = <&usart0_clk>;
@@ -965,6 +1000,9 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8020000 0x200>;
 				interrupts = <6 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma0 1 0x5>,
+				       <&dma0 1 0x204>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart1>;
 				clocks = <&usart1_clk>;
@@ -976,9 +1014,26 @@
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8024000 0x200>;
 				interrupts = <7 IRQ_TYPE_LEVEL_HIGH 5>;
+				dmas = <&dma1 1 0xc>,
+				       <&dma1 1 0x20d>;
+				dma-names = "tx", "rx";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_usart2>;
 				clocks = <&usart2_clk>;
+				clock-names = "usart";
+				status = "disabled";
+			};
+
+			usart3: serial@f8028000 {
+				compatible = "atmel,at91sam9260-usart";
+				reg = <0xf8028000 0x200>;
+				interrupts = <8 4 5>;
+				dmas = <&dma1 1 0xe>,
+				       <&dma1 1 0x20f>;
+				dma-names = "tx", "rx";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_usart3>;
+				clocks = <&usart3_clk>;
 				clock-names = "usart";
 				status = "disabled";
 			};
