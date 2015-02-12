@@ -1,0 +1,53 @@
+/*
+ * pda-tm7000.dtsi - Device Tree Include file for PDA 7" display module
+ *
+ *  Copyright (C) 2014 Atmel
+ *  Copyright (C) 2014 Free Electrons
+ *
+ *  Author: Boris Brezillon <boris.brezillon@free-electrons.com>
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/ {
+	bl_reg: backlight_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "backlight-power-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		status = "disabled";
+	};
+
+	panel_reg: panel_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "panel-power-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		status = "disabled";
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		power-supply = <&bl_reg>;
+		status = "disabled";
+	};
+
+	panel: panel {
+		compatible = "shelly,sca07010-bfn-lnn", "simple-panel";
+		backlight = <&backlight>;
+		power-supply = <&panel_reg>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			panel_input: endpoint@0 {
+				reg = <0>;
+			};
+		};
+	};
+};

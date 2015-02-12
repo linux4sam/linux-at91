@@ -44,6 +44,7 @@
  */
 /dts-v1/;
 #include "sama5d4.dtsi"
+#include "pda-tm7000.dtsi"
 
 / {
 	model = "Atmel SAMA5D4-EK";
@@ -78,23 +79,19 @@
 
 	ahb {
 		apb {
-			lcd_bus@f0000000 {
+			hlcdc: hlcdc@f0000000 {
 				status = "okay";
 
-				lcd@f0000000 {
-					status = "okay";
-				};
+				hlcdc-display-controller {
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_lcd_base &pinctrl_lcd_rgb666>;
 
-				lcdovl1@f0000140 {
-					status = "okay";
-				};
-
-				lcdovl2@f0000240 {
-					status = "okay";
-				};
-
-				lcdheo1@f0000340 {
-					status = "okay";
+					port@0 {
+						hlcdc_panel_output: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&panel_input>;
+						};
+					};
 				};
 			};
 
@@ -449,5 +446,30 @@
 
 		atmel,ssc-controller = <&ssc0>;
 		atmel,audio-codec = <&wm8904>;
+	};
+
+	bl_reg: backlight_regulator {
+		status = "okay";
+	};
+
+	panel_reg: panel_regulator {
+		status = "okay";
+	};
+
+	backlight: backlight {
+		pwms = <&hlcdc_pwm 0 50000 0>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		status = "okay";
+	};
+
+	panel: panel {
+		status = "okay";
+
+		port@0 {
+			panel_input: endpoint@0 {
+				remote-endpoint = <&hlcdc_panel_output>;
+			};
+		};
 	};
 };

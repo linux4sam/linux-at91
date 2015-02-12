@@ -44,15 +44,23 @@ dtb-$(CONFIG_ARCH_AT91) += at91sam9x35ek.dtb
 # sama5d3
 dtb-$(CONFIG_ARCH_AT91)	+= at91-sama5d3_xplained.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d31ek.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d31ek_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d31ek_revc.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d31ek_revc_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d33ek.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d33ek_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d33ek_revc.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d33ek_revc_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d34ek.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d34ek_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d34ek_revc.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d34ek_revc_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d35ek.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d35ek_revc.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d36ek.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d36ek_pda7.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= sama5d36ek_revc.dtb
+dtb-$(CONFIG_ARCH_AT91)	+= sama5d36ek_revc_pda7.dtb
 # sama5d4
 dtb-$(CONFIG_ARCH_AT91)	+= at91-sama5d4_xplained.dtb
 dtb-$(CONFIG_ARCH_AT91)	+= at91-sama5d4ek.dtb
