@@ -662,6 +662,7 @@ static const struct panel_desc shelly_sca07010_bfn_lnn = {
 		.width = 152,
 		.height = 91,
 	},
+	.bus_format = MEDIA_BUS_FMT_RGB666_1X18,
 };
 
 static const struct of_device_id platform_of_match[] = {
