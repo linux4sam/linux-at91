@@ -1,0 +1,76 @@
+/*
+ * sama5d3xdm_pda7.dtsi - Device Tree file for SAMA5 display module
+ *
+ *  Copyright (C) 2014 Atmel,
+ *                2014 Ludovic Desroches <ludovic.desroches@atmel.com>
+ *
+ * Licensed under GPLv2 or later.
+ */
+
+/ {
+	ahb {
+		apb {
+			i2c1: i2c@f0018000 {
+				qt1070: keyboard@1b {
+					compatible = "qt1070";
+					reg = <0x1b>;
+					interrupt-parent = <&pioE>;
+					interrupts = <30 0x0>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_qt1070_irq>;
+					wakeup-source;
+				};
+
+				atmel_mxt_ts@4c {
+					compatible = "atmel,atmel_mxt_ts";
+					reg = <0x4c>;
+					interrupt-parent = <&pioE>;
+					interrupts = <31 0x0>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_mxt_ts>;
+				};
+			};
+
+			adc0: adc@f8018000 {
+				atmel,adc-clock-rate = <1000000>;
+				atmel,adc-ts-wires = <4>;
+				atmel,adc-ts-pressure-threshold = <10000>;
+				status = "okay";
+			};
+
+			lcd_bus@f0030000 {
+				status = "okay";
+
+				lcd@f0030000 {
+					status = "okay";
+				};
+
+				lcdovl1@f0030140 {
+					status = "okay";
+				};
+
+				lcdovl2@f0030240 {
+					status = "okay";
+				};
+
+				lcdheo1@f0030340 {
+					status = "okay";
+				};
+			};
+
+			pinctrl@fffff200 {
+				board {
+					pinctrl_qt1070_irq: qt1070_irq {
+						atmel,pins =
+							<AT91_PIOE 30 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP_DEGLITCH>; /* PE30 GPIO with pull up deglith */
+					};
+
+					pinctrl_mxt_ts: mxt_irq {
+						atmel,pins =
+							<AT91_PIOE 31 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP_DEGLITCH>; /* PE31 GPIO with pull up deglith */
+					};
+				};
+			};
+		};
+	};
+};
