@@ -1,0 +1,94 @@
+/*
+ * sama5d34ek.dts - Device Tree file for SAMA5D34-EK board
+ *
+ *  Copyright (C) 2013 Atmel,
+ *                2013 Ludovic Desroches <ludovic.desroches@atmel.com>
+ *
+ * Licensed under GPLv2 or later.
+ */
+/dts-v1/;
+#include "sama5d34.dtsi"
+#include "sama5d3xmb.dtsi"
+#include "sama5d3xmb_audio.dtsi"
+#include "sama5d3xmb_isi_sensors.dtsi"
+#include "pda-tm7000.dtsi"
+
+/ {
+	model = "Atmel SAMA5D34-EK";
+	compatible = "atmel,sama5d34ek", "atmel,sama5d3xmb", "atmel,sama5d3xcm", "atmel,sama5d34", "atmel,sama5d3", "atmel,sama5";
+
+	ahb {
+		apb {
+			spi0: spi@f0004000 {
+				status = "okay";
+			};
+
+			ssc0: ssc@f0008000 {
+				status = "okay";
+			};
+
+			can0: can@f000c000 {
+				status = "okay";
+			};
+
+			i2c1: i2c@f0018000 {
+				status = "okay";
+
+				24c256@50 {
+					compatible = "24c256";
+					reg = <0x50>;
+					pagesize = <64>;
+				};
+			};
+
+			macb0: ethernet@f0028000 {
+				status = "okay";
+			};
+
+			hlcdc: hlcdc@f0030000 {
+				status = "okay";
+				hlcdc-display-controller {
+					pinctrl-names = "default";
+					pinctrl-0 = <&pinctrl_lcd_base &pinctrl_lcd_rgb666_alt>;
+
+					port@0 {
+						hlcdc_panel_output: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&panel_input>;
+						};
+					};
+				};
+			};
+		};
+	};
+
+	backlight: backlight {
+		pwms = <&hlcdc_pwm 0 50000 0>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		power-supply = <&bl_reg>;
+		status = "okay";
+	};
+
+	bl_reg: backlight_regulator {
+		status = "okay";
+	};
+
+	panel: panel {
+		status = "okay";
+
+		port@0 {
+			panel_input: endpoint@0 {
+				remote-endpoint = <&hlcdc_panel_output>;
+			};
+		};
+	};
+
+	panel_reg: panel_regulator {
+		status = "okay";
+	};
+
+	sound {
+		status = "okay";
+	};
+};
