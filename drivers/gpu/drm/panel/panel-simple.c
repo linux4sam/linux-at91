@@ -641,6 +641,30 @@ static const struct panel_desc samsung_ltn101nt05 = {
 	},
 };
 
+
+static const struct drm_display_mode shelly_sca07010_bfn_lnn_mode = {
+	.clock = 33300,
+	.hdisplay = 800,
+	.hsync_start = 800 + 1,
+	.hsync_end = 800 + 1 + 64,
+	.htotal = 800 + 1 + 64 + 64,
+	.vdisplay = 480,
+	.vsync_start = 480 + 1,
+	.vsync_end = 480 + 1 + 23,
+	.vtotal = 480 + 1 + 23 + 22,
+	.vrefresh = 60,
+};
+
+static const struct panel_desc shelly_sca07010_bfn_lnn = {
+	.modes = &shelly_sca07010_bfn_lnn_mode,
+	.num_modes = 1,
+	.size = {
+		.width = 152,
+		.height = 91,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB666_1X18,
+};
+
 static const struct of_device_id platform_of_match[] = {
 	{
 		.compatible = "auo,b101aw03",
@@ -684,6 +708,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "samsung,ltn101nt05",
 		.data = &samsung_ltn101nt05,
+	}, {
+		.compatible = "shelly,sca07010-bfn-lnn",
+		.data = &shelly_sca07010_bfn_lnn,
 	}, {
 		/* sentinel */
 	}
