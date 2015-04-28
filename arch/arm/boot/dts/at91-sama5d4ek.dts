@@ -275,7 +275,19 @@
 					cd-gpios = <&pioE 6 0>;
 				};
 			};
-
+            
+			usart0: serial@f802c000 {
+				status = "okay";
+			};
+			
+			usart1: serial@f8030000 {
+				status = "okay";
+			};
+			
+			usart2: serial@fc008000 {
+				status = "okay";
+			};
+			
 			usart3: serial@fc00c000 {
 				status = "okay";
 			};
@@ -283,7 +295,15 @@
 			usart4: serial@fc010000 {
 				status = "okay";
 			};
-
+			
+			uart0: serial@f8004000 {
+				status = "okay";
+			};
+			
+			uart1: serial@fc004000 {
+				status = "okay";
+			};
+			
 			watchdog@fc068640 {
 				status = "okay";
 			};
