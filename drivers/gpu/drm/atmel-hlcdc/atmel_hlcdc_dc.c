@@ -956,6 +956,8 @@ static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
 
 	drm_client_setup_with_fourcc(ddev, DRM_FORMAT_RGB888);
 
+	dev_info(ddev->dev, "DRM device successfully registered\n");
+
 	return 0;
 
 err_unload:
