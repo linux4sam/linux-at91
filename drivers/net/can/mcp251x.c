@@ -65,6 +65,9 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 #include <linux/dma-mapping.h>
 #include <linux/freezer.h>
 #include <linux/interrupt.h>
@@ -242,6 +245,8 @@ struct mcp251x_priv {
 	struct net_device *net;
 	struct spi_device *spi;
 	enum mcp251x_model model;
+
+        struct mcp251x_platform_data *pdata;
 
 	struct mutex mcp_lock; /* SPI device lock */
 
@@ -671,7 +676,7 @@ static void mcp251x_open_clean(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	free_irq(spi->irq, priv);
 	mcp251x_hw_sleep(spi);
@@ -684,7 +689,7 @@ static int mcp251x_stop(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	close_candev(net);
 
@@ -798,6 +803,7 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
 	struct mcp251x_priv *priv = dev_id;
 	struct spi_device *spi = priv->spi;
 	struct net_device *net = priv->net;
+
 
 	mutex_lock(&priv->mcp_lock);
 	while (!priv->force_quit) {
@@ -928,7 +934,7 @@ static int mcp251x_open(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct mcp251x_platform_data *pdata = priv->pdata;
 	unsigned long flags;
 	int ret;
 
@@ -953,7 +959,7 @@ static int mcp251x_open(struct net_device *net)
 		flags |= IRQF_TRIGGER_FALLING;
 
 	ret = request_threaded_irq(spi->irq, NULL, mcp251x_can_ist,
-				   flags, DEVICE_NAME, priv);
+				   flags, dev_name(&net->dev), priv);
 	if (ret) {
 		dev_err(&spi->dev, "failed to acquire irq %d\n", spi->irq);
 		if (pdata->transceiver_enable)
@@ -997,16 +1003,64 @@ static const struct net_device_ops mcp251x_netdev_ops = {
 	.ndo_start_xmit = mcp251x_hard_start_xmit,
 };
 
+static struct mcp251x_platform_data * mcp251x_platform_data_dt_get(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct mcp251x_platform_data *pd;
+
+	u32 tmp;
+
+	dev_dbg(dev, "reading device tree\n");
+
+	if (!np) {
+		dev_err(dev, "no device tree node defined\n");
+		return NULL;
+	}
+
+	pd = devm_kzalloc(dev, sizeof(struct mcp251x_platform_data), GFP_KERNEL);
+	if (!pd) {
+		dev_err(dev, "cannot allocate platform data memory\n");
+		return NULL;
+	}
+
+	of_property_read_u32(np, "mcp251x,oscillator-frequency", &tmp);
+	pd->oscillator_frequency = tmp;
+
+	pd->board_specific_setup = NULL;
+	pd->power_enable = NULL;
+	pd->transceiver_enable = NULL;
+	
+	mcp251x_enable_dma = 1;
+
+	return pd;
+}
+
 static int mcp251x_can_probe(struct spi_device *spi)
 {
 	struct net_device *net;
 	struct mcp251x_priv *priv;
 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct pinctrl *pinctrl;
 	int ret = -ENODEV;
 
-	if (!pdata)
+	dev_dbg(&spi->dev, "probing\n");
+
+	if (!pdata && IS_ENABLED(CONFIG_OF))
+		pdata = mcp251x_platform_data_dt_get(&spi->dev);
+
+	if (!pdata) 
+	{
 		/* Platform data is required for osc freq */
+		dev_err(&spi->dev, "missing platform data\n");
 		goto error_out;
+	}
+
+	dev_info(&spi->dev, "mode %d, irq %d, oscillator freq %ld\n",
+	                     spi->mode, spi->irq, pdata->oscillator_frequency);
+
+  pinctrl = devm_pinctrl_get_select_default(&spi->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(&spi->dev, "pinctrl pins are not configured from the driver");
 
 	/* Allocate can/net device */
 	net = alloc_candev(sizeof(struct mcp251x_priv), TX_ECHO_SKB_MAX);
@@ -1026,6 +1080,7 @@ static int mcp251x_can_probe(struct spi_device *spi)
 		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
 	priv->model = spi_get_device_id(spi)->driver_data;
 	priv->net = net;
+        priv->pdata = pdata;
 	spi_set_drvdata(spi, priv);
 
 	priv->spi = spi;
@@ -1123,8 +1178,8 @@ error_out:
 
 static int mcp251x_can_remove(struct spi_device *spi)
 {
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 	struct net_device *net = priv->net;
 
 	unregister_candev(net);
@@ -1149,8 +1204,8 @@ static int mcp251x_can_remove(struct spi_device *spi)
 static int mcp251x_can_suspend(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 	struct net_device *net = priv->net;
 
 	priv->force_quit = 1;
@@ -1181,8 +1236,8 @@ static int mcp251x_can_suspend(struct device *dev)
 static int mcp251x_can_resume(struct device *dev)
 {
 	struct spi_device *spi = to_spi_device(dev);
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
 		pdata->power_enable(1);
