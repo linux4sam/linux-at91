@@ -1838,7 +1838,7 @@ static void atmci_tasklet_func(unsigned long priv)
 			}
 
 			atmci_request_end(host, host->mrq);
-			state = STATE_IDLE;
+			state = host->state;
 			break;
 		}
 	} while (state != prev_state);
