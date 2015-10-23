@@ -83,7 +83,6 @@ struct atmel_isc {
 	struct clk			*pclk;
 	struct clk			*iscck;
 	unsigned int			irq;
-
 	struct isc_platform_data	pdata;
 	u16				width_flags;	/* max 12 bits */
 
@@ -95,6 +94,9 @@ struct atmel_isc {
 	struct frame_buffer		*active; /* only used by interrupt handler */
 
 	struct soc_camera_host		soc_host;
+	
+	// AP: Internal variable to tell if streaming is on or off. access only under lock for isr synch.
+	int is_streaming_on;
 };
 
 static inline struct atmel_isc *to_isc(const struct soc_camera_host *soc_host)
@@ -396,9 +398,16 @@ static void buffer_queue(struct vb2_buffer *vb)
 
 	spin_lock_irqsave(&isc->lock, flags);
 	list_add(&buf->list, &isc->frame_buffer_list);
-	if (isc->active == NULL)
-		isc->active = buf;
 
+	// AP: in case is not active but streaming is on, trigger a new sma transfer
+	if (isc->active == NULL)
+	{
+		isc->active = buf;
+		if (isc->is_streaming_on)
+		{
+			start_dma(isc, isc->active);
+		}
+	}
 	spin_unlock_irqrestore(&isc->lock, flags);
 }
 
@@ -409,8 +418,11 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct atmel_isc *isc = ici->priv;
 	int ret;
 
-	if (!isc->active)
+	// AP: Why there should be buffers already enqueued? Try to relax this limitation
+	/*if (!isc->active){
+		dev_info(icd->parent, "%s (ret %d)\n", __func__, -EINVAL);
 		return -EINVAL;
+	}*/
 
 	pm_runtime_get_sync(ici->v4l2_dev.dev);
 
@@ -430,17 +442,28 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	/* update profile */
 	isc_writel(isc, ISC_CTRLEN, ISC_CTRLEN_UPPRO);
+
+	/* AP: this calls requires a video stream already running while for v4l2 it is not yet started!
 	while((isc_readl(isc, ISC_CTRLSR) & ISC_CTRLSR_UPPRO) == ISC_CTRLSR_UPPRO)
 		cpu_relax();
+	*/
 
 	spin_lock_irq(&isc->lock);
 
-	if (count) {
+	/* Enable dma irq */
+	// AP: Why there should be buffers already enqueued? Try to relax this limitation
+	//if (count) {
+				
+		// AP: set straming variable
+		isc->is_streaming_on = 1;
+		
 		/* Enable dma irq */
 		isc_writel(isc, ISC_INTEN, ISC_INT_DMA_DONE);
 
-		start_dma(isc, isc->active);
-	}
+		// AP: if a buffer is ready, fire DMA
+		if (isc->active)
+			start_dma(isc, isc->active);
+	//}
 
 	spin_unlock_irq(&isc->lock);
 
@@ -466,6 +489,7 @@ static void stop_streaming(struct vb2_queue *vq)
 	}
 	spin_unlock_irq(&isc->lock);
 
+	// AP: no need to wait in single frames
 	/* Wait until the end of the current frame. as dma will terminated it capture */
 	timeout = jiffies + FRAME_INTERVAL_MILLI_SEC * HZ;
 	while ((isc_readl(isc, ISC_CTRLSR) & ISC_CTRLSR_CAPTURE) &&
@@ -482,9 +506,12 @@ static void stop_streaming(struct vb2_queue *vq)
 
 	spin_lock_irq(&isc->lock);
 	isc->active = NULL;
+	isc->is_streaming_on = 0;
 	spin_unlock_irq(&isc->lock);
 
-	/* Disable ISC and wait for it is done */
+	// AP: requires a frame to complete, otherwise timeout!
+	// AP: anyway no need to wait
+	/* Disable ISC and wait for it is done */ 
 	ret = atmel_isc_wait_status(isc, WAIT_ISC_DISABLE);
 	if (ret < 0)
 		dev_err(icd->parent, "Disable timed out\n");
@@ -733,8 +760,12 @@ static int isc_camera_get_formats(struct soc_camera_device *icd,
 
 	ret = v4l2_subdev_call(sd, video, enum_mbus_fmt, idx, &code);
 	if (ret < 0)
-		/* No more formats */
+	/* No more formats */
+	{
+		dev_err(icd->parent,
+			"No more formats #%u: %d\n", idx, code);
 		return 0;
+	}
 
 	fmt = soc_mbus_get_fmtdesc(code);
 	if (!fmt) {
@@ -756,8 +787,12 @@ static int isc_camera_get_formats(struct soc_camera_device *icd,
 	case MEDIA_BUS_FMT_VYUY8_2X8:
 	case MEDIA_BUS_FMT_YUYV8_2X8:
 	case MEDIA_BUS_FMT_YVYU8_2X8:
-		if (!isc_camera_packing_supported(fmt))
+		if (!isc_camera_packing_supported(fmt)){
+			dev_err(icd->parent,
+				"Format not supported #%u: 0x%x\n", idx, code);
 			return 0;
+		}
+		
 		if (xlate)
 			dev_dbg(icd->parent,
 				"Providing format %s in pass-through mode\n",
@@ -781,8 +816,12 @@ static int isc_camera_get_formats(struct soc_camera_device *icd,
 		break;
 
 	default:
-		/* not support */
-		return 0;
+		// AP of not directly supported maybe can be packed in another similar format, Code taken from atmel-isi.
+                if (!isc_camera_packing_supported(fmt)){
+                        dev_err(icd->parent,
+                                "Format not supported #%u: 0x%x\n", idx, code);
+                        return 0;
+                }
 	}
 
 	/* Generic pass-through */
