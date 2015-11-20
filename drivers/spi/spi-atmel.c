@@ -1303,7 +1303,12 @@ static int atmel_spi_one_transfer(struct spi_master *master,
 		if (atmel_spi_dma_map_xfer(as, xfer) < 0)
 			return -ENOMEM;
 	}
-
+	
+	if (!as->cs_active){
+		cs_activate(as, msg->spi);
+		as->cs_active = true;
+	}
+	
 	atmel_spi_set_xfer_speed(as, msg->spi, xfer);
 
 	as->done_status = 0;
