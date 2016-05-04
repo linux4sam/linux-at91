@@ -264,6 +264,8 @@
 
 #define AUTOSUSPEND_TIMEOUT	2000
 
+#define SPI_NUM_CSR 4
+
 struct atmel_spi_dma {
 	struct dma_chan			*chan_rx;
 	struct dma_chan			*chan_tx;
@@ -367,22 +369,23 @@ static void cs_activate(struct atmel_spi *as, struct spi_device *spi)
 	struct atmel_spi_device *asd = spi->controller_state;
 	unsigned active = spi->mode & SPI_CS_HIGH;
 	u32 mr;
+	u8 spi_chip_select_capped = min(spi->chip_select, (u8) (SPI_NUM_CSR-1));
 
 	if (atmel_spi_is_v2(as)) {
-		spi_writel(as, CSR0 + 4 * spi->chip_select, asd->csr);
+		spi_writel(as, CSR0 + 4 * spi_chip_select_capped, asd->csr);
 		/* For the low SPI version, there is a issue that PDC transfer
 		 * on CS1,2,3 needs SPI_CSR0.BITS config as SPI_CSR1,2,3.BITS
 		 */
 		spi_writel(as, CSR0, asd->csr);
 		if (as->caps.has_wdrbt) {
 			spi_writel(as, MR,
-					SPI_BF(PCS, ~(0x01 << spi->chip_select))
+					SPI_BF(PCS, ~(0x01 << spi_chip_select_capped))
 					| SPI_BIT(WDRBT)
 					| SPI_BIT(MODFDIS)
 					| SPI_BIT(MSTR));
 		} else {
 			spi_writel(as, MR,
-					SPI_BF(PCS, ~(0x01 << spi->chip_select))
+					SPI_BF(PCS, ~(0x01 << spi_chip_select_capped))
 					| SPI_BIT(MODFDIS)
 					| SPI_BIT(MSTR));
 		}
@@ -404,7 +407,7 @@ static void cs_activate(struct atmel_spi *as, struct spi_device *spi)
 		}
 
 		mr = spi_readl(as, MR);
-		mr = SPI_BFINS(PCS, ~(1 << spi->chip_select), mr);
+		mr = SPI_BFINS(PCS, ~(1 << spi_chip_select_capped), mr);
 		if (as->use_cs_gpios && spi->chip_select != 0)
 			gpio_set_value(asd->npcs_pin, active);
 		spi_writel(as, MR, mr);
@@ -420,12 +423,13 @@ static void cs_deactivate(struct atmel_spi *as, struct spi_device *spi)
 	struct atmel_spi_device *asd = spi->controller_state;
 	unsigned active = spi->mode & SPI_CS_HIGH;
 	u32 mr;
+	u8 spi_chip_select_capped = min(spi->chip_select, (u8) (SPI_NUM_CSR-1));
 
 	/* only deactivate *this* device; sometimes transfers to
 	 * another device may be active when this routine is called.
 	 */
 	mr = spi_readl(as, MR);
-	if (~SPI_BFEXT(PCS, mr) & (1 << spi->chip_select)) {
+	if (~SPI_BFEXT(PCS, mr) & (1 << spi_chip_select_capped)) {
 		mr = SPI_BFINS(PCS, 0xf, mr);
 		spi_writel(as, MR, mr);
 	}
@@ -862,6 +866,7 @@ static int atmel_spi_set_xfer_speed(struct atmel_spi *as,
 {
 	u32			scbr, csr;
 	unsigned long		bus_hz;
+	u8 spi_chip_select_capped = min(spi->chip_select, (u8) (SPI_NUM_CSR-1));
 
 	/* v1 chips start out at half the peripheral bus speed. */
 	bus_hz = clk_get_rate(as->clk);
@@ -897,9 +902,9 @@ static int atmel_spi_set_xfer_speed(struct atmel_spi *as,
 			xfer->speed_hz, scbr, bus_hz);
 		return -EINVAL;
 	}
-	csr = spi_readl(as, CSR0 + 4 * spi->chip_select);
+	csr = spi_readl(as, CSR0 + 4 * spi_chip_select_capped);
 	csr = SPI_BFINS(SCBR, scbr, csr);
-	spi_writel(as, CSR0 + 4 * spi->chip_select, csr);
+	spi_writel(as, CSR0 + 4 * spi_chip_select_capped, csr);
 
 	return 0;
 }
@@ -1209,6 +1214,7 @@ static int atmel_spi_setup(struct spi_device *spi)
 	struct atmel_spi	*as;
 	struct atmel_spi_device	*asd;
 	u32			csr;
+	u8			spi_chip_select_capped = min(spi->chip_select, (u8) (SPI_NUM_CSR-1));
 	unsigned int		bits = spi->bits_per_word;
 	unsigned int		npcs_pin;
 	int			ret;
@@ -1272,11 +1278,11 @@ static int atmel_spi_setup(struct spi_device *spi)
 	asd->csr = csr;
 
 	dev_dbg(&spi->dev,
-		"setup: bpw %u mode 0x%x -> csr%d %08x\n",
-		bits, spi->mode, spi->chip_select, csr);
+		"setup: bpw %u mode 0x%x -> cs%d csr%d %08x\n",
+		bits, spi->mode, spi->chip_select, spi_chip_select_capped, csr);
 
 	if (!atmel_spi_is_v2(as))
-		spi_writel(as, CSR0 + 4 * spi->chip_select, csr);
+		spi_writel(as, CSR0 + 4 * spi_chip_select_capped, csr);
 
 	return 0;
 }
