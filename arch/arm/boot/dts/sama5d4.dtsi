@@ -297,6 +297,7 @@
 			reg = <	0x80000000 0x08000000	/* EBI CS3 */
 				0xfc05c070 0x00000490	/* SMC PMECC regs */
 				0xfc05c500 0x00000100	/* SMC PMECC Error Location regs */
+				0x00008000 0x00018000	/* ROM Galois tables */
 				>;
 			interrupts = <22 IRQ_TYPE_LEVEL_HIGH 6>;
 			atmel,nand-addr-offset = <21>;
@@ -305,6 +306,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_nand>;
 			clocks = <&hsmc_clk>;
+			atmel,pmecc-lookup-table-offset = <0x0 0x8000>;
 			status = "disabled";
 
 			nfc@90000000 {
