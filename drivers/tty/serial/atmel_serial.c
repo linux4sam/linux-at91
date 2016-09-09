@@ -2176,9 +2176,9 @@ static void atmel_set_termios(struct uart_port *port, struct ktermios *termios,
 	 */
 	if (atmel_port->has_frac_baudrate &&
 	    (mode & ATMEL_US_USMODE) == ATMEL_US_USMODE_NORMAL) {
-		div = DIV_ROUND_CLOSEST(port->uartclk, baud);
-		cd = div / 16;
-		fp = DIV_ROUND_CLOSEST(div % 16, 2);
+		div = DIV_ROUND_CLOSEST(port->uartclk, baud * 2);
+		cd = div >> 3;
+		fp = div & 7;
 	} else {
 		cd = uart_get_divisor(port, baud);
 	}
