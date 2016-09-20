@@ -1479,14 +1479,15 @@ msg_done:
 
 static void atmel_spi_cleanup(struct spi_device *spi)
 {
+	struct atmel_spi *as = spi_master_get_devdata(spi->master);
 	struct atmel_spi_device	*asd = spi->controller_state;
-	unsigned		gpio = (unsigned long) spi->controller_data;
 
 	if (!asd)
 		return;
 
 	spi->controller_state = NULL;
-	gpio_free(gpio);
+	if (as->use_cs_gpios)
+		gpio_free(asd->npcs_pin);
 	kfree(asd);
 }
 
