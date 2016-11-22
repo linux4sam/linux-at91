@@ -105,6 +105,10 @@ enum m_can_mram_cfg {
 	MRAM_CFG_NUM,
 };
 
+/* Core Release Register (CREL) */
+#define CRR_REL_MASK		0xfff
+#define CRR_REL_SHIFT		20
+
 /* Fast Bit Timing & Prescaler Register (FBTP) */
 #define FBTR_FBRP_MASK		0x1f
 #define FBTR_FBRP_SHIFT		16
@@ -136,7 +140,7 @@ enum m_can_mram_cfg {
 #define CCCR_INIT		BIT(0)
 #define CCCR_CANFD		0x10
 
-/* Bit Timing & Prescaler Register (BTP) */
+/* Bit Timing & Prescaler Register (BTP) (M_CAN IP < 3.1.0) */
 #define BTR_BRP_MASK		0x3ff
 #define BTR_BRP_SHIFT		16
 #define BTR_TSEG1_SHIFT		8
@@ -145,6 +149,16 @@ enum m_can_mram_cfg {
 #define BTR_TSEG2_MASK		(0xf << BTR_TSEG2_SHIFT)
 #define BTR_SJW_SHIFT		0
 #define BTR_SJW_MASK		0xf
+
+/* Nominal Bit Timing & Prescaler Register (NBTP) (M_CAN IP >= 3.1.0) */
+#define NBTR_SJW_SHIFT		25
+#define NBTR_SJW_MASK		(0x7f << NBTR_SJW_SHIFT)
+#define NBTR_BRP_SHIFT		16
+#define NBTR_BRP_MASK		(0x3ff << NBTR_BRP_SHIFT)
+#define NBTR_TSEG1_SHIFT	8
+#define NBTR_TSEG1_MASK		(0xff << NBTR_TSEG1_SHIFT)
+#define NBTR_TSEG2_SHIFT	0
+#define NBTR_TSEG2_MASK		(0x7f << NBTR_TSEG2_SHIFT)
 
 /* Error Counter Register(ECR) */
 #define ECR_RP			BIT(15)
@@ -199,6 +213,9 @@ enum m_can_mram_cfg {
 			 IR_BEC | IR_TOO | IR_MRAF | IR_TSW | IR_TEFL | \
 			 IR_RF1L | IR_RF0L)
 #define IR_ERR_ALL	(IR_ERR_STATE | IR_ERR_BUS)
+
+/* Core Version */
+#define M_CAN_COREREL_3_1_0	0x310
 
 /* Interrupt Line Select (ILS) */
 #define ILS_ALL_INT0	0x0
@@ -355,6 +372,13 @@ static inline void m_can_enable_all_interrupts(const struct m_can_priv *priv)
 static inline void m_can_disable_all_interrupts(const struct m_can_priv *priv)
 {
 	m_can_write(priv, M_CAN_ILE, 0x0);
+}
+
+static inline int m_can_read_core_rev(const struct m_can_priv *priv)
+{
+	u32 reg = m_can_read(priv, M_CAN_CREL);
+
+	return ((reg >> CRR_REL_SHIFT) & CRR_REL_MASK);
 }
 
 static void m_can_read_fifo(struct net_device *dev, u32 rxfs)
@@ -811,8 +835,16 @@ static int m_can_set_bittiming(struct net_device *dev)
 	sjw = bt->sjw - 1;
 	tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
 	tseg2 = bt->phase_seg2 - 1;
-	reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
-			(tseg1 << BTR_TSEG1_SHIFT) | (tseg2 << BTR_TSEG2_SHIFT);
+
+	if (m_can_read_core_rev(priv) < M_CAN_COREREL_3_1_0)
+		reg_btp = (brp << BTR_BRP_SHIFT) | (sjw << BTR_SJW_SHIFT) |
+				(tseg1 << BTR_TSEG1_SHIFT) |
+				(tseg2 << BTR_TSEG2_SHIFT);
+	else
+		reg_btp = (brp << NBTR_BRP_SHIFT) | (sjw << NBTR_SJW_SHIFT) |
+				(tseg1 << NBTR_TSEG1_SHIFT) |
+				(tseg2 << NBTR_TSEG2_SHIFT);
+
 	m_can_write(priv, M_CAN_BTP, reg_btp);
 
 	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
