@@ -294,3 +294,38 @@ int atmel_hlcdc_create_outputs(struct drm_device *dev)
 
 	return 0;
 }
+
+static int dev_match_of(struct device *dev, void *data)
+{
+	return dev->of_node == data;
+}
+
+int atmel_hlcdc_get_external_components(struct device *dev,
+				   struct component_match **match)
+{
+	struct device_node *ep = NULL;
+	int count = 0;
+
+	while ((ep = of_graph_get_next_endpoint(dev->of_node, ep))) {
+		struct device_node *node;
+
+		node = of_graph_get_remote_port_parent(ep);
+		if (!node && !of_device_is_available(node)) {
+			of_node_put(node);
+			continue;
+		}
+
+		dev_dbg(dev, "Subdevice node '%s' found\n", node->name);
+		if (match)
+			component_match_add(dev, match, dev_match_of, node);
+		of_node_put(node);
+		count++;
+	}
+
+	if (count > 1) {
+		dev_err(dev, "Only one external encoder is supported\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
