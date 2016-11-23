@@ -26,6 +26,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 
+#include <linux/ov7740.h> /* OV7740 specific IOCTL's */
+
 #define VAL_SET(x, mask, rshift, lshift)  \
 		((((x) >> rshift) & mask) << lshift)
 
@@ -55,10 +57,12 @@ struct regval_list {
 /* Supported resolutions */
 enum ov7740_width {
 	W_VGA	= 640,
+        W_QVGA  = 320,
 };
 
 enum ov7740_height {
 	H_VGA	= 480,
+	H_QVGA	= 240,
 };
 
 struct ov7740_win_size {
@@ -66,6 +70,9 @@ struct ov7740_win_size {
 	enum ov7740_width		width;
 	enum ov7740_height		height;
 	const struct regval_list	*regs;
+        // It seems there are some registers that will give a NAK error when written to.
+        // The ignore_errors flags tells the driver to ignore this issue.
+        int                             ignore_errors;
 };
 
 
@@ -87,7 +94,7 @@ struct ov7740_priv {
 
 #define ENDMARKER { 0xff, 0xff }
 
-static const struct regval_list ov7740_init_regs[] = {
+static struct regval_list ov7740_vga_regs[VIDIOC_OV7740_MAX_REGS + 1] = {
 	{0x55 ,0x40},
 	{0x11 ,0x02},
 
@@ -208,15 +215,19 @@ static const struct regval_list ov7740_init_regs[] = {
 	ENDMARKER,
 };
 
-static const struct regval_list ov7740_vga_regs[] = {
-	/* Initial registers is for vga format, no setting needed */
+static struct regval_list ov7740_qvga_regs[VIDIOC_OV7740_MAX_REGS + 1] = {
+	/* These are only used if a user program supplies QVGA register
+         * settings for the OV7740.
+         */
 	ENDMARKER,
 };
 
 #define OV7740_SIZE(n, w, h, r) \
-	{.name = n, .width = w , .height = h, .regs = r }
+	{.name = n, .width = w , .height = h, .regs = r, .ignore_errors = 0 }
 
-static const struct ov7740_win_size ov7740_supported_win_sizes[] = {
+#define QVGA_INDEX 0 // Index 0 can be replaced by user supplied QVGA register values
+static struct ov7740_win_size ov7740_supported_win_sizes[] = {
+	OV7740_SIZE("VGA", W_VGA, H_VGA, ov7740_vga_regs),
 	OV7740_SIZE("VGA", W_VGA, H_VGA, ov7740_vga_regs),
 };
 
@@ -234,7 +245,8 @@ static struct ov7740_priv *to_ov7740(const struct i2c_client *client)
 }
 
 static int ov7740_write_array(struct i2c_client *client,
-			      const struct regval_list *vals)
+			      const struct regval_list *vals,
+                              int ignore_errors)
 {
 	int ret;
 
@@ -244,7 +256,7 @@ static int ov7740_write_array(struct i2c_client *client,
 		dev_vdbg(&client->dev, "array: 0x%02x, 0x%02x",
 			 vals->reg_num, vals->value);
 
-		if (ret < 0) {
+		if (!ignore_errors && ret < 0) {
 			dev_err(&client->dev, "array: 0x%02x, 0x%02x write failed",
 				vals->reg_num, vals->value);
 			return ret;
@@ -277,7 +289,7 @@ static int ov7740_reset(struct i2c_client *client)
 		ENDMARKER,
 	};
 
-	ret = ov7740_write_array(client, reset_seq);
+	ret = ov7740_write_array(client, reset_seq, 0);
 	if (ret)
 		goto err;
 
@@ -356,6 +368,160 @@ static int ov7740_s_power(struct v4l2_subdev *sd, int on)
 	return soc_camera_set_power(&client->dev, ssdd, priv->clk, on);
 }
 
+static long ov7740_set_regs(struct i2c_client *c,
+                            struct v4l2_ov7740_register_group *g,
+                            struct regval_list *r)
+{
+        int i;
+        long ret = 0;
+        if (g->numregs == VIDIOC_OV7740_AUTOSIZE_FLAG) {
+                for (i = 0;
+                     ((i < VIDIOC_OV7740_MAX_REGS) && 
+                      !(g->regs[i].reg == 0xFF && g->regs[i].val == 0xFF));
+                     i++) {
+                        r[i].reg_num = g->regs[i].reg;
+                        r[i].value = g->regs[i].val;
+                }
+        } else if (g->numregs >= 0 && g->numregs < VIDIOC_OV7740_MAX_REGS) {
+                for (i = 0; i < g->numregs; i++) {
+                        r[i].reg_num = g->regs[i].reg;
+                        r[i].value = g->regs[i].val;
+                }
+        } else {
+                ret = -EINVAL;
+                goto done;
+        }
+        // ENDMARKER
+        r[i].reg_num = 0xFF;
+        r[i].value = 0xFF;
+ done:
+        return 0;
+}
+
+static long ov7740_get_regs(struct i2c_client *c,
+                            struct v4l2_ov7740_register_group *g,
+                            const struct regval_list *r)
+{
+        int count = 0;
+        while (count < VIDIOC_OV7740_MAX_REGS &&
+               !(r[count].reg_num == 0xFF && r[count].value == 0xFF)) {
+                g->regs[count].reg = r[count].reg_num;
+                g->regs[count].val = r[count].value;
+                count++;
+        }
+        g->numregs = count;
+        return 0;
+}
+
+static inline long ov7740_set_vga_regs(struct i2c_client *c,
+                                       struct v4l2_ov7740_register_group *g)
+{
+        return ov7740_set_regs(c, g, ov7740_vga_regs);
+}
+
+static inline long ov7740_get_vga_regs(struct i2c_client *c,
+                                       struct v4l2_ov7740_register_group *g)
+{
+        return ov7740_get_regs(c, g, ov7740_vga_regs);
+}
+
+static inline long ov7740_set_qvga_regs(struct i2c_client *c,
+                                        struct v4l2_ov7740_register_group *g)
+{
+        long ret = ov7740_set_regs(c, g, ov7740_qvga_regs);
+        if (ret < 0) 
+                return ret;
+        // We assume (and require) that the user supplied register values do, in fact,
+        // configure the device for QVGA mode.
+        ov7740_supported_win_sizes[QVGA_INDEX].name          = "QVGA";
+        ov7740_supported_win_sizes[QVGA_INDEX].width         = W_QVGA;
+        ov7740_supported_win_sizes[QVGA_INDEX].height        = H_QVGA;
+        ov7740_supported_win_sizes[QVGA_INDEX].regs          = ov7740_qvga_regs;
+        ov7740_supported_win_sizes[QVGA_INDEX].ignore_errors = g->ignore_errors;
+        return 0;
+}
+
+static inline long ov7740_get_qvga_regs(struct i2c_client *c,
+                                       struct v4l2_ov7740_register_group *g)
+{
+        return ov7740_get_regs(c, g, ov7740_qvga_regs);
+}
+
+static long ov7740_get_register_group(struct i2c_client *c,
+                                      struct v4l2_ov7740_register_group *g)
+{
+	long ret;
+        int i;
+
+        for (i = 0; i < g->numregs; i++) {
+                if (g->regs[i].reg > 0xff)
+                        return -EINVAL;
+                ret = i2c_smbus_read_byte_data(c, g->regs[i].reg);
+                if (ret < 0)
+                        return ret;
+                g->regs[i].val = ret;
+        }
+        return 0;
+}
+
+static long ov7740_set_register_group(struct i2c_client *c,
+                                      struct v4l2_ov7740_register_group *g)
+{
+	long ret;
+        int i;
+
+        for (i = 0; i < g->numregs; i++) {
+                if (g->regs[i].reg > 0xff ||
+                    g->regs[i].val > 0xff)
+                        return -EINVAL;
+                ret = i2c_smbus_write_byte_data(c, g->regs[i].reg, g->regs[i].val);
+                if (ret < 0)
+                        return ret;
+                g->regs[i].val = ret;
+        }
+        return 0;
+}
+
+static long ov7740_ioctl(struct v4l2_subdev *sd,
+                         unsigned int cmd,
+                         void *arg)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+        struct v4l2_ov7740_register_group *g = arg;
+	long ret;
+
+        switch (cmd) {
+        case VIDIOC_OV7740_S_VGA_REGS:
+                ret = ov7740_set_vga_regs(client, g);
+                break;
+
+        case VIDIOC_OV7740_G_VGA_REGS:
+                ret = ov7740_get_vga_regs(client, g);
+                break;
+
+        case VIDIOC_OV7740_S_QVGA_REGS:
+                ret = ov7740_set_qvga_regs(client, g);
+                break;
+
+        case VIDIOC_OV7740_G_QVGA_REGS:
+                ret = ov7740_get_qvga_regs(client, g);
+                break;
+
+        case VIDIOC_OV7740_G_REGISTER_GROUP:
+                ret = ov7740_get_register_group(client, g);
+                break;
+
+        case VIDIOC_OV7740_S_REGISTER_GROUP:
+                ret = ov7740_set_register_group(client, g);
+                break;
+
+        default:
+                ret = -ENOTTY;
+        }
+
+        return ret;
+}
+
 /* Select the nearest higher resolution for capture */
 static const struct ov7740_win_size *ov7740_select_win(u32 *width, u32 *height)
 {
@@ -397,7 +563,7 @@ static int ov7740_set_params(struct i2c_client *client, u32 *width, u32 *height,
 
 	/* initialize the sensor with default data */
 	dev_dbg(&client->dev, "%s: Init default", __func__);
-	ret = ov7740_write_array(client, ov7740_init_regs);
+	ret = ov7740_write_array(client, priv->win->regs, priv->win->ignore_errors);
 	if (ret < 0)
 		goto err;
 
@@ -550,6 +716,7 @@ static struct v4l2_subdev_core_ops ov7740_subdev_core_ops = {
 	.s_register	= ov7740_s_register,
 #endif
 	.s_power	= ov7740_s_power,
+        .ioctl          = ov7740_ioctl,
 };
 
 static int ov7740_g_mbus_config(struct v4l2_subdev *sd,
@@ -691,6 +858,7 @@ static int ov7740_probe(struct i2c_client *client,
 	}
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ov7740_subdev_ops);
+        priv->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	v4l2_ctrl_handler_init(&priv->hdl, 2);
 	v4l2_ctrl_new_std(&priv->hdl, &ov7740_ctrl_ops,
 			V4L2_CID_VFLIP, 0, 1, 1, 0);
@@ -709,6 +877,10 @@ static int ov7740_probe(struct i2c_client *client,
 	ret = v4l2_async_register_subdev(&priv->subdev);
 	if (ret < 0)
 		goto err_handler;
+
+        ret = v4l2_device_register_subdev_nodes(priv->subdev.v4l2_dev);
+        if (ret < 0)
+                goto err_handler;
 
 	dev_info(&adapter->dev, "OV7740 Probed\n");
 	return 0;
