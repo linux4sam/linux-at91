@@ -550,10 +550,12 @@ static int atmel_hlcdc_dc_modeset_init(struct drm_device *dev)
 
 	drm_mode_config_init(dev);
 
-	ret = atmel_hlcdc_create_outputs(dev);
-	if (ret) {
-		dev_err(dev->dev, "failed to create HLCDC outputs: %d\n", ret);
-		return ret;
+	if (!dc->is_componentized) {
+		ret = atmel_hlcdc_create_outputs(dev);
+		if (ret) {
+			dev_err(dev->dev, "failed to create HLCDC outputs: %d\n", ret);
+			return ret;
+		}
 	}
 
 	planes = atmel_hlcdc_create_planes(dev);
@@ -595,6 +597,7 @@ static int atmel_hlcdc_dc_load(struct drm_device *dev)
 	struct platform_device *pdev = to_platform_device(dev->dev);
 	const struct of_device_id *match;
 	struct atmel_hlcdc_dc *dc;
+	struct drm_crtc *crtc;
 	int ret;
 
 	match = of_match_node(atmel_hlcdc_of_match, dev->dev->parent->of_node);
@@ -619,6 +622,7 @@ static int atmel_hlcdc_dc_load(struct drm_device *dev)
 	init_waitqueue_head(&dc->commit.wait);
 	dc->desc = match->data;
 	dc->hlcdc = dev_get_drvdata(dev->dev->parent);
+	dc->is_componentized = atmel_hlcdc_get_external_components(dev->dev, NULL) > 0;
 	dev->dev_private = dc;
 
 	ret = clk_prepare_enable(dc->hlcdc->periph_clk);
@@ -639,6 +643,26 @@ static int atmel_hlcdc_dc_load(struct drm_device *dev)
 	if (ret < 0) {
 		dev_err(dev->dev, "failed to initialize mode setting\n");
 		goto err_periph_clk_disable;
+	}
+
+	if (dc->is_componentized) {
+		ret = component_bind_all(dev->dev, dev);
+		if (ret < 0)
+		{
+			dev_err(dev->dev, "failed to bind components: %d\n", ret);
+			goto err_periph_clk_disable;
+		}
+	}
+
+	if (of_property_read_bool(dev->dev->of_node, "simulate_vesa_sync")) {
+		/* enable simulate_vesa_sync */
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+			atmel_hlcdc_crtc_set_simulate_vesa_sync(crtc, true);
+	}
+	if (of_property_read_bool(dev->dev->of_node, "invert_pixel_clock")) {
+		/* set clock_polarity */
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+			atmel_hlcdc_crtc_set_invert_pixel_clock(crtc, true);
 	}
 
 	drm_mode_config_reset(dev);
@@ -678,6 +702,8 @@ static void atmel_hlcdc_dc_unload(struct drm_device *dev)
 		drm_fbdev_cma_fini(dc->fbdev);
 	flush_workqueue(dc->wq);
 	drm_kms_helper_poll_fini(dev);
+	if (dc->is_componentized)
+		component_unbind_all(dev->dev, dev);
 	drm_mode_config_cleanup(dev);
 	drm_vblank_cleanup(dev);
 
@@ -874,12 +900,13 @@ static struct drm_driver atmel_hlcdc_dc_driver = {
 	.minor = 0,
 };
 
-static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
+static int atmel_hlcdc_dc_drm_bind(struct device *dev)
 {
 	struct drm_device *ddev;
+	struct atmel_hlcdc_dc *dc;
 	int ret;
 
-	ddev = drm_dev_alloc(&atmel_hlcdc_dc_driver, &pdev->dev);
+	ddev = drm_dev_alloc(&atmel_hlcdc_dc_driver, dev);
 	if (!ddev)
 		return -ENOMEM;
 
@@ -887,26 +914,30 @@ static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_unref;
 
-	ret = atmel_hlcdc_dc_load(ddev);
+	ret = drm_dev_register(ddev, 0);
 	if (ret)
 		goto err_unref;
 
-	ret = drm_dev_register(ddev, 0);
-	if (ret)
-		goto err_unload;
-
-	ret = atmel_hlcdc_dc_connector_plug_all(ddev);
+	ret = atmel_hlcdc_dc_load(ddev);
 	if (ret)
 		goto err_unregister;
+
+	dc = ddev->dev_private;
+	if (!dc->is_componentized) {
+		ret = atmel_hlcdc_dc_connector_plug_all(ddev);
+		if (ret)
+			goto err_unload;
+	}
 
 	dev_info(ddev->dev, "DRM device successfully registered\n");
 	return 0;
 
+err_unload:
+	atmel_hlcdc_dc_unload(ddev);
+
 err_unregister:
 	drm_dev_unregister(ddev);
 
-err_unload:
-	atmel_hlcdc_dc_unload(ddev);
 
 err_unref:
 	drm_dev_unref(ddev);
@@ -914,16 +945,16 @@ err_unref:
 	return ret;
 }
 
-static int atmel_hlcdc_dc_drm_remove(struct platform_device *pdev)
+static void atmel_hlcdc_dc_drm_unbind(struct device *dev)
 {
-	struct drm_device *ddev = platform_get_drvdata(pdev);
+	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct atmel_hlcdc_dc *dc = ddev->dev_private;
 
-	atmel_hlcdc_dc_connector_unplug_all(ddev);
+	if (!dc->is_componentized)
+		atmel_hlcdc_dc_connector_unplug_all(ddev);
 	drm_dev_unregister(ddev);
 	atmel_hlcdc_dc_unload(ddev);
 	drm_dev_unref(ddev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -957,6 +988,50 @@ static int atmel_hlcdc_dc_drm_resume(struct device *dev)
 	return 0;
 }
 #endif
+
+static const struct component_master_ops hlcdc_comp_ops = {
+	.bind = atmel_hlcdc_dc_drm_bind,
+	.unbind = atmel_hlcdc_dc_drm_unbind,
+};
+
+static int atmel_hlcdc_dc_drm_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct component_match *match = NULL;
+	int ret;
+
+	/* bail out early if no DT data: */
+	if (!dev->of_node) {
+		dev_err(dev, "device-tree data is missing\n");
+		return -ENXIO;
+	}
+
+	/* find components, if none found proceed to bind */
+	ret = atmel_hlcdc_get_external_components(dev, &match);
+	if (ret < 0)
+		return ret;
+	else if (ret == 0)
+		return atmel_hlcdc_dc_drm_bind(dev);
+	else
+		return component_master_add_with_match(dev, &hlcdc_comp_ops, match);
+}
+
+static int atmel_hlcdc_dc_drm_remove(struct platform_device *pdev)
+{
+	struct drm_device *ddev = dev_get_drvdata(&pdev->dev);
+	struct atmel_hlcdc_dc *dc = ddev->dev_private;
+
+	/* Check if a subcomponent has already triggered the unloading. */
+	if (!dc)
+		return 0;
+
+	if (dc->is_componentized)
+		component_master_del(&pdev->dev, &hlcdc_comp_ops);
+	else
+		drm_put_dev(platform_get_drvdata(pdev));
+
+	return 0;
+}
 
 static SIMPLE_DEV_PM_OPS(atmel_hlcdc_dc_drm_pm_ops,
 		atmel_hlcdc_dc_drm_suspend, atmel_hlcdc_dc_drm_resume);

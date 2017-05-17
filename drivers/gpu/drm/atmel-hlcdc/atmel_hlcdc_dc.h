@@ -25,6 +25,7 @@
 #include <linux/clk.h>
 #include <linux/irqdomain.h>
 #include <linux/pwm.h>
+#include <linux/component.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
@@ -151,6 +152,7 @@ struct atmel_hlcdc_dc {
 		wait_queue_head_t wait;
 		bool pending;
 	} commit;
+	bool is_componentized;
 };
 
 extern struct atmel_hlcdc_formats atmel_hlcdc_plane_rgb_formats;
@@ -174,7 +176,10 @@ void atmel_hlcdc_crtc_suspend(struct drm_crtc *crtc);
 void atmel_hlcdc_crtc_resume(struct drm_crtc *crtc);
 
 int atmel_hlcdc_crtc_create(struct drm_device *dev);
+void atmel_hlcdc_crtc_set_simulate_vesa_sync(struct drm_crtc *c, bool enabled);
+void atmel_hlcdc_crtc_set_invert_pixel_clock(struct drm_crtc *c, bool enabled);
 
 int atmel_hlcdc_create_outputs(struct drm_device *dev);
+int atmel_hlcdc_get_external_components(struct device *dev, struct component_match **match);
 
 #endif /* DRM_ATMEL_HLCDC_H */
