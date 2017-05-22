@@ -177,9 +177,7 @@
 #define MACB_SPD_SIZE		1
 #define MACB_FD_OFFSET		1 /* Full duplex */
 #define MACB_FD_SIZE		1
-#define MACB_BIT_RATE_OFFSET	2 /* Discard non-VLAN frames */
-#define MACB_BIT_RATE_SIZE	1
-#define MACB_JFRAME_OFFSET	3 /* reserved */
+#define MACB_JFRAME_OFFSET	3 /* Jumbo Frames */
 #define MACB_JFRAME_SIZE	1
 #define MACB_CAF_OFFSET		4 /* Copy all frames */
 #define MACB_CAF_SIZE		1
@@ -191,8 +189,6 @@
 #define MACB_UNI_SIZE		1
 #define MACB_BIG_OFFSET		8 /* Receive 1536 byte frames */
 #define MACB_BIG_SIZE		1
-#define MACB_EAE_OFFSET		9 /* External address match enable */
-#define MACB_EAE_SIZE		1
 #define MACB_CLK_OFFSET		10
 #define MACB_CLK_SIZE		2
 #define MACB_RTY_OFFSET		12 /* Retry test */
@@ -213,18 +209,32 @@
 #define MACB_IRXFCS_SIZE	1
 
 /* GEM specific NCFGR bitfields. */
+#define GEM_DNVLAN_OFFSET	2 /* Discard Non-VLAN Frames */
+#define GEM_DNVLAN_SIZE		1
 #define GEM_GBE_OFFSET		10 /* Gigabit mode enable */
 #define GEM_GBE_SIZE		1
-#define GEM_PCSSEL_OFFSET	11
+#define GEM_PCSSEL_OFFSET       11 /* reserved */
 #define GEM_PCSSEL_SIZE		1
 #define GEM_CLK_OFFSET		18 /* MDC clock division */
 #define GEM_CLK_SIZE		3
 #define GEM_DBW_OFFSET		21 /* Data bus width */
 #define GEM_DBW_SIZE		2
-#define GEM_RXCOEN_OFFSET	24
+#define GEM_DCPF_OFFSET		23 /* Disable Copy of Pause Frames */
+#define GEM_DCPF_SIZE		1
+#define GEM_RXCOEN_OFFSET	24 /* Receive Checksum Offload Enable */
 #define GEM_RXCOEN_SIZE		1
-#define GEM_SGMIIEN_OFFSET	27
+#define GEM_EFRHD_OFFSET	25 /* Enable Frames Received in Half Duplex */
+#define GEM_EFRHD_SIZE		1
+#define GEM_IRXFCS_OFFSET	26 /* Ignore RX FCS */
+#define GEM_IRXFCS_SIZE		1
+#define GEM_SGMIIEN_OFFSET      27 /* reserved */
 #define GEM_SGMIIEN_SIZE	1
+#define GEM_IPGSEN_OFFSET	28 /* IP Stretch Enable */
+#define GEM_IGSEN_SIZE		1
+#define GEM_RXBP_OFFSET		29 /* Receive Bad Preamble */
+#define GEM_RXBP_SIZE		1
+#define GEM_IRXER_OFFSET	30 /* Ignore IPG GRXER */
+#define GEM_IRXER_SIZE		1
 
 
 /* Constants for data bus width. */
