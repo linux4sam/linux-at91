@@ -48,17 +48,8 @@ dtb-$(CONFIG_SOC_SAM_V7) += \
 	at91-kizbox2.dtb \
 	at91-sama5d2_ptc.dtb \
 	at91-sama5d27_som1_ek.dtb \
-	at91-sama5d27_som1_ek_pda4.dtb \
-	at91-sama5d27_som1_ek_pda7.dtb \
-	at91-sama5d27_som1_ek_pda7b.dtb \
 	at91-sama5d2_xplained.dtb \
-	at91-sama5d2_xplained_pda4.dtb \
-	at91-sama5d2_xplained_pda7.dtb \
-	at91-sama5d2_xplained_pda7b.dtb \
 	at91-sama5d3_xplained.dtb \
-	at91-sama5d3_xplained_pda4.dtb \
-	at91-sama5d3_xplained_pda7.dtb \
-	at91-sama5d3_xplained_pda7b.dtb \
 	sama5d31ek.dtb \
 	sama5d33ek.dtb \
 	sama5d34ek.dtb \
@@ -67,12 +58,7 @@ dtb-$(CONFIG_SOC_SAM_V7) += \
 	sama5d36ek_cmp.dtb \
 	at91-sama5d4_ma5d4evk.dtb \
 	at91-sama5d4_xplained.dtb \
-	at91-sama5d4_xplained_hdmi.dtb \
-	at91-sama5d4_xplained_pda4.dtb \
-	at91-sama5d4_xplained_pda7.dtb \
-	at91-sama5d4_xplained_pda7b.dtb \
 	at91-sama5d4ek.dtb \
-	at91-sama5d4ek_isi.dtb \
 	at91-vinco.dtb
 dtb-$(CONFIG_ARCH_ATLAS6) += \
 	atlas6-evb.dtb
