@@ -1059,7 +1059,7 @@ static int __maybe_unused atmel_pctrl_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops atmel_pctrl_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(atmel_pctrl_suspend, atmel_pctrl_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(atmel_pctrl_suspend, atmel_pctrl_resume)
 };
 
 /*
