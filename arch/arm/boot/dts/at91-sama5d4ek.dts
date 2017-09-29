@@ -101,7 +101,8 @@
 
 			spi0: spi@f8010000 {
 				cs-gpios = <&pioC 3 0>, <0>, <0>, <0>;
-				status = "okay";
+				/* conflicts with isi */
+				status = "disabled";
 				m25p80@0 {
 					compatible = "atmel,at25df321a";
 					spi-max-frequency = <50000000>;
