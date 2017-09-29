@@ -48,16 +48,4 @@
 / {
 	model = "Atmel SAMA5D2 Xplained";
 	compatible = "atmel,sama5d2-xplained", "atmel,sama5d2", "atmel,sama5";
-
-	ahb {
-		apb {
-			can0: can@f8054000 {
-				status = "okay";
-			};
-
-			can1: can@fc050000 {
-				status = "okay";
-			};
-		};
-	};
 };
