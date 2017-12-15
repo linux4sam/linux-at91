@@ -1945,6 +1945,18 @@ static irqreturn_t usba_vbus_irq_thread(int irq, void *devid)
 	/* debounce */
 	udelay(10);
 
+	/* If ID pin is pulled low, configure USB port as host */
+	if (!(gpio_get_value(udc->id_pin))) {
+		udc->id_prev = 0;
+		usba_writel(udc, CTRL, USBA_DISABLE_MASK);
+		return IRQ_HANDLED;
+	}
+
+	if (udc->id_prev != gpio_get_value(udc->id_pin)) {
+		udc->id_prev = 1;
+		return IRQ_HANDLED;
+	}
+
 	mutex_lock(&udc->vbus_mutex);
 
 	vbus = vbus_is_present(udc);
@@ -1983,7 +1995,7 @@ static int atmel_usba_start(struct usb_gadget *gadget,
 
 	/* If Vbus is present, enable the controller and wait for reset */
 	udc->vbus_prev = vbus_is_present(udc);
-	if (udc->vbus_prev) {
+	if (udc->vbus_prev && gpio_get_value(udc->id_pin)) {
 		ret = usba_start(udc);
 		if (ret)
 			goto err;
@@ -2081,6 +2093,8 @@ static struct usba_ep * atmel_udc_of_init(struct platform_device *pdev,
 	udc->vbus_pin = of_get_named_gpio_flags(np, "atmel,vbus-gpio", 0,
 						&flags);
 	udc->vbus_pin_inverted = (flags & OF_GPIO_ACTIVE_LOW) ? 1 : 0;
+
+	udc->id_pin = of_get_named_gpio_flags(np, "id-gpio", 0, &flags);
 
 	if (fifo_mode == 0) {
 		pp = NULL;
@@ -2234,6 +2248,7 @@ static struct usba_ep * usba_udc_pdata(struct platform_device *pdev,
 
 	udc->vbus_pin = pdata->vbus_pin;
 	udc->vbus_pin_inverted = pdata->vbus_pin_inverted;
+	udc->id_pin = pdata->id_pin;
 	udc->num_ep = pdata->num_ep;
 
 	INIT_LIST_HEAD(&eps[0].ep.ep_list);
@@ -2309,6 +2324,7 @@ static int usba_udc_probe(struct platform_device *pdev)
 	udc->pclk = pclk;
 	udc->hclk = hclk;
 	udc->vbus_pin = -ENODEV;
+	udc->id_pin = -ENODEV;
 
 	ret = -ENOMEM;
 	udc->regs = devm_ioremap(&pdev->dev, regs->start, resource_size(regs));

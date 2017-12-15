@@ -356,6 +356,8 @@ struct usba_udc {
 
 	u16 test_mode;
 	int vbus_prev;
+	int id_prev;
+	int id_pin;
 
 	u32 int_enb_cache;
 

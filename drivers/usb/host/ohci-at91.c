@@ -46,6 +46,7 @@ struct at91_usbh_data {
 	u8 vbus_pin_active_low[AT91_MAX_USBH_PORTS];
 	u8 overcurrent_status[AT91_MAX_USBH_PORTS];
 	u8 overcurrent_changed[AT91_MAX_USBH_PORTS];
+	int id_gpio;
 };
 
 struct ohci_at91_priv {
@@ -508,6 +509,28 @@ static irqreturn_t ohci_hcd_at91_overcurrent_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t ohci_at91_otg_irq(int irq, void *data)
+{
+	struct platform_device *pdev = data;
+	struct at91_usbh_data *pdata = dev_get_platdata(&pdev->dev);
+
+	/* debounce */
+	mdelay(10);
+
+	/* OTG "like" connector can only be on port A as it shares a transceiver with the UDP, so vbus_pin index is 0 */
+	if (gpio_is_valid(pdata->id_gpio)) {
+		if (gpio_get_value(pdata->id_gpio)) {
+			/* id pin is high, we are not a host so set VBUS low (inverter on hw)*/
+			gpio_direction_output(pdata->vbus_pin[0], 1);
+		} else {
+			/* id pin is low, we are now a host port, set VBUS hi (inverter on hw)*/
+			gpio_direction_output(pdata->vbus_pin[0], 0);
+		}
+	}
+
+	return IRQ_HANDLED;
+}
+
 static const struct of_device_id at91_ohci_dt_ids[] = {
 	{ .compatible = "atmel,at91rm9200-ohci" },
 	{ /* sentinel */ }
@@ -557,6 +580,7 @@ static int ohci_hcd_at91_drv_probe(struct platform_device *pdev)
 
 		gpio = of_get_named_gpio_flags(np, "atmel,vbus-gpio", i,
 					       &flags);
+
 		pdata->vbus_pin[i] = gpio;
 		if (!gpio_is_valid(gpio))
 			continue;
@@ -619,6 +643,34 @@ static int ohci_hcd_at91_drv_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* OTG "like" connector can only be on port A as it shares a transceiver with the UDP, so vbus_pin index is 0 */
+	pdata->id_gpio = of_get_named_gpio_flags(np, "id-gpio", 0, &flags);
+
+	if (gpio_is_valid(pdata->id_gpio)) {
+		ret = gpio_request(pdata->id_gpio, "otg_id_pin");
+		if (ret) {
+			dev_err(&pdev->dev, "can't request ID pin %d\n", pdata->id_gpio);
+		}
+
+		ret = gpio_direction_input(pdata->id_gpio);
+
+		if (ret) {
+			dev_err(&pdev->dev, "can't configure ID pin %d as input\n", pdata->id_gpio);
+			gpio_free(pdata->id_gpio);
+		}
+
+		ret = request_irq(gpio_to_irq(pdata->id_gpio), ohci_at91_otg_irq, 0, "otg_irq", pdev);
+
+		if (ret) {
+			gpio_free(pdata->id_gpio);
+			dev_err(&pdev->dev, "OTG IRQ request failed.  id_gpio: %d\n", pdata->id_gpio);
+		}
+
+		if (!gpio_get_value(pdata->id_gpio)) {
+			gpio_direction_output(pdata->vbus_pin[0], 0);
+		}
+	}
+
 	device_init_wakeup(&pdev->dev, 1);
 	return usb_hcd_at91_probe(&ohci_at91_hc_driver, pdev);
 }
@@ -641,6 +693,11 @@ static int ohci_hcd_at91_drv_remove(struct platform_device *pdev)
 				continue;
 			free_irq(gpio_to_irq(pdata->overcurrent_pin[i]), pdev);
 			gpio_free(pdata->overcurrent_pin[i]);
+		}
+
+		if (gpio_is_valid(pdata->id_gpio)) {
+			free_irq(gpio_to_irq(pdata->id_gpio), pdev);
+			gpio_free(pdata->id_gpio);
 		}
 	}
 
