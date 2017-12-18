@@ -1946,15 +1946,17 @@ static irqreturn_t usba_vbus_irq_thread(int irq, void *devid)
 	udelay(10);
 
 	/* If ID pin is pulled low, configure USB port as host */
-	if (!(gpio_get_value(udc->id_pin))) {
-		udc->id_prev = 0;
-		usba_writel(udc, CTRL, USBA_DISABLE_MASK);
-		return IRQ_HANDLED;
-	}
+	if (gpio_is_valid(udc->id_pin)) {
+		if (!(gpio_get_value(udc->id_pin))) {
+			udc->id_prev = 0;
+			usba_writel(udc, CTRL, USBA_DISABLE_MASK);
+			return IRQ_HANDLED;
+		}
 
-	if (udc->id_prev != gpio_get_value(udc->id_pin)) {
-		udc->id_prev = 1;
-		return IRQ_HANDLED;
+		if (udc->id_prev != gpio_get_value(udc->id_pin)) {
+			udc->id_prev = 1;
+			return IRQ_HANDLED;
+		}
 	}
 
 	mutex_lock(&udc->vbus_mutex);
@@ -1995,10 +1997,19 @@ static int atmel_usba_start(struct usb_gadget *gadget,
 
 	/* If Vbus is present, enable the controller and wait for reset */
 	udc->vbus_prev = vbus_is_present(udc);
-	if (udc->vbus_prev && gpio_get_value(udc->id_pin)) {
+
+	if (gpio_is_valid(udc->id_pin)) {
+		if ((udc->vbus_prev) && gpio_get_value(udc->id_pin)) {
 		ret = usba_start(udc);
-		if (ret)
-			goto err;
+			if (ret)
+				goto err;
+		}
+	} else {
+		if (udc->vbus_prev) {
+			ret = usba_start(udc);
+			if (ret)
+				goto err;
+		}
 	}
 
 	mutex_unlock(&udc->vbus_mutex);
