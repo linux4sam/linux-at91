@@ -517,13 +517,14 @@ static irqreturn_t ohci_at91_otg_irq(int irq, void *data)
 	/* debounce */
 	mdelay(10);
 
-	/* OTG "like" connector can only be on port A as it shares a transceiver with the UDP, so vbus_pin index is 0 */
+	/* OTG "like" connector can only be on port A as it shares a
+	   transceiver with the UDP, so vbus_pin index is 0 */
 	if (gpio_is_valid(pdata->id_gpio)) {
 		if (gpio_get_value(pdata->id_gpio)) {
-			/* id pin is high, we are not a host so set VBUS low (inverter on hw)*/
+			/* id pin is high, we are not a host so set VBUS low */
 			gpio_direction_output(pdata->vbus_pin[0], 1);
 		} else {
-			/* id pin is low, we are now a host port, set VBUS hi (inverter on hw)*/
+			/* id pin is low, we are now a host, set VBUS hi */
 			gpio_direction_output(pdata->vbus_pin[0], 0);
 		}
 	}
@@ -643,7 +644,7 @@ static int ohci_hcd_at91_drv_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* OTG "like" connector can only be on port A as it shares a transceiver with the UDP, so vbus_pin index is 0 */
+	/* Get ID pin (if present) for OTG "like" detection */
 	pdata->id_gpio = of_get_named_gpio_flags(np, "id-gpio", 0, &flags);
 
 	if (gpio_is_valid(pdata->id_gpio)) {
