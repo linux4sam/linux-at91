@@ -18,6 +18,12 @@ Required properties:
  - atmel,oc-gpio: If present, specifies a gpio that needs to be
    activated for the overcurrent detection.
 
+Optional properties:
+ - id-gpio:  If present, specifies a gpio used for OTG "like" detection.
+   This is only applicable to devices that share a transceiver between 
+   host port A and the device port.  Both OHCI and UDC nodes should have
+   this property.
+
 usb0: ohci@00500000 {
 	compatible = "atmel,at91rm9200-ohci", "usb-ohci";
 	reg = <0x00500000 0x100000>;
@@ -25,6 +31,7 @@ usb0: ohci@00500000 {
 	clock-names = "ohci_clk", "hclk", "uhpck";
 	interrupts = <20 4>;
 	num-ports = <2>;
+	id-gpio = <&pioE, 26, 0>;
 };
 
 EHCI
@@ -93,6 +100,10 @@ Required properties:
 Optional properties:
  - atmel,vbus-gpio: If present, specifies a gpio that allows to detect whether
    vbus is present (USB is connected).
+ - id-gpio:  If present, specifies a gpio used for OTG "like" detection.
+   This is only applicable to devices that share a transceiver between 
+   host port A and the device port.  Both OHCI and UDC nodes should have 
+   this property.
 
 Required child node properties:
  - name: Name of the endpoint.
@@ -112,6 +123,7 @@ usb2: gadget@fff78000 {
 	clocks = <&utmi>, <&udphs_clk>;
 	clock-names = "hclk", "pclk";
 	atmel,vbus-gpio = <&pioB 19 0>;
+	id-gpio = <&pioE, 26, 0>;
 
 	ep@0 {
 		reg = <0>;
