@@ -438,6 +438,8 @@ static int atmel_gpio_set_multiple(struct gpio_chip *chip, unsigned long *mask,
 }
 
 static struct gpio_chip atmel_gpio_chip = {
+	.request		= gpiochip_generic_request,
+	.free			= gpiochip_generic_free,
 	.direction_input        = atmel_gpio_direction_input,
 	.get                    = atmel_gpio_get,
 	.get_multiple           = atmel_gpio_get_multiple,
@@ -723,11 +725,27 @@ static int atmel_pmx_set_mux(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static int atmel_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
+					 struct pinctrl_gpio_range *range,
+					 unsigned offset)
+{
+	u32 conf;
+
+	conf = atmel_pin_config_read(pctldev, offset);
+	conf &= (~ATMEL_PIO_CFGR_FUNC_MASK);
+	atmel_pin_config_write(pctldev, offset, conf);
+
+	dev_dbg(pctldev->dev, "enable pin %u as GPIO\n", offset);
+
+	return 0;
+}
+
 static const struct pinmux_ops atmel_pmxops = {
 	.get_functions_count	= atmel_pmx_get_functions_count,
 	.get_function_name	= atmel_pmx_get_function_name,
 	.get_function_groups	= atmel_pmx_get_function_groups,
 	.set_mux		= atmel_pmx_set_mux,
+	.gpio_request_enable	= atmel_pmx_gpio_request_enable,
 };
 
 static int atmel_conf_pin_config_group_get(struct pinctrl_dev *pctldev,
