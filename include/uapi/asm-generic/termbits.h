@@ -105,6 +105,8 @@ struct ktermios {
 #define HUPCL		0x00000400
 #define CLOCAL		0x00000800
 #define CBAUDEX		0x00001000
+#define PARMD		040000000
+#define SENDA		0100000000
 #define BOTHER		0x00001000
 #define     B57600	0x00001001
 #define    B115200	0x00001002
