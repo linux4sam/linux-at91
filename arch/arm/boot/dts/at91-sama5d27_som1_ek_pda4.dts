@@ -53,6 +53,42 @@
 
 	ahb {
 		apb {
+			qspi1: spi@f0024000 {
+				flash@0 {
+					#address-cells = <1>;
+					#size-cells = <1>;
+					compatible = "jedec,spi-nor";
+					reg = <0>;
+					spi-max-frequency = <80000000>;
+					m25p,fast-read;
+
+					at91bootstrap@00000000 {
+						label = "at91bootstrap";
+						reg = <0x00000000 0x00010000>;
+					};
+
+					bootloader@00010000 {
+						label = "bootloader";
+						reg = <0x00010000 0x000a0000>;
+					};
+
+					bootloaderenv@000b0000 {
+						label = "bootloader env";
+						reg = <0x000b0000 0x00010000>;
+					};
+
+					dtb@000c0000 {
+						label = "device tree";
+						reg = <0x000c0000 0x0020000>;
+					};
+
+					kernel@000e0000 {
+						label = "kernel";
+						reg = <0x000e0000 0x0400000>;
+					};
+				};
+			};
+
 			hlcdc: hlcdc@f0000000 {
 				status = "okay";
 
