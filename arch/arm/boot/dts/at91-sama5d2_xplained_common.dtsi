@@ -44,7 +44,6 @@
  *     OTHER DEALINGS IN THE SOFTWARE.
  */
 #include "sama5d2.dtsi"
-#include "at91-sama5d2_xplained_ov7670.dtsi"
 #include "sama5d2-pinfunc.h"
 #include <dt-bindings/mfd/atmel-flexcom.h>
 #include <dt-bindings/gpio/gpio.h>
