@@ -9,25 +9,26 @@ config SND_ATMEL_SOC
 if SND_ATMEL_SOC
 
 config SND_ATMEL_SOC_PDC
-	tristate "SoC Atmel PDC"
+	tristate
 	depends on HAS_DMA
 	default m if SND_ATMEL_SOC_SSC_PDC=m && SND_ATMEL_SOC_SSC=m
 	default y if SND_ATMEL_SOC_SSC_PDC=y || (SND_ATMEL_SOC_SSC_PDC=m && SND_ATMEL_SOC_SSC=y)
 
 config SND_ATMEL_SOC_SSC_PDC
-	tristate "SoC Atmel SSC PDC"
+	tristate
 
 config SND_ATMEL_SOC_DMA
-	tristate "SoC Atmel DMA"
+	tristate
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 	default m if SND_ATMEL_SOC_SSC_DMA=m && SND_ATMEL_SOC_SSC=m
 	default y if SND_ATMEL_SOC_SSC_DMA=y || (SND_ATMEL_SOC_SSC_DMA=m && SND_ATMEL_SOC_SSC=y)
 
 config SND_ATMEL_SOC_SSC_DMA
-	tristate "SoC Atmel SSC DMA"
+	tristate
 
 config SND_ATMEL_SOC_SSC
 	tristate "SoC Atmel SSC"
+	depends on ATMEL_SSC
 	default y if SND_ATMEL_SOC_SSC_DMA=y || SND_ATMEL_SOC_SSC_PDC=y
 	default m if SND_ATMEL_SOC_SSC_DMA=m || SND_ATMEL_SOC_SSC_PDC=m
 
