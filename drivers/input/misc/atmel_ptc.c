@@ -580,13 +580,11 @@ static int atmel_ptc_conf_input_devs(struct atmel_ptc *ptc)
 
 			switch (atmel_qtm_get_scroller_type(ptc, i)) {
 			case ATMEL_QTM_SCROLLER_TYPE_SLIDER:
-				scroller->name = "atmel_ptc_slider";
 				input_set_capability(scroller, EV_ABS, ABS_X);
 				input_set_capability(scroller, EV_KEY, BTN_TOUCH);
 				input_set_abs_params(scroller, ABS_X, 0, atmel_qtm_get_scroller_resolution(ptc, i), 0, 0);
 				break;
 			case ATMEL_QTM_SCROLLER_TYPE_WHEEL:
-				scroller->name = "atmel_ptc_wheel";
 				input_set_capability(scroller, EV_ABS, ABS_WHEEL);
 				input_set_capability(scroller, EV_KEY, BTN_TOUCH);
 				input_set_abs_params(scroller, ABS_WHEEL, 0, atmel_qtm_get_scroller_resolution(ptc, i), 0, 0);
@@ -607,7 +605,6 @@ static int atmel_ptc_conf_input_devs(struct atmel_ptc *ptc)
 				if (!input_buttons)
 					return -ENOMEM;
 
-				input_buttons->name = "atmel_ptc_buttons";
 				input_buttons->dev.parent = ptc->dev;
 				input_buttons->keycode = ptc->button_keycode;
 				input_buttons->keycodesize = sizeof(ptc->button_keycode[0]);
@@ -646,10 +643,15 @@ static void atmel_ptc_unregister_input_devices(struct atmel_ptc *ptc)
 
 static int atmel_ptc_register_input_devices(struct atmel_ptc *ptc)
 {
-	int i, ret = 0;
+	int i, ret = 0, id = 0;
 
 	if (ptc->buttons_input) {
-		ret = input_register_device(ptc->buttons_input);
+		struct input_dev *buttons = ptc->buttons_input;
+		buttons->name = devm_kasprintf(&buttons->dev, GFP_KERNEL,
+					       "atmel_ptc%d", id++);
+		if (!buttons->name)
+			return -ENOMEM;
+		ret = input_register_device(buttons);
 		if (ret) {
 			dev_err(ptc->dev, "can't register input button device.\n");
 			atmel_ptc_unregister_input_devices(ptc);
@@ -665,6 +667,12 @@ static int atmel_ptc_register_input_devices(struct atmel_ptc *ptc)
 		if (!scroller)
 			continue;
 
+		scroller->name = devm_kasprintf(&scroller->dev, GFP_KERNEL,
+						"atmel_ptc%d", id++);
+		if (!scroller->name) {
+			atmel_ptc_unregister_input_devices(ptc);
+			return -ENOMEM;
+		}
 		ret = input_register_device(scroller);
 		if (ret) {
 			dev_err(ptc->dev, "can't register input scroller device.\n");
