@@ -7,3 +7,9 @@ ifeq ($(CONFIG_DWC_MIPI_TC_DPHY_GEN3),y)
 	dw-csi-objs += dw-csi-sysfs.o
 endif
 obj-$(CONFIG_DWC_MIPI_CSI2_HOST) += dw-csi.o
+
+dw-dphy-objs := dw-dphy-plat.o dw-dphy-rx.o
+ifeq ($(CONFIG_DWC_MIPI_TC_DPHY_GEN3),y)
+	dw-dphy-objs += dw-dphy-sysfs.o
+endif
+obj-$(CONFIG_DWC_MIPI_DPHY_GEN3) += dw-dphy.o

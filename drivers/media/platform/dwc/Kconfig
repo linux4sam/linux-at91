@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 #
 #  Synopsys DWC Platform drivers
-#	Drivers here are currently for MIPI CSI-2 support
+#	Drivers here are currently for MIPI CSI-2 and MIPI DPHY support
 
 config DWC_MIPI_CSI2_HOST
 	tristate "Synopsys DesignWare CSI-2 Host Controller support"
@@ -17,3 +17,25 @@ config DWC_MIPI_CSI2_HOST
 	  If you have a controller with this interface, say Y.
 
 	   If unsure, say N.
+
+config DWC_MIPI_DPHY_GEN3
+	tristate "DesignWare platform support using a Gen3 D-PHY"
+	select GENERIC_PHY
+	help
+	 Synopsys MIPI D-PHY Generation 3 reference driver. This driver supports
+	 all Generation 3 D-PHYs. Choose Y or M if you have a platform with this
+	 block.
+
+	  If unsure, say N.
+
+if DWC_MIPI_DPHY_GEN3
+
+config DWC_MIPI_TC_DPHY_GEN3
+	bool "Platform support using a Synopsys Test Chip"
+	help
+	 Synopsys Test Chip is for prototyping purposes. This enables extra
+	 features that exist only in prototyping and/or for debug purposes.
+
+	  If unsure, say N.
+
+endif # DWC_MIPI_DPHY_GEN3

@@ -24912,7 +24912,9 @@ S:	Maintained
 T:	git git://linuxtv.org/media_tree.git
 F:	drivers/media/platform/dwc
 F:	Documentation/devicetree/bindings/media/snps,dw-csi.yaml
+F:	Documentation/devicetree/bindings/phy/snps,dw-dphy-rx.txt
 F:	include/media/dwc/dw-csi-data.h
+F:	include/media/dwc/dw-dphy-data.h
 
 SYNOPSYS DESIGNWARE DMAC DRIVER
 M:	Viresh Kumar <vireshk@kernel.org>
