@@ -2119,15 +2119,15 @@ static const struct panel_desc sharp_lq150x1lg11 = {
 };
 
 static const struct drm_display_mode shelly_sca07010_bfn_lnn_mode = {
-	.clock = 33300,
-	.hdisplay = 800,
-	.hsync_start = 800 + 1,
-	.hsync_end = 800 + 1 + 64,
-	.htotal = 800 + 1 + 64 + 64,
-	.vdisplay = 480,
-	.vsync_start = 480 + 1,
-	.vsync_end = 480 + 1 + 23,
-	.vtotal = 480 + 1 + 23 + 22,
+	.clock = 51200,
+	.hdisplay = 1024,
+	.hsync_start = 1024 + 3,
+	.hsync_end = 1024 + 3 + 320,
+	.htotal = 1024 + 3 + 320 + 3,
+	.vdisplay = 600,
+	.vsync_start = 600 + 2,
+	.vsync_end = 600 + 2 + 35,
+	.vtotal = 600 + 2 + 35 + 2,
 	.vrefresh = 60,
 };
 
@@ -2138,7 +2138,7 @@ static const struct panel_desc shelly_sca07010_bfn_lnn = {
 		.width = 152,
 		.height = 91,
 	},
-	.bus_format = MEDIA_BUS_FMT_RGB666_1X18,
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
 static const struct drm_display_mode starry_kr122ea0sra_mode = {
