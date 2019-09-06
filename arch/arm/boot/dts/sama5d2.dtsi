@@ -40,7 +40,7 @@
 
 	pmu {
 		compatible = "arm,cortex-a5-pmu";
-		interrupts = <2 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <AT91_PERIPH_ID_ARM_PMU IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	etb {
@@ -113,7 +113,7 @@
 			compatible = "atmel,sama5d3-udc";
 			reg = <0x00300000 0x100000
 			       0xfc02c000 0x400>;
-			interrupts = <42 IRQ_TYPE_LEVEL_HIGH 2>;
+			interrupts = <AT91_PERIPH_ID_UDPHS IRQ_TYPE_LEVEL_HIGH 2>;
 			clocks = <&udphs_clk>, <&utmi>;
 			clock-names = "pclk", "hclk";
 			status = "disabled";
@@ -240,7 +240,7 @@
 		usb1: ohci@400000 {
 			compatible = "atmel,at91rm9200-ohci", "usb-ohci";
 			reg = <0x00400000 0x100000>;
-			interrupts = <41 IRQ_TYPE_LEVEL_HIGH 2>;
+			interrupts = <AT91_PERIPH_ID_UHPHS IRQ_TYPE_LEVEL_HIGH 2>;
 			clocks = <&uhphs_clk>, <&uhphs_clk>, <&uhpck>;
 			clock-names = "ohci_clk", "hclk", "uhpck";
 			status = "disabled";
@@ -249,7 +249,7 @@
 		usb2: ehci@500000 {
 			compatible = "atmel,at91sam9g45-ehci", "usb-ehci";
 			reg = <0x00500000 0x100000>;
-			interrupts = <41 IRQ_TYPE_LEVEL_HIGH 2>;
+			interrupts = <AT91_PERIPH_ID_UHPHS IRQ_TYPE_LEVEL_HIGH 2>;
 			clocks = <&utmi>, <&uhphs_clk>;
 			clock-names = "usb_clk", "ehci_clk";
 			status = "disabled";
@@ -258,7 +258,7 @@
 		L2: cache-controller@a00000 {
 			compatible = "arm,pl310-cache";
 			reg = <0x00a00000 0x1000>;
-			interrupts = <63 IRQ_TYPE_LEVEL_HIGH 4>;
+			interrupts = <AT91_PERIPH_ID_L2CC IRQ_TYPE_LEVEL_HIGH 4>;
 			cache-unified;
 			cache-level = <2>;
 		};
@@ -292,7 +292,7 @@
 		sdmmc0: sdio-host@a0000000 {
 			compatible = "atmel,sama5d2-sdhci";
 			reg = <0xa0000000 0x300>;
-			interrupts = <31 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <AT91_PERIPH_ID_SDMMC0 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&sdmmc0_hclk>, <&sdmmc0_gclk>, <&main>;
 			clock-names = "hclock", "multclk", "baseclk";
 			status = "disabled";
@@ -301,7 +301,7 @@
 		sdmmc1: sdio-host@b0000000 {
 			compatible = "atmel,sama5d2-sdhci";
 			reg = <0xb0000000 0x300>;
-			interrupts = <32 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <AT91_PERIPH_ID_SDMMC1 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&sdmmc1_hclk>, <&sdmmc1_gclk>, <&main>;
 			clock-names = "hclock", "multclk", "baseclk";
 			status = "disabled";
@@ -321,7 +321,7 @@
 			hlcdc: hlcdc@f0000000 {
 				compatible = "atmel,sama5d2-hlcdc";
 				reg = <0xf0000000 0x2000>;
-				interrupts = <45 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_LCDC IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&lcdc_clk>, <&lcdck>, <&clk32k>;
 				clock-names = "periph_clk","sys_clk", "slow_clk";
 				status = "disabled";
@@ -347,7 +347,7 @@
 			isc: isc@f0008000 {
 				compatible = "atmel,sama5d2-isc";
 				reg = <0xf0008000 0x4000>;
-				interrupts = <46 IRQ_TYPE_LEVEL_HIGH 5>;
+				interrupts = <AT91_PERIPH_ID_ISC IRQ_TYPE_LEVEL_HIGH 5>;
 				clocks = <&isc_clk>, <&iscck>, <&isc_gclk>;
 				clock-names = "hclock", "iscck", "gck";
 				#clock-cells = <0>;
@@ -365,7 +365,7 @@
 			dma0: dma-controller@f0010000 {
 				compatible = "atmel,sama5d4-dma";
 				reg = <0xf0010000 0x1000>;
-				interrupts = <6 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_XDMAC0 IRQ_TYPE_LEVEL_HIGH 0>;
 				#dma-cells = <1>;
 				clocks = <&dma0_clk>;
 				clock-names = "dma_clk";
@@ -375,7 +375,7 @@
 			dma1: dma-controller@f0004000 {
 				compatible = "atmel,sama5d4-dma";
 				reg = <0xf0004000 0x1000>;
-				interrupts = <7 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_XDMAC1 IRQ_TYPE_LEVEL_HIGH 0>;
 				#dma-cells = <1>;
 				clocks = <&dma1_clk>;
 				clock-names = "dma_clk";
@@ -384,7 +384,7 @@
 			pmc: pmc@f0014000 {
 				compatible = "atmel,sama5d2-pmc", "syscon";
 				reg = <0xf0014000 0x160>;
-				interrupts = <74 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_SYSC_RTC IRQ_TYPE_LEVEL_HIGH 7>;
 				interrupt-controller;
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -569,214 +569,214 @@
 
 					macb0_clk: macb0_clk {
 						#clock-cells = <0>;
-						reg = <5>;
+						reg = <AT91_PERIPH_ID_GMAC>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					tdes_clk: tdes_clk {
 						#clock-cells = <0>;
-						reg = <11>;
+						reg = <AT91_PERIPH_ID_TDES>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					matrix1_clk: matrix1_clk {
 						#clock-cells = <0>;
-						reg = <14>;
+						reg = <AT91_PERIPH_ID_H32MX>;
 					};
 
 					hsmc_clk: hsmc_clk {
 						#clock-cells = <0>;
-						reg = <17>;
+						reg = <AT91_PERIPH_ID_HSMC>;
 					};
 
 					pioA_clk: pioA_clk {
 						#clock-cells = <0>;
-						reg = <18>;
+						reg = <AT91_PERIPH_ID_PIOA>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					flx0_clk: flx0_clk {
 						#clock-cells = <0>;
-						reg = <19>;
+						reg = <AT91_PERIPH_ID_FLEXCOM0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					flx1_clk: flx1_clk {
 						#clock-cells = <0>;
-						reg = <20>;
+						reg = <AT91_PERIPH_ID_FLEXCOM1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					flx2_clk: flx2_clk {
 						#clock-cells = <0>;
-						reg = <21>;
+						reg = <AT91_PERIPH_ID_FLEXCOM2>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					flx3_clk: flx3_clk {
 						#clock-cells = <0>;
-						reg = <22>;
+						reg = <AT91_PERIPH_ID_FLEXCOM3>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					flx4_clk: flx4_clk {
 						#clock-cells = <0>;
-						reg = <23>;
+						reg = <AT91_PERIPH_ID_FLEXCOM4>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uart0_clk: uart0_clk {
 						#clock-cells = <0>;
-						reg = <24>;
+						reg = <AT91_PERIPH_ID_UART0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uart1_clk: uart1_clk {
 						#clock-cells = <0>;
-						reg = <25>;
+						reg = <AT91_PERIPH_ID_UART1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uart2_clk: uart2_clk {
 						#clock-cells = <0>;
-						reg = <26>;
+						reg = <AT91_PERIPH_ID_UART2>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uart3_clk: uart3_clk {
 						#clock-cells = <0>;
-						reg = <27>;
+						reg = <AT91_PERIPH_ID_UART3>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uart4_clk: uart4_clk {
 						#clock-cells = <0>;
-						reg = <28>;
+						reg = <AT91_PERIPH_ID_UART4>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					twi0_clk: twi0_clk {
-						reg = <29>;
+						reg = <AT91_PERIPH_ID_TWIHS0>;
 						#clock-cells = <0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					twi1_clk: twi1_clk {
 						#clock-cells = <0>;
-						reg = <30>;
+						reg = <AT91_PERIPH_ID_TWIHS1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					spi0_clk: spi0_clk {
 						#clock-cells = <0>;
-						reg = <33>;
+						reg = <AT91_PERIPH_ID_SPI0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					spi1_clk: spi1_clk {
 						#clock-cells = <0>;
-						reg = <34>;
+						reg = <AT91_PERIPH_ID_SPI1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					tcb0_clk: tcb0_clk {
 						#clock-cells = <0>;
-						reg = <35>;
+						reg = <AT91_PERIPH_ID_TC0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					tcb1_clk: tcb1_clk {
 						#clock-cells = <0>;
-						reg = <36>;
+						reg = <AT91_PERIPH_ID_TC1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					pwm_clk: pwm_clk {
 						#clock-cells = <0>;
-						reg = <38>;
+						reg = <AT91_PERIPH_ID_PWM>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					adc_clk: adc_clk {
 						#clock-cells = <0>;
-						reg = <40>;
+						reg = <AT91_PERIPH_ID_ADC>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					uhphs_clk: uhphs_clk {
 						#clock-cells = <0>;
-						reg = <41>;
+						reg = <AT91_PERIPH_ID_UHPHS>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					udphs_clk: udphs_clk {
 						#clock-cells = <0>;
-						reg = <42>;
+						reg = <AT91_PERIPH_ID_UDPHS>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					ssc0_clk: ssc0_clk {
 						#clock-cells = <0>;
-						reg = <43>;
+						reg = <AT91_PERIPH_ID_SSC0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					ssc1_clk: ssc1_clk {
 						#clock-cells = <0>;
-						reg = <44>;
+						reg = <AT91_PERIPH_ID_SSC1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					trng_clk: trng_clk {
 						#clock-cells = <0>;
-						reg = <47>;
+						reg = <AT91_PERIPH_ID_TRNG>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					pdmic_clk: pdmic_clk {
 						#clock-cells = <0>;
-						reg = <48>;
+						reg = <AT91_PERIPH_ID_PDMIC>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					securam_clk: securam_clk {
 						#clock-cells = <0>;
-						reg = <51>;
+						reg = <AT91_PERIPH_ID_SECURAM>;
 					};
 
 					i2s0_clk: i2s0_clk {
 						#clock-cells = <0>;
-						reg = <54>;
+						reg = <AT91_PERIPH_ID_I2SC0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					i2s1_clk: i2s1_clk {
 						#clock-cells = <0>;
-						reg = <55>;
+						reg = <AT91_PERIPH_ID_I2SC1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					can0_clk: can0_clk {
 						#clock-cells = <0>;
-						reg = <56>;
+						reg = <AT91_PERIPH_ID_MCAN0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					can1_clk: can1_clk {
 						#clock-cells = <0>;
-						reg = <57>;
+						reg = <AT91_PERIPH_ID_MCAN1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					ptc_clk: ptc_clk {
 						#clock-cells = <0>;
-						reg = <58>;
+						reg = <AT91_PERIPH_ID_PTC>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					classd_clk: classd_clk {
 						#clock-cells = <0>;
-						reg = <59>;
+						reg = <AT91_PERIPH_ID_CLASSD>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 				};
@@ -789,67 +789,67 @@
 
 					dma0_clk: dma0_clk {
 						#clock-cells = <0>;
-						reg = <6>;
+						reg = <AT91_PERIPH_ID_XDMAC0>;
 					};
 
 					dma1_clk: dma1_clk {
 						#clock-cells = <0>;
-						reg = <7>;
+						reg = <AT91_PERIPH_ID_XDMAC1>;
 					};
 
 					aes_clk: aes_clk {
 						#clock-cells = <0>;
-						reg = <9>;
+						reg = <AT91_PERIPH_ID_AES>;
 					};
 
 					aesb_clk: aesb_clk {
 						#clock-cells = <0>;
-						reg = <10>;
+						reg = <AT91_PERIPH_ID_AESB>;
 					};
 
 					sha_clk: sha_clk {
 						#clock-cells = <0>;
-						reg = <12>;
+						reg = <AT91_PERIPH_ID_SHA>;
 					};
 
 					mpddr_clk: mpddr_clk {
 						#clock-cells = <0>;
-						reg = <13>;
+						reg = <AT91_PERIPH_ID_MPDDRC>;
 					};
 
 					matrix0_clk: matrix0_clk {
 						#clock-cells = <0>;
-						reg = <15>;
+						reg = <AT91_PERIPH_ID_H64MX>;
 					};
 
 					sdmmc0_hclk: sdmmc0_hclk {
 						#clock-cells = <0>;
-						reg = <31>;
+						reg = <AT91_PERIPH_ID_SDMMC0>;
 					};
 
 					sdmmc1_hclk: sdmmc1_hclk {
 						#clock-cells = <0>;
-						reg = <32>;
+						reg = <AT91_PERIPH_ID_SDMMC1>;
 					};
 
 					lcdc_clk: lcdc_clk {
 						#clock-cells = <0>;
-						reg = <45>;
+						reg = <AT91_PERIPH_ID_LCDC>;
 					};
 
 					isc_clk: isc_clk {
 						#clock-cells = <0>;
-						reg = <46>;
+						reg = <AT91_PERIPH_ID_ISC>;
 					};
 
 					qspi0_clk: qspi0_clk {
 						#clock-cells = <0>;
-						reg = <52>;
+						reg = <AT91_PERIPH_ID_QSPI0>;
 					};
 
 					qspi1_clk: qspi1_clk {
 						#clock-cells = <0>;
-						reg = <53>;
+						reg = <AT91_PERIPH_ID_QSPI1>;
 					};
 				};
 
@@ -862,67 +862,67 @@
 
 					sdmmc0_gclk: sdmmc0_gclk {
 						#clock-cells = <0>;
-						reg = <31>;
+						reg = <AT91_PERIPH_ID_SDMMC0>;
 					};
 
 					sdmmc1_gclk: sdmmc1_gclk {
 						#clock-cells = <0>;
-						reg = <32>;
+						reg = <AT91_PERIPH_ID_SDMMC1>;
 					};
 
 					tcb0_gclk: tcb0_gclk {
 						#clock-cells = <0>;
-						reg = <35>;
+						reg = <AT91_PERIPH_ID_TC0>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					tcb1_gclk: tcb1_gclk {
 						#clock-cells = <0>;
-						reg = <36>;
+						reg = <AT91_PERIPH_ID_TC1>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					pwm_gclk: pwm_gclk {
 						#clock-cells = <0>;
-						reg = <38>;
+						reg = <AT91_PERIPH_ID_PWM>;
 						atmel,clk-output-range = <0 83000000>;
 					};
 
 					isc_gclk: isc_gclk {
 						#clock-cells = <0>;
-						reg = <46>;
+						reg = <AT91_PERIPH_ID_ISC>;
 					};
 
 					pdmic_gclk: pdmic_gclk {
 						#clock-cells = <0>;
-						reg = <48>;
+						reg = <AT91_PERIPH_ID_PDMIC>;
 					};
 
 					i2s0_gclk: i2s0_gclk {
 						#clock-cells = <0>;
-						reg = <54>;
+						reg = <AT91_PERIPH_ID_I2SC0>;
 					};
 
 					i2s1_gclk: i2s1_gclk {
 						#clock-cells = <0>;
-						reg = <55>;
+						reg = <AT91_PERIPH_ID_I2SC1>;
 					};
 
 					can0_gclk: can0_gclk {
 						#clock-cells = <0>;
-						reg = <56>;
+						reg = <AT91_PERIPH_ID_MCAN0>;
 						atmel,clk-output-range = <0 80000000>;
 					};
 
 					can1_gclk: can1_gclk {
 						#clock-cells = <0>;
-						reg = <57>;
+						reg = <AT91_PERIPH_ID_MCAN1>;
 						atmel,clk-output-range = <0 80000000>;
 					};
 
 					classd_gclk: classd_gclk {
 						#clock-cells = <0>;
-						reg = <59>;
+						reg = <AT91_PERIPH_ID_CLASSD>;
 						atmel,clk-output-range = <0 100000000>;
 					};
 				};
@@ -950,7 +950,7 @@
 				compatible = "atmel,sama5d2-qspi";
 				reg = <0xf0020000 0x100>, <0xd0000000 0x08000000>;
 				reg-names = "qspi_base", "qspi_mmap";
-				interrupts = <52 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_QSPI0 IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&qspi0_clk>;
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -961,7 +961,7 @@
 				compatible = "atmel,sama5d2-qspi";
 				reg = <0xf0024000 0x100>, <0xd8000000 0x08000000>;
 				reg-names = "qspi_base", "qspi_mmap";
-				interrupts = <53 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_QSPI1 IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&qspi1_clk>;
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -971,10 +971,10 @@
 			sha@f0028000 {
 				compatible = "atmel,at91sam9g46-sha";
 				reg = <0xf0028000 0x100>;
-				interrupts = <12 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_SHA IRQ_TYPE_LEVEL_HIGH 0>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(30))>;
+					 AT91_DMA_CHAN_SHA_TX)>;
 				dma-names = "tx";
 				clocks = <&sha_clk>;
 				clock-names = "sha_clk";
@@ -984,13 +984,13 @@
 			aes@f002c000 {
 				compatible = "atmel,at91sam9g46-aes";
 				reg = <0xf002c000 0x100>;
-				interrupts = <9 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_AES IRQ_TYPE_LEVEL_HIGH 0>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(26))>,
+					 AT91_DMA_CHAN_AES_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(27))>;
+					 AT91_DMA_CHAN_AES_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&aes_clk>;
 				clock-names = "aes_clk";
@@ -1000,7 +1000,7 @@
 			spi0: spi@f8000000 {
 				compatible = "atmel,at91rm9200-spi";
 				reg = <0xf8000000 0x100>;
-				interrupts = <33 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_SPI0 IRQ_TYPE_LEVEL_HIGH 7>;
 				dma-names = "tx", "rx";
 				clocks = <&spi0_clk>;
 				clock-names = "spi_clk";
@@ -1013,13 +1013,13 @@
 			ssc0: ssc@f8004000 {
 				compatible = "atmel,at91sam9g45-ssc";
 				reg = <0xf8004000 0x4000>;
-				interrupts = <43 IRQ_TYPE_LEVEL_HIGH 4>;
+				interrupts = <AT91_PERIPH_ID_SSC0 IRQ_TYPE_LEVEL_HIGH 4>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					AT91_XDMAC_DT_PERID(21))>,
+					AT91_DMA_CHAN_SSC0_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					AT91_XDMAC_DT_PERID(22))>;
+					AT91_DMA_CHAN_SSC0_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&ssc0_clk>;
 				clock-names = "pclk";
@@ -1029,9 +1029,9 @@
 			macb0: ethernet@f8008000 {
 				compatible = "atmel,sama5d2-gem";
 				reg = <0xf8008000 0x1000>;
-				interrupts = <5  IRQ_TYPE_LEVEL_HIGH 3		/* Queue 0 */
-					      66 IRQ_TYPE_LEVEL_HIGH 3          /* Queue 1 */
-					      67 IRQ_TYPE_LEVEL_HIGH 3>;        /* Queue 2 */
+				interrupts = <AT91_PERIPH_ID_GMAC  IRQ_TYPE_LEVEL_HIGH 3		/* Queue 0 */
+					      AT91_PERIPH_ID_GMAC_Q1 IRQ_TYPE_LEVEL_HIGH 3          /* Queue 1 */
+					      AT91_PERIPH_ID_GMAC_Q2 IRQ_TYPE_LEVEL_HIGH 3>;        /* Queue 2 */
 				#address-cells = <1>;
 				#size-cells = <0>;
 				clocks = <&macb0_clk>, <&macb0_clk>;
@@ -1044,7 +1044,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0xf800c000 0x100>;
-				interrupts = <35 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_TC0 IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&tcb0_clk>, <&clk32k>;
 				clock-names = "t0_clk", "slow_clk";
 			};
@@ -1054,7 +1054,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0xf8010000 0x100>;
-				interrupts = <36 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_TC1 IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&tcb1_clk>, <&clk32k>;
 				clock-names = "t0_clk", "slow_clk";
 			};
@@ -1062,7 +1062,7 @@
 			hsmc: hsmc@f8014000 {
 				compatible = "atmel,sama5d2-smc", "syscon", "simple-mfd";
 				reg = <0xf8014000 0x1000>;
-				interrupts = <17 IRQ_TYPE_LEVEL_HIGH 6>;
+				interrupts = <AT91_PERIPH_ID_HSMC IRQ_TYPE_LEVEL_HIGH 6>;
 				clocks = <&hsmc_clk>;
 				#address-cells = <1>;
 				#size-cells = <1>;
@@ -1078,10 +1078,10 @@
 			pdmic: pdmic@f8018000 {
 				compatible = "atmel,sama5d2-pdmic";
 				reg = <0xf8018000 0x124>;
-				interrupts = <48 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_PDMIC IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1)
-					| AT91_XDMAC_DT_PERID(50))>;
+					| AT91_DMA_CHAN_PMDIC_RX)>;
 				dma-names = "rx";
 				clocks = <&pdmic_clk>, <&pdmic_gclk>;
 				clock-names = "pclk", "gclk";
@@ -1091,13 +1091,13 @@
 			uart0: serial@f801c000 {
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf801c000 0x100>;
-				interrupts = <24 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_UART0 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(35))>,
+					 AT91_DMA_CHAN_UART0_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(36))>;
+					 AT91_DMA_CHAN_UART0_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&uart0_clk>;
 				clock-names = "usart";
@@ -1107,13 +1107,13 @@
 			uart1: serial@f8020000 {
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8020000 0x100>;
-				interrupts = <25 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_UART1 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(37))>,
+					 AT91_DMA_CHAN_UART1_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(38))>;
+					 AT91_DMA_CHAN_UART1_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&uart1_clk>;
 				clock-names = "usart";
@@ -1123,13 +1123,13 @@
 			uart2: serial@f8024000 {
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xf8024000 0x100>;
-				interrupts = <26 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_UART2 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(39))>,
+					 AT91_DMA_CHAN_UART2_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(40))>;
+					 AT91_DMA_CHAN_UART2_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&uart2_clk>;
 				clock-names = "usart";
@@ -1139,13 +1139,13 @@
 			i2c0: i2c@f8028000 {
 				compatible = "atmel,sama5d2-i2c";
 				reg = <0xf8028000 0x100>;
-				interrupts = <29 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_TWIHS0 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(0))>,
+					 AT91_DMA_CHAN_TWIHS0_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(1))>;
+					 AT91_DMA_CHAN_TWIHS0_RX)>;
 				dma-names = "tx", "rx";
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1157,7 +1157,7 @@
 			pwm0: pwm@f802c000 {
 				compatible = "atmel,sama5d2-pwm";
 				reg = <0xf802c000 0x4000>;
-				interrupts = <38 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_PWM IRQ_TYPE_LEVEL_HIGH 7>;
 				#pwm-cells = <3>;
 				clocks = <&pwm_clk>;
 				status = "disabled";
@@ -1215,14 +1215,14 @@
 			pit: timer@f8048030 {
 				compatible = "atmel,at91sam9260-pit";
 				reg = <0xf8048030 0x10>;
-				interrupts = <3 IRQ_TYPE_LEVEL_HIGH 5>;
+				interrupts = <AT91_PERIPH_ID_PIT IRQ_TYPE_LEVEL_HIGH 5>;
 				clocks = <&h32ck>;
 			};
 
 			watchdog: watchdog@f8048040 {
 				compatible = "atmel,sama5d4-wdt";
 				reg = <0xf8048040 0x10>;
-				interrupts = <4 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_WDT IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&clk32k>;
 				status = "disabled";
 			};
@@ -1238,20 +1238,20 @@
 			rtc@f80480b0 {
 				compatible = "atmel,at91rm9200-rtc";
 				reg = <0xf80480b0 0x30>;
-				interrupts = <74 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_SYSC_RTC IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&clk32k>;
 			};
 
 			i2s0: i2s@f8050000 {
 				compatible = "atmel,sama5d2-i2s";
 				reg = <0xf8050000 0x100>;
-				interrupts = <54 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_I2SC0 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(31))>,
+					 AT91_DMA_CHAN_ISC0_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(32))>;
+					 AT91_DMA_CHAN_ISC0_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&i2s0_clk>, <&i2s0_gclk>;
 				clock-names = "pclk", "gclk";
@@ -1264,8 +1264,8 @@
 				compatible = "bosch,m_can";
 				reg = <0xf8054000 0x4000>, <0x210000 0x4000>;
 				reg-names = "m_can", "message_ram";
-				interrupts = <56 IRQ_TYPE_LEVEL_HIGH 7>,
-					     <64 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_MCAN0_INT0 IRQ_TYPE_LEVEL_HIGH 7>,
+					     <AT91_PERIPH_ID_MCAN0_INT1 IRQ_TYPE_LEVEL_HIGH 7>;
 				interrupt-names = "int0", "int1";
 				clocks = <&can0_clk>, <&can0_gclk>;
 				clock-names = "hclk", "cclk";
@@ -1279,13 +1279,13 @@
 			spi1: spi@fc000000 {
 				compatible = "atmel,at91rm9200-spi";
 				reg = <0xfc000000 0x100>;
-				interrupts = <34 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_SPI1 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(8))>,
+					 AT91_DMA_CHAN_SPI1_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(9))>;
+					 AT91_DMA_CHAN_SPI1_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&spi1_clk>;
 				clock-names = "spi_clk";
@@ -1298,13 +1298,13 @@
 			uart3: serial@fc008000 {
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xfc008000 0x100>;
-				interrupts = <27 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_UART3 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma1
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(41))>,
+					 AT91_DMA_CHAN_UART3_TX)>,
 				       <&dma1
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(42))>;
+					 AT91_DMA_CHAN_UART3_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&uart3_clk>;
 				clock-names = "usart";
@@ -1314,14 +1314,14 @@
 			uart4: serial@fc00c000 {
 				compatible = "atmel,at91sam9260-usart";
 				reg = <0xfc00c000 0x100>;
+				interrupts = <AT91_PERIPH_ID_UART3 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(43))>,
+					 AT91_DMA_CHAN_UART4_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(44))>;
+					 AT91_DMA_CHAN_UART4_RX)>;
 				dma-names = "tx", "rx";
-				interrupts = <28 IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&uart4_clk>;
 				clock-names = "usart";
 				status = "disabled";
@@ -1360,7 +1360,7 @@
 			trng@fc01c000 {
 				compatible = "atmel,at91sam9g45-trng";
 				reg = <0xfc01c000 0x100>;
-				interrupts = <47 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_TRNG IRQ_TYPE_LEVEL_HIGH 0>;
 				clocks = <&trng_clk>;
 			};
 
@@ -1369,19 +1369,19 @@
 				compatible = "atmel,sama5d2-aic";
 				interrupt-controller;
 				reg = <0xfc020000 0x200>;
-				atmel,external-irqs = <49>;
+				atmel,external-irqs = <AT91_PERIPH_ID_AIC_IRQ>;
 			};
 
 			i2c1: i2c@fc028000 {
 				compatible = "atmel,sama5d2-i2c";
 				reg = <0xfc028000 0x100>;
-				interrupts = <30 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_TWIHS1 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(2))>,
+					 AT91_DMA_CHAN_TWIHS1_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(3))>;
+					 AT91_DMA_CHAN_TWIHS1_RX)>;
 				dma-names = "tx", "rx";
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1393,10 +1393,10 @@
 			adc: adc@fc030000 {
 				compatible = "atmel,sama5d2-adc";
 				reg = <0xfc030000 0x100>;
-				interrupts = <40 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_ADC IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&adc_clk>;
 				clock-names = "adc_clk";
-				dmas = <&dma0 (AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) | AT91_XDMAC_DT_PERID(25))>;
+				dmas = <&dma0 (AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) | AT91_DMA_CHAN_ADC_RX)>;
 				dma-names = "rx";
 				atmel,min-sample-rate-hz = <200000>;
 				atmel,max-sample-rate-hz = <20000000>;
@@ -1419,10 +1419,10 @@
 			pioA: pinctrl@fc038000 {
 				compatible = "atmel,sama5d2-pinctrl";
 				reg = <0xfc038000 0x600>;
-				interrupts = <18 IRQ_TYPE_LEVEL_HIGH 7>,
-					     <68 IRQ_TYPE_LEVEL_HIGH 7>,
-					     <69 IRQ_TYPE_LEVEL_HIGH 7>,
-					     <70 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_PIOA IRQ_TYPE_LEVEL_HIGH 7>,
+					     <AT91_PERIPH_ID_PIOB IRQ_TYPE_LEVEL_HIGH 7>,
+					     <AT91_PERIPH_ID_PIOC IRQ_TYPE_LEVEL_HIGH 7>,
+					     <AT91_PERIPH_ID_PIOD IRQ_TYPE_LEVEL_HIGH 7>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				gpio-controller;
@@ -1441,13 +1441,13 @@
 			tdes@fc044000 {
 				compatible = "atmel,at91sam9g46-tdes";
 				reg = <0xfc044000 0x100>;
-				interrupts = <11 IRQ_TYPE_LEVEL_HIGH 0>;
+				interrupts = <AT91_PERIPH_ID_TDES IRQ_TYPE_LEVEL_HIGH 0>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(28))>,
+					 AT91_DMA_CHAN_TDES_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(29))>;
+					 AT91_DMA_CHAN_TDES_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&tdes_clk>;
 				clock-names = "tdes_clk";
@@ -1457,10 +1457,10 @@
 			classd: classd@fc048000 {
 				compatible = "atmel,sama5d2-classd";
 				reg = <0xfc048000 0x100>;
-				interrupts = <59 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_CLASSD IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(47))>;
+					 AT91_DMA_CHAN_CLASSD_TX)>;
 				dma-names = "tx";
 				clocks = <&classd_clk>, <&classd_gclk>;
 				clock-names = "pclk", "gclk";
@@ -1470,13 +1470,13 @@
 			i2s1: i2s@fc04c000 {
 				compatible = "atmel,sama5d2-i2s";
 				reg = <0xfc04c000 0x100>;
-				interrupts = <55 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_I2SC1 IRQ_TYPE_LEVEL_HIGH 7>;
 				dmas = <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(33))>,
+					 AT91_DMA_CHAN_ISC1_TX)>,
 				       <&dma0
 					(AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) |
-					 AT91_XDMAC_DT_PERID(34))>;
+					 AT91_DMA_CHAN_ISC1_RX)>;
 				dma-names = "tx", "rx";
 				clocks = <&i2s1_clk>, <&i2s1_gclk>;
 				clock-names = "pclk", "gclk";
@@ -1489,8 +1489,8 @@
 				compatible = "bosch,m_can";
 				reg = <0xfc050000 0x4000>, <0x210000 0x4000>;
 				reg-names = "m_can", "message_ram";
-				interrupts = <57 IRQ_TYPE_LEVEL_HIGH 7>,
-					     <65 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_MCAN1_INT0 IRQ_TYPE_LEVEL_HIGH 7>,
+					     <AT91_PERIPH_ID_MCAN1_INT1 IRQ_TYPE_LEVEL_HIGH 7>;
 				interrupt-names = "int0", "int1";
 				clocks = <&can1_clk>, <&can1_gclk>;
 				clock-names = "hclk", "cclk";
@@ -1510,7 +1510,7 @@
 				compatible = "atmel,sama5d2-ptc";
 				reg = <0x00800000 0x10000
 				       0xfc060000 0xcf>;
-				interrupts = <58 IRQ_TYPE_LEVEL_HIGH 7>;
+				interrupts = <AT91_PERIPH_ID_PTC IRQ_TYPE_LEVEL_HIGH 7>;
 				clocks = <&ptc_clk>, <&main>, <&clk32k>;
 				clock-names = "ptc_clk", "ptc_int_osc", "slow_clk";
 				status = "disabled";
