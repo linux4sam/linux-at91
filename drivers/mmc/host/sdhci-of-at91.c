@@ -101,6 +101,11 @@ static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
 					 unsigned int timing)
 {
 	u8 mc1r;
+	u16 clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+	/* SDCLK must be disabled while changing the mode */
+	if (clk & SDHCI_CLOCK_CARD_EN)
+		sdhci_writew(host, clk & ~SDHCI_CLOCK_CARD_EN,
+			     SDHCI_CLOCK_CONTROL);
 
 	if (timing == MMC_TIMING_MMC_DDR52) {
 		mc1r = sdhci_readb(host, SDMMC_MC1R);
@@ -108,6 +113,12 @@ static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_writeb(host, mc1r, SDMMC_MC1R);
 	}
 	sdhci_set_uhs_signaling(host, timing);
+
+	/* reenable SDCLK */
+	if (clk & SDHCI_CLOCK_CARD_EN) {
+		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		sdhci_writew(host, clk | SDHCI_CLOCK_CARD_EN, SDHCI_CLOCK_CONTROL);
+	}
 }
 
 static void sdhci_at91_reset(struct sdhci_host *host, u8 mask)
@@ -115,8 +126,20 @@ static void sdhci_at91_reset(struct sdhci_host *host, u8 mask)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_at91_priv *priv = sdhci_pltfm_priv(pltfm_host);
 	unsigned int tmp;
+	u16 clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+
+	/* SDCLK must be disabled while resetting the HW block */
+	if (clk & SDHCI_CLOCK_CARD_EN)
+		sdhci_writew(host, clk & ~SDHCI_CLOCK_CARD_EN,
+			     SDHCI_CLOCK_CONTROL);
 
 	sdhci_reset(host, mask);
+
+	/* reenable SDCLK */
+	if (clk & SDHCI_CLOCK_CARD_EN) {
+		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		sdhci_writew(host, clk | SDHCI_CLOCK_CARD_EN, SDHCI_CLOCK_CONTROL);
+	}
 
 	if ((host->mmc->caps & MMC_CAP_NONREMOVABLE)
 	    || mmc_gpio_get_cd(host->mmc) >= 0)
