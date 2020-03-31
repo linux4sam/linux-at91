@@ -13,6 +13,9 @@
 
 #include <linux/regmap.h>
 
+#include <drm/drm_crtc.h>
+#include <drm/drm_encoder.h>
+#include <drm/drm_modes.h>
 #include <drm/drm_plane.h>
 
 /* LCD controller common registers */
