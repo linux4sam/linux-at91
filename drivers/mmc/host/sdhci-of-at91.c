@@ -411,6 +411,9 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	priv = sdhci_pltfm_priv(pltfm_host);
 	priv->soc_data = soc_data;
 
+	/* Perform a software reset before using the IP */
+	sdhci_at91_reset(host, SDHCI_RESET_ALL);
+
 	priv->mainck = devm_clk_get(&pdev->dev, "baseclk");
 	if (IS_ERR(priv->mainck)) {
 		if (soc_data->baseclk_is_generated_internally)
