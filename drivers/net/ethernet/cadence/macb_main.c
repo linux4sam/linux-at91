@@ -1378,6 +1378,73 @@ static int macb_rx(struct macb_queue *queue, struct napi_struct *napi,
 	return received;
 }
 
+static int gem_poll(struct napi_struct *napi, int budget)
+{
+	struct macb_queue *queue = container_of(napi, struct macb_queue, napi);
+	struct macb *bp = queue->bp;
+	int work_done;
+	u32 status;
+
+	status = macb_readl(bp, RSR);
+	/* Don't clear yet the BNA error bit if any */
+	status &= ~MACB_BIT(BNA);
+	macb_writel(bp, RSR, status);
+
+
+	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
+		    (unsigned long)status, budget);
+
+	work_done = bp->macbgem_ops.mog_rx(queue, napi, budget);
+
+	if (work_done < budget) {
+		napi_complete_done(napi, work_done);
+
+		/* Packets received while interrupts were disabled or BNA error */
+		status = macb_readl(bp, RSR);
+		if (status) {
+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+				queue_writel(queue, ISR, MACB_BIT(RCOMP));
+
+			if (unlikely(status & MACB_BIT(BNA))) {
+				netdev_warn(bp->dev,
+					   "buffer not available for incoming packet\n");
+
+				/* disable Rx interrupts and eventual HRESP error */
+				queue_writel(queue, IDR, bp->rx_intr_mask | MACB_BIT(HRESP));
+
+				/* free a slot to allow the refill */
+				queue->rx_tail++;
+				bp->dev->stats.rx_dropped++;
+				queue->stats.rx_dropped++;
+
+				/* clear the error before resolving it to avoid a race */
+				macb_writel(bp, RSR, MACB_BIT(BNA));
+
+				/* refill one slot to make it available for the DMA */
+				gem_rx_refill(queue);
+
+				/* enable Rx interrupts */
+				queue_writel(queue, IER, bp->rx_intr_mask | MACB_BIT(HRESP));
+			}
+
+			napi_reschedule(napi);
+		} else {
+			queue_writel(queue, IER, bp->rx_intr_mask);
+
+			/* IRQ are disabled, not masked. Reschedule to avoid a race */
+			status = macb_readl(bp, RSR);
+			if (status) {
+				queue_writel(queue, IER, bp->rx_intr_mask);
+				napi_reschedule(napi);
+			}
+		}
+	}
+
+	/* TODO: Handle errors */
+
+	return work_done;
+}
+
 static int macb_poll(struct napi_struct *napi, int budget)
 {
 	struct macb_queue *queue = container_of(napi, struct macb_queue, napi);
@@ -3571,7 +3638,11 @@ static int macb_init(struct platform_device *pdev)
 
 		queue = &bp->queues[q];
 		queue->bp = bp;
-		netif_napi_add(dev, &queue->napi, macb_poll, NAPI_POLL_WEIGHT);
+		if (macb_is_gem(bp)) {
+			netif_napi_add(dev, &queue->napi, gem_poll, NAPI_POLL_WEIGHT);
+		} else {
+			netif_napi_add(dev, &queue->napi, macb_poll, NAPI_POLL_WEIGHT);
+		}
 		if (hw_q) {
 			queue->ISR  = GEM_ISR(hw_q - 1);
 			queue->IER  = GEM_IER(hw_q - 1);
