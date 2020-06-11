@@ -1144,7 +1144,7 @@ static int gem_rx(struct macb_queue *queue, struct napi_struct *napi,
 		count++;
 
 		if (!(ctrl & MACB_BIT(RX_SOF) && ctrl & MACB_BIT(RX_EOF))) {
-			netdev_err(bp->dev,
+			netdev_warn(bp->dev,
 				   "not whole frame pointed by descriptor\n");
 			bp->dev->stats.rx_dropped++;
 			queue->stats.rx_dropped++;
