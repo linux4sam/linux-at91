@@ -413,6 +413,8 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 
 	/* Perform a software reset before using the IP */
 	sdhci_at91_reset(host, SDHCI_RESET_ALL);
+	/* Perform a hardware reset before using the IP */
+	sdhci_at91_hw_reset(host);
 
 	priv->mainck = devm_clk_get(&pdev->dev, "baseclk");
 	if (IS_ERR(priv->mainck)) {
