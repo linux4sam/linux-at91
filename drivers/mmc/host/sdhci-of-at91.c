@@ -39,6 +39,9 @@
 
 #define SDHCI_AT91_PRESET_COMMON_CONF	0x400 /* drv type B, programmable clock mode */
 
+/* drv type A, programmable clock mode */
+#define SDHCI_AT91_PRESET_DRVA_CONF	(SDHCI_AT91_PRESET_COMMON_CONF \
+					 | 0x4000)
 struct sdhci_at91_soc_data {
 	const struct sdhci_pltfm_data *pdata;
 	bool baseclk_is_generated_internally;
@@ -294,6 +297,9 @@ static int sdhci_at91_set_clks_presets(struct device *dev)
 	preset_div = DIV_ROUND_UP(gck_rate, 50000000) - 1;
 	writew(SDHCI_AT91_PRESET_COMMON_CONF | preset_div,
 	       host->ioaddr + SDHCI_PRESET_FOR_DDR50);
+	preset_div = DIV_ROUND_UP(gck_rate, priv->soc_data->max_sdr104_clk) - 1;
+	writew(SDHCI_AT91_PRESET_DRVA_CONF | preset_div,
+	       host->ioaddr + SDHCI_PRESET_FOR_HS400);
 
 	clk_prepare_enable(priv->mainck);
 	clk_prepare_enable(priv->gck);
