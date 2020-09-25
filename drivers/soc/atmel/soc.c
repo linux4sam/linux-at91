@@ -69,6 +69,12 @@ static const struct at91_soc __initconst socs[] = {
 #endif
 #ifdef CONFIG_SOC_SAM9X60
 	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60_EXID_MATCH, "sam9x60", "sam9x60"),
+	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D5M_EXID_MATCH,
+		 "sam9x60d6m", "sam9x60"),
+	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D1G_EXID_MATCH,
+		 "sam9x60d1g", "sam9x60"),
+	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D6K_EXID_MATCH,
+		 "sam9x60d6k", "sam9x60"),
 #endif
 #ifdef CONFIG_SOC_SAMA5
 	AT91_SOC(SAMA5D2_CIDR_MATCH, SAMA5D21CU_EXID_MATCH,
@@ -237,7 +243,8 @@ struct soc_device * __init at91_soc_init(const struct at91_soc *socs)
 	}
 
 	if (!soc->name) {
-		pr_warn("Could not find matching SoC description\n");
+		pr_warn("Could not find matching SoC description"
+			" (cidr %08x, exid %08x)", cidr, exid);
 		return NULL;
 	}
 
