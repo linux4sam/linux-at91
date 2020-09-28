@@ -243,8 +243,7 @@ struct soc_device * __init at91_soc_init(const struct at91_soc *socs)
 	}
 
 	if (!soc->name) {
-		pr_warn("Could not find matching SoC description"
-			" (cidr %08x, exid %08x)", cidr, exid);
+		pr_warn("Could not find matching SoC description\n");
 		return NULL;
 	}
 
