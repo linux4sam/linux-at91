@@ -70,11 +70,11 @@ static const struct at91_soc __initconst socs[] = {
 #ifdef CONFIG_SOC_SAM9X60
 	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60_EXID_MATCH, "sam9x60", "sam9x60"),
 	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D5M_EXID_MATCH,
-		 "sam9x60d6m", "sam9x60"),
+		 "sam9x60d5m 512MiB DDR2 SiP", "sam9x60"),
 	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D1G_EXID_MATCH,
-		 "sam9x60d1g", "sam9x60"),
+		 "sam9x60d1g 1GiB DDR2 SiP", "sam9x60"),
 	AT91_SOC(SAM9X60_CIDR_MATCH, SAM9X60D6K_EXID_MATCH,
-		 "sam9x60d6k", "sam9x60"),
+		 "sam9x60d6k 64MiB SiP", "sam9x60"),
 #endif
 #ifdef CONFIG_SOC_SAMA5
 	AT91_SOC(SAMA5D2_CIDR_MATCH, SAMA5D21CU_EXID_MATCH,
