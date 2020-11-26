@@ -48,6 +48,7 @@ struct sdhci_at91_soc_data {
 	unsigned int divider_for_baseclk;
 	unsigned int max_sdr104_clk;
 	bool hs200_broken;
+	bool pm_runtime_disable_clks;
 };
 
 struct sdhci_at91_priv {
@@ -216,12 +217,14 @@ static const struct sdhci_at91_soc_data soc_data_sama5d2 = {
 	.baseclk_is_generated_internally = false,
 	.max_sdr104_clk = 120000000,
 	.hs200_broken = true,
+	.pm_runtime_disable_clks = true,
 };
 
 static const struct sdhci_at91_soc_data soc_data_sam9x60 = {
 	.pdata = &sdhci_sama5d2_pdata,
 	.baseclk_is_generated_internally = true,
 	.divider_for_baseclk = 2,
+	.pm_runtime_disable_clks = true,
 };
 
 static const struct sdhci_at91_soc_data soc_data_sama7g5 = {
@@ -332,9 +335,11 @@ static int sdhci_at91_runtime_suspend(struct device *dev)
 	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
 		mmc_retune_needed(host->mmc);
 
-	clk_disable_unprepare(priv->gck);
-	clk_disable_unprepare(priv->hclock);
-	clk_disable_unprepare(priv->mainck);
+	if (priv->soc_data->pm_runtime_disable_clks) {
+		clk_disable_unprepare(priv->gck);
+		clk_disable_unprepare(priv->hclock);
+		clk_disable_unprepare(priv->mainck);
+	}
 
 	return 0;
 }
@@ -354,6 +359,9 @@ static int sdhci_at91_runtime_resume(struct device *dev)
 		priv->restore_needed = false;
 		goto out;
 	}
+
+	if (!priv->soc_data->pm_runtime_disable_clks)
+		goto out;
 
 	ret = clk_prepare_enable(priv->mainck);
 	if (ret) {
