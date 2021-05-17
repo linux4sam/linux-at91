@@ -1121,6 +1121,9 @@ int snd_pcm_hw_rule_add(struct snd_pcm_runtime *runtime,
 			snd_pcm_hw_rule_func_t func, void *private,
 			int dep, ...);
 
+int snd_pcm_hw_constraints_init(struct snd_pcm_substream *substream);
+int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream);
+
 /**
  * snd_pcm_hw_constraint_single() - Constrain parameter to a single value
  * @runtime: PCM runtime instance

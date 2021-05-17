@@ -2510,7 +2510,7 @@ static int snd_pcm_hw_constraint_subformats(struct snd_pcm_runtime *runtime,
 				   SNDRV_PCM_HW_PARAM_FORMAT, -1);
 }
 
-static int snd_pcm_hw_constraints_init(struct snd_pcm_substream *substream)
+int snd_pcm_hw_constraints_init(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_pcm_hw_constraints *constrs = &runtime->hw_constraints;
@@ -2633,8 +2633,9 @@ static int snd_pcm_hw_constraints_init(struct snd_pcm_substream *substream)
 		return err;
 	return 0;
 }
+EXPORT_SYMBOL(snd_pcm_hw_constraints_init);
 
-static int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream)
+int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_pcm_hardware *hw = &runtime->hw;
@@ -2716,6 +2717,7 @@ static int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream)
 
 	return 0;
 }
+EXPORT_SYMBOL(snd_pcm_hw_constraints_complete);
 
 static void pcm_release_private(struct snd_pcm_substream *substream)
 {
