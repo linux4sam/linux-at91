@@ -1332,36 +1332,6 @@ static int dpcm_be_connect(struct snd_soc_pcm_runtime *fe,
 	return 1;
 }
 
-/* reparent a BE onto another FE */
-static void dpcm_be_reparent(struct snd_soc_pcm_runtime *fe,
-			struct snd_soc_pcm_runtime *be, int stream)
-{
-	struct snd_soc_dpcm *dpcm;
-	struct snd_pcm_substream *fe_substream, *be_substream;
-
-	/* reparent if BE is connected to other FEs */
-	if (!be->dpcm[stream].users)
-		return;
-
-	be_substream = snd_soc_dpcm_get_substream(be, stream);
-	if (!be_substream)
-		return;
-
-	for_each_dpcm_fe(be, stream, dpcm) {
-		if (dpcm->fe == fe)
-			continue;
-
-		dev_dbg(fe->dev, "reparent %s path %s %s %s\n",
-			snd_pcm_direction_name(stream),
-			dpcm->fe->dai_link->name,
-			stream ? "<-" : "->", dpcm->be->dai_link->name);
-
-		fe_substream = snd_soc_dpcm_get_substream(dpcm->fe, stream);
-		be_substream->runtime = fe_substream->runtime;
-		break;
-	}
-}
-
 /* disconnect a BE and FE */
 void dpcm_be_disconnect(struct snd_soc_pcm_runtime *fe, int stream)
 {
@@ -1383,9 +1353,6 @@ void dpcm_be_disconnect(struct snd_soc_pcm_runtime *fe, int stream)
 		dev_dbg(fe->dev, "freed DSP %s path %s %s %s\n",
 			snd_pcm_direction_name(stream), fe->dai_link->name,
 			stream ? "<-" : "->", dpcm->be->dai_link->name);
-
-		/* BEs still alive need new FE */
-		dpcm_be_reparent(fe, dpcm->be, stream);
 
 		list_del(&dpcm->list_be);
 		list_move(&dpcm->list_fe, &deleted_dpcms);
@@ -1659,14 +1626,17 @@ void dpcm_be_dai_stop(struct snd_soc_pcm_runtime *fe, int stream,
 		}
 
 		__soc_pcm_close(be, be_substream);
-		be_substream->runtime = NULL;
+		if (be_substream->runtime) {
+			snd_pcm_runtime_free(be_substream->runtime);
+			be_substream->runtime = NULL;
+		}
+
 		be->dpcm[stream].state = SND_SOC_DPCM_STATE_CLOSE;
 	}
 }
 
 int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 {
-	struct snd_pcm_substream *fe_substream = snd_soc_dpcm_get_substream(fe, stream);
 	struct snd_soc_pcm_runtime *be;
 	struct snd_soc_dpcm *dpcm;
 	int err, count = 0;
@@ -1674,6 +1644,8 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 	/* only startup BE DAIs that are either sinks or sources to this FE DAI */
 	for_each_dpcm_be(fe, stream, dpcm) {
 		struct snd_pcm_substream *be_substream;
+		struct snd_pcm_runtime *runtime;
+		struct snd_soc_pcm_stream *pcm_stream;
 
 		be = dpcm->be;
 		be_substream = snd_soc_dpcm_get_substream(be, stream);
@@ -1706,7 +1678,14 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		dev_dbg(be->dev, "ASoC: open %s BE %s\n",
 			snd_pcm_direction_name(stream), be->dai_link->name);
 
-		be_substream->runtime = fe_substream->runtime;
+		runtime = snd_pcm_runtime_alloc();
+		if (!runtime) {
+			err = -ENOMEM;
+			goto unwind;
+		}
+
+		be_substream->runtime = runtime;
+
 		err = __soc_pcm_open(be, be_substream);
 		if (err < 0) {
 			be->dpcm[stream].users--;
@@ -1718,7 +1697,32 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 			be->dpcm[stream].state = SND_SOC_DPCM_STATE_CLOSE;
 			goto unwind;
 		}
+
 		be->dpcm[stream].be_start = 0;
+
+		/* initialize the BE HW parameters */
+		soc_pcm_init_runtime_hw(be_substream);
+
+		/* initialize the BE constraints */
+		err = snd_pcm_hw_constraints_init(be_substream);
+		if (err < 0) {
+			dev_err(be->dev, "dpcm_be_hw_constraints_init failed\n");
+			goto unwind;
+		}
+
+		pcm_stream = snd_soc_dai_get_pcm_stream(snd_soc_rtd_to_cpu(be, 0),
+							stream);
+
+		soc_pcm_hw_update_rate(&runtime->hw, pcm_stream);
+		soc_pcm_hw_update_chan(&runtime->hw, pcm_stream);
+		soc_pcm_hw_update_format(&runtime->hw, pcm_stream);
+
+		err = snd_pcm_hw_constraints_complete(be_substream);
+		if (err < 0) {
+			dev_err(fe->dev, "snd_pcm_hw_constraints_complete failed\n");
+			goto unwind;
+		}
+
 		be->dpcm[stream].state = SND_SOC_DPCM_STATE_OPEN;
 		count++;
 	}
@@ -2093,6 +2097,14 @@ int dpcm_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 		if (ret < 0)
 			goto unwind;
 
+		/* apply constrains */
+		hw_params.rmask = ~0U;
+		ret = snd_pcm_hw_refine(be_substream, &hw_params);
+		if (ret < 0) {
+			dev_err(fe->dev, "failed to refine hw parameters: %d\n", ret);
+			goto unwind;
+		}
+
 		/* copy the fixed-up hw params for BE dai */
 		memcpy(&be->dpcm[stream].hw_params, &hw_params,
 		       sizeof(struct snd_pcm_hw_params));
@@ -2114,6 +2126,7 @@ int dpcm_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 			goto unwind;
 
 		be->dpcm[stream].state = SND_SOC_DPCM_STATE_HW_PARAMS;
+		snd_pcm_runtime_set(be_substream, &be->dpcm[stream].hw_params);
 	}
 	return 0;
 
@@ -2145,17 +2158,65 @@ unwind:
 	return ret;
 }
 
+static int dpcm_be_dai_hw_params_init(struct snd_soc_pcm_runtime *fe, int stream)
+{
+	struct snd_pcm_hw_params *params = &fe->dpcm[stream].hw_params;
+	int k;
+
+	for (k = SNDRV_PCM_HW_PARAM_FIRST_MASK;
+	     k <= SNDRV_PCM_HW_PARAM_LAST_MASK; k++)
+		snd_mask_any(hw_param_mask(params, k));
+
+	for (k = SNDRV_PCM_HW_PARAM_FIRST_INTERVAL;
+	     k <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL; k++)
+		snd_interval_any(hw_param_interval(params, k));
+
+	return 0;
+}
+
 static int dpcm_fe_dai_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *fe = snd_soc_substream_to_rtd(substream);
 	int ret, stream = substream->stream;
+	struct snd_interval *t, *dpcm_t;
 
 	snd_soc_dpcm_mutex_lock(fe);
 	dpcm_set_fe_update_state(fe, stream, SND_SOC_DPCM_UPDATE_FE);
 
-	memcpy(&fe->dpcm[stream].hw_params, params,
-			sizeof(struct snd_pcm_hw_params));
+	/* initialize the BE HW params */
+	dpcm_be_dai_hw_params_init(fe, stream);
+
+	/* FIXME: a very low period time will make the CPU take too many
+	 * interrupts, which might end up not having enough time to actually
+	 * fill the buffer(s); for now, the BE min period time will be half of
+	 * the FE min period time
+	 */
+	t = hw_param_interval(params, SNDRV_PCM_HW_PARAM_PERIOD_TIME);
+	dpcm_t = hw_param_interval(&fe->dpcm[stream].hw_params,
+				   SNDRV_PCM_HW_PARAM_PERIOD_TIME);
+	dpcm_t->min = t->min / 2;
+
+	if (fe->dai_link->dpcm_merged_format) {
+		memcpy(hw_param_interval(&fe->dpcm[stream].hw_params,
+					 SNDRV_PCM_HW_PARAM_FORMAT),
+		       hw_param_interval(params, SNDRV_PCM_HW_PARAM_FORMAT),
+		       sizeof(struct snd_interval));
+	}
+
+	if (fe->dai_link->dpcm_merged_chan) {
+		memcpy(hw_param_interval(&fe->dpcm[stream].hw_params,
+					 SNDRV_PCM_HW_PARAM_CHANNELS),
+		       hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS),
+		       sizeof(struct snd_interval));
+	}
+	if (fe->dai_link->dpcm_merged_rate) {
+		memcpy(hw_param_interval(&fe->dpcm[stream].hw_params,
+					 SNDRV_PCM_HW_PARAM_RATE),
+		       hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE),
+		       sizeof(struct snd_interval));
+	}
+
 	ret = dpcm_be_dai_hw_params(fe, stream);
 	if (ret < 0)
 		goto out;
