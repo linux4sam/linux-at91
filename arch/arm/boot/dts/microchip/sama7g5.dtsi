@@ -850,6 +850,19 @@
 			clock-names = "pclk", "gclk";
 		};
 
+		ssc0: sound@e180c000 {
+			compatible = "atmel,at91sam9g45-ssc";
+			reg = <0xe180c000 0x1000>;
+			#sound-dai-cells = <0>;
+			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(44)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(45)>;
+			dma-names = "rx", "tx";
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 86>;
+			clock-names = "pclk";
+			status = "disabled";
+		};
+
 		aes: crypto@e1810000 {
 			compatible = "atmel,at91sam9g46-aes";
 			reg = <0xe1810000 0x100>;
@@ -943,6 +956,19 @@
 				atmel,use-dma-tx;
 				status = "disabled";
 			};
+		};
+
+		ssc1: sound@e200c000 {
+			compatible = "atmel,at91sam9g45-ssc";
+			reg = <0xe200c000 0x1000>;
+			#sound-dai-cells = <0>;
+			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(46)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(47)>;
+			dma-names = "rx", "tx";
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 87>;
+			clock-names = "pclk";
+			status = "disabled";
 		};
 
 		trng: rng@e2010000 {
