@@ -738,6 +738,31 @@
 			status = "disabled";
 		};
 
+		asrc: sound@e1610000 {
+			compatible = "microchip,sama7g5-asrc";
+			reg = <0xe1610000 0x1000>;
+			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
+			#sound-dai-cells = <1>;
+			dmas = <&dma0 AT91_XDMAC_DT_PERID(55)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(56)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(57)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(58)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(59)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(60)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(61)>,
+			       <&dma0 AT91_XDMAC_DT_PERID(62)>;
+			dma-names = "rx0", "tx0", "rx1", "tx1",
+				    "rx2", "tx2", "rx3", "tx3";
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 30>, <&pmc PMC_TYPE_GCK 30>;
+			clock-names = "pclk", "gclk";
+			microchip,triggers = <&i2s0>, <&i2s1>, <&pdmc0>, <&pdmc1>,
+					     <&spdiftx>, <&spdifrx>;
+			microchip,trigger-indexes = <1>, <2>, <3>, <4>, <9>, <10>;
+			assigned-clocks = <&pmc PMC_TYPE_GCK 30>;
+			assigned-clock-parents = <&pmc PMC_TYPE_CORE PMC_AUDIOPMCPLL>;
+			status = "disabled";
+		};
+
 		spdifrx: spdifrx@e1614000 {
 			#sound-dai-cells = <0>;
 			compatible = "microchip,sama7g5-spdifrx";
