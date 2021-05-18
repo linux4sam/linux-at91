@@ -182,4 +182,12 @@ config SND_MCHP_SOC_ASRC
 	  The Asynchronous Sample Rate Converter (ASRC) converts the sample
 	  rate of an incoming audio frame without affecting quality. It
 	  supports input and output sampling rates up to 192 kHz.
+
+config SND_MCHP_SOC_ASRC_CARD
+	tristate "Mirochop ASoC Sound Card driver for boards using ASRC"
+	depends on ARCH_AT91 || COMPILE_TEST
+	depends on SND_ATMEL_SOC && SND_MCHP_SOC_ASRC
+	help
+	  Say Y or M if you want to enable the Sound Card driver with support for
+	  Microchip's ASRC.
 endmenu

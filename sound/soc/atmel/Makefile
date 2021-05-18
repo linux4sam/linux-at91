@@ -34,6 +34,7 @@ snd-atmel-soc-classd-y := atmel-classd.o
 snd-atmel-soc-pdmic-y := atmel-pdmic.o
 snd-atmel-soc-tse850-pcm5142-y := tse850-pcm5142.o
 snd-soc-mikroe-proto-y := mikroe-proto.o
+snd-soc-mchp-asrc-card-objs := mchp-asrc-card.o
 
 obj-$(CONFIG_SND_AT91_SOC_SAM9G20_WM8731) += snd-soc-sam9g20-wm8731.o
 obj-$(CONFIG_SND_ATMEL_SOC_WM8904) += snd-atmel-soc-wm8904.o
@@ -42,3 +43,4 @@ obj-$(CONFIG_SND_ATMEL_SOC_CLASSD) += snd-atmel-soc-classd.o
 obj-$(CONFIG_SND_ATMEL_SOC_PDMIC) += snd-atmel-soc-pdmic.o
 obj-$(CONFIG_SND_ATMEL_SOC_TSE850_PCM5142) += snd-atmel-soc-tse850-pcm5142.o
 obj-$(CONFIG_SND_SOC_MIKROE_PROTO) += snd-soc-mikroe-proto.o
+obj-$(CONFIG_SND_MCHP_SOC_ASRC_CARD) += snd-soc-mchp-asrc-card.o
