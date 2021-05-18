@@ -8,6 +8,7 @@ snd-soc-mchp-i2s-mcc-y := mchp-i2s-mcc.o
 snd-soc-mchp-spdiftx-y := mchp-spdiftx.o
 snd-soc-mchp-spdifrx-y := mchp-spdifrx.o
 snd-soc-mchp-pdmc-y := mchp-pdmc.o
+snd-soc-mchp-asrc-y := mchp-asrc.o mchp-asrc-dma.o
 
 # pdc and dma need to both be built-in if any user of
 # ssc is built-in.
@@ -23,6 +24,7 @@ obj-$(CONFIG_SND_MCHP_SOC_I2S_MCC) += snd-soc-mchp-i2s-mcc.o
 obj-$(CONFIG_SND_MCHP_SOC_SPDIFTX) += snd-soc-mchp-spdiftx.o
 obj-$(CONFIG_SND_MCHP_SOC_SPDIFRX) += snd-soc-mchp-spdifrx.o
 obj-$(CONFIG_SND_MCHP_SOC_PDMC) += snd-soc-mchp-pdmc.o
+obj-$(CONFIG_SND_MCHP_SOC_ASRC) += snd-soc-mchp-asrc.o
 
 # AT91 Machine Support
 snd-soc-sam9g20-wm8731-y := sam9g20_wm8731.o
