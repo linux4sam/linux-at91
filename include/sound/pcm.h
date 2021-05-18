@@ -601,6 +601,8 @@ static inline int snd_pcm_suspend_all(struct snd_pcm *pcm)
 int snd_pcm_kernel_ioctl(struct snd_pcm_substream *substream, unsigned int cmd, void *arg);
 struct snd_pcm_runtime *snd_pcm_runtime_alloc(void);
 void snd_pcm_runtime_free(struct snd_pcm_runtime *runtime);
+void snd_pcm_runtime_set(struct snd_pcm_substream *substream,
+			 struct snd_pcm_hw_params *params);
 int snd_pcm_open_substream(struct snd_pcm *pcm, int stream, struct file *file,
 			   struct snd_pcm_substream **rsubstream);
 void snd_pcm_release_substream(struct snd_pcm_substream *substream);
