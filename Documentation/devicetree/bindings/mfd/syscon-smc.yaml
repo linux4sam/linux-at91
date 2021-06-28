@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/syscon-smc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: System Controller Registers R/W via SMC Device Tree Bindings
+
+description: |
+  System controller SMC node represents a register region containing a set
+  of miscellaneous registers accessed through a secure monitor.
+  The typical use-case is the same as the syscon one but when running with a
+  secure monitor.
+
+maintainers:
+  - Lee Jones <lee.jones@linaro.org>
+
+properties:
+  compatible:
+    anyOf:
+      - items:
+          - enum:
+              - atmel,sama5d2-sfr
+
+          - const: syscon-smc
+
+      - contains:
+          const: syscon-smc
+        minItems: 2
+        maxItems: 4  # Should be enough
+
+  arm,smc-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      The ATF smc function id used by the firmware.
+
+  reg-io-width:
+    description: |
+      The size (in bytes) of the IO accesses that should be performed
+      on the device.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 4, 8]
+
+required:
+  - compatible
+  - arm,smc-id
+
+additionalProperties: false
+
+examples:
+  - |
+    sfr {
+        compatible = "atmel,sama5d2-sfr", "syscon-smc";
+        arm,smc-id = <0x02000300>;
+    };
+
+...
