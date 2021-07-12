@@ -38,7 +38,7 @@ void at91_init_twi_bus_master(struct at91_twi_dev *dev)
 	/* FIFO should be enabled immediately after the software reset */
 	if (dev->fifo_size)
 		at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_FIFOEN);
-	at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_MSEN);
+	at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_MSDIS);
 	at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_SVDIS);
 	at91_twi_write(dev, AT91_TWI_CWGR, dev->twi_cwgr_reg);
 
@@ -641,6 +641,26 @@ error:
 	return ret;
 }
 
+static void at91_twi_disable(struct at91_twi_dev *dev)
+{
+	/* return if previous operation is completed */
+	if (!(at91_twi_read(dev, AT91_TWI_SR) & AT91_TWI_TXCOMP)) {
+		/* wait for previous command to complete before disabling the controller */
+		dev_dbg(dev->dev, "wait for command to complete...\n");
+		reinit_completion(&dev->cmd_complete);
+		dev->transfer_status = 0;
+		at91_twi_write(dev, AT91_TWI_IER, AT91_TWI_TXCOMP);
+		wait_for_completion_timeout(&dev->cmd_complete, dev->adapter.timeout);
+		if (!(dev->transfer_status & AT91_TWI_TXCOMP)) {
+			dev_dbg(dev->dev, "IP still busy, resetting the controller...\n");
+			at91_init_twi_bus(dev);
+			return;
+		}
+	}
+
+	at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_MSDIS);
+}
+
 static int at91_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int num)
 {
 	struct at91_twi_dev *dev = i2c_get_adapdata(adap);
@@ -655,6 +675,8 @@ static int at91_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int num)
 	ret = pm_runtime_get_sync(dev->dev);
 	if (ret < 0)
 		goto out;
+
+	at91_twi_write(dev, AT91_TWI_CR, AT91_TWI_MSEN);
 
 	if (num == 2) {
 		int internal_address = 0;
@@ -709,13 +731,22 @@ static int at91_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int num)
 	i2c_put_dma_safe_msg_buf(dma_buf, m_start, !ret);
 
 	if (ret < 0) {
+		/* disable controller before using GPIO recovery */
+		if (!dev->pdata->has_clear_cmd)
+			at91_twi_disable(dev);
+
 		/*
 		 * some faulty I2C slave devices might hold SDA down;
 		 * we can send a bus clear command, hoping that the pins will be
 		 * released
 		 */
 		i2c_recover_bus(&dev->adapter);
+
+		/* disable controller if not disabled before */
+		if (dev->pdata->has_clear_cmd)
+			at91_twi_disable(dev);
 	} else {
+		at91_twi_disable(dev);
 		ret = num;
 	}
 
