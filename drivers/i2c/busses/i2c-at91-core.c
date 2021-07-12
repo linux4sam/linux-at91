@@ -119,6 +119,7 @@ static struct at91_twi_pdata sama5d4_config = {
 	.clk_offset = 4,
 	.has_hold_field = true,
 	.has_dig_filtr = true,
+	.has_adv_dig_filtr = true,
 };
 
 static struct at91_twi_pdata sama5d2_config = {
