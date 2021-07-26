@@ -265,4 +265,13 @@ config SOC_SAMA7
 	select MEMORY
 	select SOC_SAM_V7
 	select SRAM if PM
+
+config ATMEL_SECURE_PM
+	bool "Atmel Secure PM support"
+	depends on SOC_SAMA5 && PM
+	help
+	  When running under a TEE, the suspend mode must be requested to be set
+	  at TEE level. When enable, this option will use secure monitor calls
+	  to set the suspend level.
+	  NOTE: This support is mutually exclusive with CONFIG_ATMEL_PM
 endif
