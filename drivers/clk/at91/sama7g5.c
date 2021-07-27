@@ -576,7 +576,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 9, },
 	  .pp_count = 1,
-	  .pp_chg_id = 3, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "csi_gclk",
 	  .id = 33,
@@ -720,7 +720,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "i2smcc1_gclk",
 	  .id = 58,
@@ -728,7 +728,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "mcan0_gclk",
 	  .id = 61,
@@ -900,7 +900,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n = "spdiftx_gclk",
 	  .id = 85,
@@ -908,7 +908,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "tcb0_ch0_gclk",
 	  .id = 88,
