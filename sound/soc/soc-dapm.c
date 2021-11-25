@@ -4108,6 +4108,108 @@ out:
 	return ret;
 }
 
+static int
+snd_soc_dai_link_loopback_event_pre_pmu(struct snd_soc_dapm_widget *w,
+					struct snd_pcm_substream *substream)
+{
+	struct snd_soc_dapm_path *path;
+	struct snd_soc_dai *source, *sink;
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	int ret = 0;
+
+	rtd->dpcm[SNDRV_PCM_STREAM_PLAYBACK].state = SND_SOC_DPCM_STATE_START;
+	rtd->dpcm[SNDRV_PCM_STREAM_CAPTURE].state = SND_SOC_DPCM_STATE_START;
+
+	substream->stream = SNDRV_PCM_STREAM_CAPTURE;
+	snd_soc_dapm_widget_for_each_source_path(w, path) {
+		source = path->source->priv;
+		snd_soc_dai_activate(source, substream->stream);
+	}
+
+	substream->stream = SNDRV_PCM_STREAM_PLAYBACK;
+	snd_soc_dapm_widget_for_each_sink_path(w, path) {
+		sink = path->sink->priv;
+		snd_soc_dai_activate(sink, substream->stream);
+	}
+
+	return ret;
+}
+
+static int snd_soc_dai_link_loopback_event(struct snd_soc_dapm_widget *w,
+					   struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_dapm_path *path;
+	struct snd_soc_dai *source, *sink;
+	struct snd_pcm_substream *substream = w->priv;
+	int ret = 0, saved_stream = substream->stream;
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+
+	if (WARN_ON(list_empty(&w->edges[SND_SOC_DAPM_DIR_OUT]) ||
+		    list_empty(&w->edges[SND_SOC_DAPM_DIR_IN])))
+		return -EINVAL;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = snd_soc_dai_link_loopback_event_pre_pmu(w, substream);
+		if (ret < 0)
+			goto out;
+
+		break;
+
+	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_dapm_widget_for_each_sink_path(w, path) {
+			sink = path->sink->priv;
+
+			ret = snd_soc_dai_digital_mute(sink, 0,
+						       SNDRV_PCM_STREAM_PLAYBACK);
+			if (ret != 0 && ret != -ENOTSUPP)
+				dev_warn(sink->dev,
+					 "ASoC: Failed to unmute: %d\n", ret);
+			ret = 0;
+		}
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_dapm_widget_for_each_sink_path(w, path) {
+			sink = path->sink->priv;
+
+			ret = snd_soc_dai_digital_mute(sink, 1,
+						       SNDRV_PCM_STREAM_PLAYBACK);
+			if (ret != 0 && ret != -ENOTSUPP)
+				dev_warn(sink->dev,
+					 "ASoC: Failed to mute: %d\n", ret);
+			ret = 0;
+		}
+
+		substream->stream = SNDRV_PCM_STREAM_CAPTURE;
+		snd_soc_dapm_widget_for_each_source_path(w, path) {
+			source = path->source->priv;
+			snd_soc_dai_deactivate(source, substream->stream);
+		}
+
+		substream->stream = SNDRV_PCM_STREAM_PLAYBACK;
+		snd_soc_dapm_widget_for_each_sink_path(w, path) {
+			sink = path->sink->priv;
+			snd_soc_dai_deactivate(sink, substream->stream);
+		}
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		rtd->dpcm[SNDRV_PCM_STREAM_PLAYBACK].state = SND_SOC_DPCM_STATE_CLOSE;
+		rtd->dpcm[SNDRV_PCM_STREAM_CAPTURE].state = SND_SOC_DPCM_STATE_CLOSE;
+		break;
+
+	default:
+		WARN(1, "Unknown event %d\n", event);
+		ret = -EINVAL;
+	}
+
+out:
+	/* Restore the substream direction */
+	substream->stream = saved_stream;
+	return ret;
+}
+
 static int snd_soc_dapm_dai_link_get(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
@@ -4224,6 +4326,47 @@ snd_soc_dapm_alloc_kcontrol(struct snd_soc_card *card,
 outfree_w_param:
 	snd_soc_dapm_free_kcontrol(card, private_value, num_c2c_params, w_param_text);
 	return NULL;
+}
+
+static struct snd_soc_dapm_widget *
+snd_soc_dapm_new_loopback_dai(struct snd_soc_card *card, struct snd_pcm_substream *substream,
+			      char *id)
+{
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_dapm_widget template;
+	struct snd_soc_dapm_widget *w;
+	char *link_name;
+	int ret;
+
+	link_name = devm_kasprintf(card->dev, GFP_KERNEL, "%s-%s",
+				   rtd->dai_link->name, id);
+	if (!link_name)
+		return ERR_PTR(-ENOMEM);
+
+	memset(&template, 0, sizeof(template));
+	template.reg = SND_SOC_NOPM;
+	template.id = snd_soc_dapm_dai_link;
+	template.name = link_name;
+	template.event = snd_soc_dai_link_loopback_event;
+	template.event_flags = SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD;
+	template.kcontrol_news = NULL;
+
+	w = snd_soc_dapm_new_control_unlocked(&card->dapm, &template);
+	if (IS_ERR(w)) {
+		ret = PTR_ERR(w);
+		dev_err(rtd->dev, "ASoC: Failed to create %s widget: %d\n",
+			link_name, ret);
+		goto outfree_link_name;
+	}
+
+	w->priv = substream;
+
+	return w;
+
+outfree_link_name:
+	devm_kfree(card->dev, link_name);
+	return ERR_PTR(ret);
 }
 
 static struct snd_soc_dapm_widget *
@@ -4441,7 +4584,34 @@ static void dapm_connect_dai_pair(struct snd_soc_card *card,
 	struct snd_soc_dapm_widget **src[]	= { &cpu,	&codec };
 	struct snd_soc_dapm_widget **sink[]	= { &codec,	&cpu };
 	char *widget_name[]			= { "playback",	"capture" };
+	struct snd_pcm_str *streams = rtd->pcm->streams;
 	int stream;
+
+	if (dai_link->c2c_params || (rtd->dai_link->dynamic && rtd->dai_link->dpcm_loopback)) {
+		struct snd_soc_dapm_widget *dai = NULL;
+
+		/*Playback CPU to Capture Widget*/
+		cpu	= snd_soc_dai_get_widget(cpu_dai,	SNDRV_PCM_STREAM_CAPTURE);
+		/*Capture CPU to Playback Widget*/
+		codec	= snd_soc_dai_get_widget(cpu_dai,	SNDRV_PCM_STREAM_PLAYBACK);
+
+		if (!rtd->c2c_widget[SNDRV_PCM_STREAM_PLAYBACK] &&
+		    !rtd->c2c_widget[SNDRV_PCM_STREAM_CAPTURE]) {
+			struct snd_pcm_substream *substream;
+
+			streams[SNDRV_PCM_STREAM_PLAYBACK].substream->private_data = rtd;
+			streams[SNDRV_PCM_STREAM_CAPTURE].substream->private_data = rtd;
+			substream = streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+			dai = snd_soc_dapm_new_loopback_dai(card, substream, "hostless");
+			if (IS_ERR(dai))
+				return;
+			rtd->c2c_widget[SNDRV_PCM_STREAM_PLAYBACK] = dai;
+			rtd->c2c_widget[SNDRV_PCM_STREAM_CAPTURE] = dai;
+		}
+		dapm_connect_dai_routes(&card->dapm, cpu_dai, cpu,
+					dai, cpu_dai, codec);
+		return;
+	}
 
 	for_each_pcm_streams(stream) {
 		int stream_cpu, stream_codec;
@@ -4527,7 +4697,7 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 		 * dynamic FE links have no fixed DAI mapping.
 		 * CODEC<->CODEC links have no direct connection.
 		 */
-		if (rtd->dai_link->dynamic)
+		if (rtd->dai_link->dynamic && !rtd->dai_link->dpcm_loopback)
 			continue;
 
 		/*
@@ -4538,7 +4708,22 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 			cpu_dai   = snd_soc_rtd_to_cpu(rtd,   ch_maps->cpu);
 			codec_dai = snd_soc_rtd_to_codec(rtd, ch_maps->codec);
 
-			dapm_connect_dai_pair(card, rtd, codec_dai, cpu_dai);
+			if (rtd->dai_link->num_cpus == 1) {
+				/* connect FE to FE */
+				if (rtd->dai_link->dynamic && rtd->dai_link->dpcm_loopback) {
+					pr_info("%s: 1 cpu dpcm_loopback\n", __func__);
+					dapm_connect_dai_pair(card, rtd, snd_soc_rtd_to_cpu(rtd, 0),
+						      snd_soc_rtd_to_cpu(rtd, 0));
+				} else {
+					dapm_connect_dai_pair(card, rtd, codec_dai,
+						snd_soc_rtd_to_cpu(rtd, 0));
+					pr_info("%s: 1 cpu no dpcm_loopback\n", __func__);
+				}
+			} else {
+				dapm_connect_dai_pair(card, rtd, codec_dai, cpu_dai);
+				pr_info("%s: N:M connect\n", __func__);
+			}
+			
 		}
 	}
 }
