@@ -723,6 +723,7 @@
 			dma-names = "rx";
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 68>, <&pmc PMC_TYPE_GCK 68>;
 			clock-names = "pclk", "gclk";
+			sound-name-prefix = "PDMC0";
 			status = "disabled";
 		};
 
@@ -735,6 +736,7 @@
 			dma-names = "rx";
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 69>, <&pmc PMC_TYPE_GCK 69>;
 			clock-names = "pclk", "gclk";
+			sound-name-prefix = "PDMC1";
 			status = "disabled";
 		};
 
@@ -773,6 +775,7 @@
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 84>, <&pmc PMC_TYPE_GCK 84>;
 			clock-names = "pclk", "gclk";
 			status = "disabled";
+			sound-name-prefix = "SPDIFRX0";
 		};
 
 		spdiftx: spdiftx@e1618000 {
@@ -784,6 +787,7 @@
 			dma-names = "tx";
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 85>, <&pmc PMC_TYPE_GCK 85>;
 			clock-names = "pclk", "gclk";
+			sound-name-prefix = "SPDIFTX0";
 		};
 
 		i2s0: i2s@e161c000 {
@@ -795,6 +799,7 @@
 			dma-names = "tx", "rx";
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 57>, <&pmc PMC_TYPE_GCK 57>;
 			clock-names = "pclk", "gclk";
+			sound-name-prefix = "I2SMCC0";
 			status = "disabled";
 		};
 
@@ -807,6 +812,7 @@
 			dma-names = "tx", "rx";
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 58>, <&pmc PMC_TYPE_GCK 58>;
 			clock-names = "pclk", "gclk";
+			sound-name-prefix = "I2SMCC1";
 			status = "disabled";
 		};
 
