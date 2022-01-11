@@ -40,6 +40,7 @@ struct at91_pm_data {
 	unsigned int pmc_mckr_offset;
 	unsigned int pmc_version;
 	unsigned int pmc_mcks;
+	unsigned int lpm;
 };
 #endif
 

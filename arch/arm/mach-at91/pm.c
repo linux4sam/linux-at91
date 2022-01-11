@@ -116,6 +116,7 @@ struct at91_pm_quirks {
  * @config_shdwc_ws: wakeup sources configuration function for SHDWC
  * @config_pmc_ws: wakeup srouces configuration function for PMC
  * @ws_ids: wakup sources of_device_id array
+ * @shdwc_np: pointer to shdwc node
  * @bu: backup unit mapped data (for backup mode)
  * @quirks: PM quirks
  * @data: PM data to be used on last phase of suspend
@@ -126,6 +127,7 @@ struct at91_soc_pm {
 	int (*config_shdwc_ws)(void __iomem *shdwc, u32 *mode, u32 *polarity);
 	int (*config_pmc_ws)(void __iomem *pmc, u32 mode, u32 polarity);
 	const struct of_device_id *ws_ids;
+	struct device_node *shdwc_np;
 	struct at91_pm_bu *bu;
 	struct at91_pm_quirks quirks;
 	struct at91_pm_data data;
@@ -242,6 +244,84 @@ static const struct of_device_id sam9x7_ws_ids[] = {
 	{ .compatible = "microchip,sam9x7-gem",		.data = &ws_info[5] },
 	{ /* sentinel */ }
 };
+
+static int at91_pm_device_in_list(const struct platform_device *pdev,
+				  const struct of_device_id *ids)
+{
+	struct platform_device *local_pdev;
+	const struct of_device_id *match;
+	struct device_node *np;
+	int in_list = 0;
+
+	for_each_matching_node_and_match(np, ids, &match) {
+		local_pdev = of_find_device_by_node(np);
+		if (!local_pdev)
+			continue;
+
+		if (pdev == local_pdev)
+			in_list = 1;
+
+		put_device(&local_pdev->dev);
+		if (in_list)
+			return in_list;
+	}
+
+	return in_list;
+}
+
+static int at91_pm_prepare_lpm(unsigned int pm_mode)
+{
+	struct platform_device *pdev;
+	int ndevices, i, ret;
+	struct of_phandle_args lpmspec;
+
+	if ((pm_mode != AT91_PM_ULP0 && pm_mode != AT91_PM_ULP1) ||
+	    !soc_pm.shdwc_np)
+		return 0;
+
+	ndevices = of_count_phandle_with_args(soc_pm.shdwc_np,
+					      "microchip,lpm-connection", 0);
+	if (ndevices < 0)
+		return 0;
+
+	soc_pm.data.lpm = 1;
+	for (i = 0; i < ndevices; i++) {
+		ret = of_parse_phandle_with_args(soc_pm.shdwc_np,
+						 "microchip,lpm-connection",
+						 NULL, i, &lpmspec);
+		if (ret < 0) {
+			if (ret == -ENOENT) {
+				continue;
+			} else {
+				soc_pm.data.lpm = 0;
+				return ret;
+			}
+		}
+
+		pdev = of_find_device_by_node(lpmspec.np);
+		if (!pdev)
+			continue;
+
+		if (device_may_wakeup(&pdev->dev)) {
+			if (pm_mode == AT91_PM_ULP1) {
+				/*
+				 * ULP1 wake-up sources are limited. Ignore it if not
+				 * in soc_pm.ws_ids.
+				 */
+				if (at91_pm_device_in_list(pdev, soc_pm.ws_ids))
+					soc_pm.data.lpm = 0;
+			} else {
+				soc_pm.data.lpm = 0;
+			}
+		}
+
+		put_device(&pdev->dev);
+		if (!soc_pm.data.lpm)
+			break;
+	}
+
+	return 0;
+}
 
 static int at91_pm_config_ws(unsigned int pm_mode, bool set)
 {
@@ -481,9 +561,16 @@ static int at91_pm_begin(suspend_state_t state)
 		soc_pm.data.mode = -1;
 	}
 
-	ret = at91_pm_config_ws(soc_pm.data.mode, true);
+	ret = at91_pm_prepare_lpm(soc_pm.data.mode);
 	if (ret)
 		return ret;
+
+	ret = at91_pm_config_ws(soc_pm.data.mode, true);
+	if (ret) {
+		/* Revert LPM if any. */
+		soc_pm.data.lpm = 0;
+		return ret;
+	}
 
 	if (soc_pm.data.mode == AT91_PM_BACKUP)
 		soc_pm.bu->suspended = 1;
@@ -1266,7 +1353,11 @@ static void __init at91_pm_modes_init(const u32 *maps, int len)
 			AT91_PM_REPLACE_MODES(maps, SHDWC);
 		} else {
 			soc_pm.data.shdwc = of_iomap(np, 0);
-			of_node_put(np);
+			/*
+			 * np is used further on suspend/resume path so we skip the
+			 * of_node_put(np) here.
+			 */
+			soc_pm.shdwc_np = np;
 		}
 	}
 
@@ -1669,7 +1760,8 @@ void __init sama7_pm_init(void)
 		AT91_PM_STANDBY, AT91_PM_ULP0, AT91_PM_ULP1, AT91_PM_BACKUP,
 	};
 	static const u32 iomaps[] __initconst = {
-		[AT91_PM_ULP0]		= AT91_PM_IOMAP(SFRBU),
+		[AT91_PM_ULP0]		= AT91_PM_IOMAP(SFRBU) |
+					  AT91_PM_IOMAP(SHDWC),
 		[AT91_PM_ULP1]		= AT91_PM_IOMAP(SFRBU) |
 					  AT91_PM_IOMAP(SHDWC) |
 					  AT91_PM_IOMAP(ETHC),
