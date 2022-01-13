@@ -306,15 +306,21 @@ static int sdhci_at91_set_clks_presets(struct device *dev)
 	preset_div = DIV_ROUND_UP(gck_rate, 100000000) - 1;
 	writew(SDHCI_AT91_PRESET_COMMON_CONF | preset_div,
 	       host->ioaddr + SDHCI_PRESET_FOR_SDR50);
-	preset_div = DIV_ROUND_UP(gck_rate, priv->soc_data->max_sdr104_clk) - 1;
-	writew(SDHCI_AT91_PRESET_COMMON_CONF | preset_div,
-	       host->ioaddr + SDHCI_PRESET_FOR_SDR104);
+	if (priv->soc_data->max_sdr104_clk) {
+		preset_div = DIV_ROUND_UP(gck_rate,
+					  priv->soc_data->max_sdr104_clk) - 1;
+		writew(SDHCI_AT91_PRESET_COMMON_CONF | preset_div,
+		       host->ioaddr + SDHCI_PRESET_FOR_SDR104);
+	}
 	preset_div = DIV_ROUND_UP(gck_rate, 50000000) - 1;
 	writew(SDHCI_AT91_PRESET_COMMON_CONF | preset_div,
 	       host->ioaddr + SDHCI_PRESET_FOR_DDR50);
-	preset_div = DIV_ROUND_UP(gck_rate, priv->soc_data->max_sdr104_clk) - 1;
-	writew(SDHCI_AT91_PRESET_DRVA_CONF | preset_div,
-	       host->ioaddr + SDHCI_PRESET_FOR_HS400);
+	if (priv->soc_data->max_sdr104_clk) {
+		preset_div = DIV_ROUND_UP(gck_rate,
+					  priv->soc_data->max_sdr104_clk) - 1;
+		writew(SDHCI_AT91_PRESET_DRVA_CONF | preset_div,
+		       host->ioaddr + SDHCI_PRESET_FOR_HS400);
+	}
 
 	clk_prepare_enable(priv->mainck);
 	clk_prepare_enable(priv->gck);
