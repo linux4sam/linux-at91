@@ -720,6 +720,8 @@ static int atmel_qspi_sama7g5_set_cfg(struct atmel_qspi *aq,
 		ifr |= QSPI_IFR_DDREN;
 		if (op->cmd.dtr)
 			ifr |= QSPI_IFR_DDRCMDEN;
+		if (op->data.swap16)
+			ifr |= QSPI_IFR_END;
 
 		ifr |= QSPI_IFR_DQSEN;
 	}
