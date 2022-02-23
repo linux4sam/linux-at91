@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/microchip,sama7-usb-phy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip SAMA7 USB PHY
+
+maintainers:
+  - Cristian Birsan <cristian.birsan@microchip.com>
+
+properties:
+  "#phy-cells":
+    const: 0
+
+  compatible:
+    enum:
+      - microchip,sama7g5-usb-phy
+
+  reg:
+    items:
+      - description: PHY id
+
+  clocks:
+    maxItems: 1
+    description: USB PHY bus clock
+
+  clock-names:
+    const: utmi_clk
+
+  sfr-phandle:
+    maxItems: 1
+    description: phandle to Special Function Registers (SFR) node
+
+required:
+  - "#phy-cells"
+  - compatible
+  - clocks
+  - clock-names
+  - reg
+  - sfr-phandle
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/at91.h>
+
+    utmi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        usb_phy0: phy@0 {
+          compatible = "microchip,sama7g5-usb-phy";
+          sfr-phandle = <&sfr>;
+          reg = <0>;
+          clocks = <&utmi_clk UTMI1>;
+          clock-names = "utmi_clk";
+          status = "disabled";
+          #phy-cells = <0>;
+        };
+    };

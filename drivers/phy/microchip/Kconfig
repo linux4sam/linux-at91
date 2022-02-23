@@ -3,6 +3,14 @@
 # Phy drivers for Microchip devices
 #
 
+config PHY_MICROCHIP_SAMA7_USB
+	tristate "Microchip SAMA7 USB 2.0 PHY"
+	depends on ARCH_AT91 || COMPILE_TEST
+	depends on OF
+	select GENERIC_PHY
+	help
+		Enable this to support SAMA7 USB 2.0 PHY
+
 config PHY_SPARX5_SERDES
 	tristate "Microchip Sparx5 SerDes PHY driver"
 	select GENERIC_PHY
