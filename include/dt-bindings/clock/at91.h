@@ -37,6 +37,9 @@
 #define PMC_ETHPLL		(PMC_MAIN + 8)
 #define PMC_CPU			(PMC_MAIN + 9)
 #define PMC_MCK1		(PMC_MAIN + 10)
+#define UTMI1			0
+#define UTMI2			1
+#define UTMI3			2
 
 /* SAM9X7 */
 #define PMC_PLLADIV2		(PMC_MAIN + 11)
