@@ -8,6 +8,7 @@
 #define __LINUX_USB_GADGET_USBA_UDC_H__
 
 #include <linux/gpio/consumer.h>
+#include <linux/phy/phy.h>
 
 /* USB register offsets */
 #define USBA_CTRL				0x0000
@@ -357,6 +358,7 @@ struct usba_udc {
 	struct dentry *debugfs_root;
 #endif
 
+	struct phy *phy;
 	struct regmap *pmc;
 };
 
