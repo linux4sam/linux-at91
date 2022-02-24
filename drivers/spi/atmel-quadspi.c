@@ -232,7 +232,7 @@
 #define QSPI_CALIB_TIME			2000	/* 2 us */
 
 /* Use PIO for small transfers. */
-#define ATMEL_QSPI_DMA_MIN_BYTES	16
+#define ATMEL_QSPI_DMA_MIN_BYTES	0
 /**
  * struct atmel_qspi_pcal - Pad Calibration Clock Division
  * @pclk_rate: peripheral clock rate.
