@@ -113,7 +113,7 @@ static int spi_nor_macronix_octal_dtr_dis(struct spi_nor *nor)
 	if (ret)
 		return ret;
 
-	ret = spi_nor_read_id(nor, 0, 0, buf, nor->reg_proto);
+	ret = spi_nor_read_id(nor, 0, 0, buf, SNOR_PROTO_1_1_1);
 	if (ret)
 		return ret;
 
