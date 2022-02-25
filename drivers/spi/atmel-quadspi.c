@@ -899,7 +899,7 @@ static int atmel_qspi_sama7g5_transfer(struct spi_mem *mem,
 
 	/* Send/Receive data. */
 	if (op->data.dir == SPI_MEM_DATA_IN) {
-		if (aq->rx_chan && op->addr.nbytes &&
+		if (aq->rx_chan &&
 		    op->data.nbytes > ATMEL_QSPI_DMA_MIN_BYTES) {
 			ret = atmel_qspi_dma_transfer(mem, op, offset);
 			if (ret)
@@ -917,7 +917,7 @@ static int atmel_qspi_sama7g5_transfer(struct spi_mem *mem,
 				return ret;
 		}
 	} else {
-		if (aq->tx_chan && op->addr.nbytes &&
+		if (aq->tx_chan &&
 		    op->data.nbytes > ATMEL_QSPI_DMA_MIN_BYTES) {
 			ret = atmel_qspi_dma_transfer(mem, op, offset);
 			if (ret)
