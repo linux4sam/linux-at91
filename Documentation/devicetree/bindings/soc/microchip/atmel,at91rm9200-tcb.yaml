@@ -21,6 +21,7 @@ properties:
               - atmel,at91rm9200-tcb
               - atmel,at91sam9x5-tcb
               - atmel,sama5d2-tcb
+              - microchip,sam9x60-tcb
           - const: simple-mfd
           - const: syscon
       - items:
