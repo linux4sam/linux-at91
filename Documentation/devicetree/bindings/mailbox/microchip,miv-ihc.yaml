@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mailbox/microchip,miv-ihc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip PolarFire Mi-V Inter-hart communication (IHC) driver
+
+maintainers:
+  - Valentina Fernandez <valentina.fernandezalanis@microchip.com>
+  - Conor Dooley <Conor Dooley <conor.dooley@microchip.com>>
+
+description: |
+  The Mi-V Inter-hart Communication (IHC) subsystem is used to exchange
+  data between harts in PolarFire SoC. It provides the ability to
+  send messages (ie. data, status and control) and coordinate between
+  harts through a non-blocking interrupt signaling mechanism.
+
+properties:
+  compatible:
+    const: microchip,miv-ihc
+
+  interrupts:
+    description: |
+      Should contain the IHC interrupt associated with the lowest
+      hart ID in the local software context.
+    maxItems: 1
+
+  microchip,miv-ihc-remote-context-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [5, 6]
+    default: 6
+    description: |
+      ID of the software context where data should be sent to.
+      Should be either a value of 5 (Context A) or 6 (Context B).
+      A default value of 6 should be used to match default IHC configuration
+      (Linux on context A and RTOS/BM on context B).
+
+  "#mbox-cells":
+    const: 1
+
+required:
+  - compatible
+  - interrupts
+  - "#mbox-cells"
+  - microchip,miv-ihc-remote-context-id
+
+additionalProperties: false
+
+examples:
+  - |
+    #include "dt-bindings/mailbox/miv-ihc.h"
+    ihc: mailbox {
+      compatible = "microchip,miv-ihc";
+      interrupt-parent = <&plic>;
+      interrupts = <IHC_HART1_INT>;
+      microchip,miv-ihc-remote-context-id = <IHC_CONTEXT_B>;
+      #mbox-cells = <1>;
+    };
