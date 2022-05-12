@@ -9,3 +9,19 @@ config POLARFIRE_SOC_SYS_CTRL
 	  module will be called mpfs_system_controller.
 
 	  If unsure, say N.
+
+config POLARFIRE_SOC_GENERIC_SERVICE
+	tristate "PFSOC FPGA generic system services"
+	depends on POLARFIRE_SOC_SYS_CTRL
+	help
+	  The PolarFire SoC system controller is communicated with via a mailbox.
+	  This driver implemtents the services provided by the system controller
+	  which do not belong in a specific subsystem, such as reading the fpga
+	  device certificate, all of which follow the same format:
+	    - a command + optional payload sent to the sys controller
+	    - a status + a payload returned to Linux
+
+	  To compile this driver as a module, choose M here. the
+	  module will be called mpfs_generic_service.
+
+	  If unsure, say N.
