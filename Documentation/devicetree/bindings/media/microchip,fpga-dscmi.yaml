@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/microchip,fpga-dscmi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Digital Serial Camera Memory Interface
+
+maintainers:
+  - Shravan Chippa <shravan.chippa@microchip.com>
+
+description:
+  The Digital Serial Camera Memory Interface is a fabric-based video pipeline
+  used in Microchip's "Smart Embedded Vision" development kits. It captures raw
+  sRGB frames from a CSI2 interface, converts them to YUV422 & can convert to a
+  other formats, including H264 & MJPEG.
+
+properties:
+  compatible:
+    const: microchip,fpga-dscmi
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    items:
+      - const: rx
+
+  reset-gpios:
+    maxItems: 1
+    description: CSI2 module MIPI training reset
+
+  memory-region:
+    description:
+      This memory region is used for DMA transfers to/from the streaming
+      interface.
+    maxItems: 1
+
+  port:
+    $ref: /schemas/graph.yaml#/$defs/port-base
+    unevaluatedProperties: false
+    description:
+      supports a single port node with CSI2 interface.
+
+    properties:
+      endpoint:
+        $ref: /schemas/media/video-interfaces.yaml#
+        unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - reset-gpios
+  - memory-region
+  - dmas
+  - dma-names
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    mchp_dscmi_cam0: video-pipeline@40000000 {
+        compatible = "microchip,fpga-dscmi";
+        reg = <0x40000000 0x2000>;
+        interrupt-parent = <&plic>;
+        interrupts = <118>;
+        reset-gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+        memory-region = <&cambuf0>;
+        dmas = <&pdma 0>;
+        dma-names = "rx";
+        port {
+            mchp_dscmi_ep_cam0: endpoint {
+                remote-endpoint = <&imx334_ep_cam0>;
+               };
+           };
+      };
+
+...
