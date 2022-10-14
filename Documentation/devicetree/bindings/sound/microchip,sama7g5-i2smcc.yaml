@@ -28,6 +28,7 @@ properties:
       - enum:
           - microchip,sam9x60-i2smcc
           - microchip,sama7g5-i2smcc
+          - microchip,sama7d65-i2smcc
       - items:
           - enum:
               - microchip,sam9x7-i2smcc
