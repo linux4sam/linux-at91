@@ -176,6 +176,8 @@
  */
 #define MCHP_I2SMCC_MRB_CRAMODE_REGULAR		(1 << 0)
 
+#define MCHP_I2SMCC_MRB_RXDIRECT		BIT(1)
+#define MCHP_I2SMCC_MRB_TXDIRECT		BIT(2)
 #define MCHP_I2SMCC_MRB_FIFOEN			BIT(4)
 
 #define MCHP_I2SMCC_MRB_DMACHUNK_MASK		GENMASK(9, 8)
@@ -185,6 +187,9 @@
 #define MCHP_I2SMCC_MRB_CLKSEL_MASK		GENMASK(16, 16)
 #define MCHP_I2SMCC_MRB_CLKSEL_EXT		(0 << 16)
 #define MCHP_I2SMCC_MRB_CLKSEL_INT		(1 << 16)
+
+#define MCHP_I2SMCC_MRB_DTCEN(ch)		(BIT(ch + 24))
+#define MCHP_I2SMCC_MRB_DTCEN_MASK		GENMASK(31, 24)
 
 /*
  * ---- Status Registers (Read-only) ----
@@ -240,6 +245,7 @@ static const struct regmap_config mchp_i2s_mcc_regmap_config = {
 struct mchp_i2s_mcc_soc_data {
 	unsigned int	data_pin_pair_num;
 	bool		has_fifo;
+	bool		direct_path_avail;
 };
 
 struct mchp_i2s_mcc_dev {
@@ -262,6 +268,7 @@ struct mchp_i2s_mcc_dev {
 	unsigned int				gclk_running:1;
 	unsigned int				tx_rdy:1;
 	unsigned int				rx_rdy:1;
+	bool					direct_path;
 };
 
 static irqreturn_t mchp_i2s_mcc_interrupt(int irq, void *dev_id)
@@ -532,6 +539,7 @@ static int mchp_i2s_mcc_hw_params(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
 	unsigned long rate = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mchp_i2s_mcc_dev *dev = snd_soc_dai_get_drvdata(dai);
 	int sample_bytes = params_physical_width(params) / 8;
 	int period_bytes = params_period_size(params) *
@@ -540,6 +548,7 @@ static int mchp_i2s_mcc_hw_params(struct snd_pcm_substream *substream,
 	u32 mra = 0;
 	u32 mrb = 0;
 	unsigned int channels = params_channels(params);
+	unsigned int ch;
 	unsigned int frame_length = dev->frame_length;
 	unsigned int bclk_rate;
 	int set_divs = 0;
@@ -651,6 +660,22 @@ static int mchp_i2s_mcc_hw_params(struct snd_pcm_substream *substream,
 		mra |= MCHP_I2SMCC_MRA_NBCHAN(channels);
 		if (!frame_length)
 			frame_length = channels * MCHP_I2MCC_TDM_SLOT_WIDTH;
+	}
+
+	if (dev->direct_path) {
+		if (rtd->dai_link->no_pcm) {
+			if (is_playback)
+				mrb |= MCHP_I2SMCC_MRB_TXDIRECT;
+			else
+				mrb |= MCHP_I2SMCC_MRB_RXDIRECT;
+
+			for (ch = 0; ch < channels; ch++)
+				mrb |= MCHP_I2SMCC_MRB_DTCEN(ch);
+		} else {
+			mrb &= ~(MCHP_I2SMCC_MRB_TXDIRECT |
+				 MCHP_I2SMCC_MRB_RXDIRECT |
+				 MCHP_I2SMCC_MRB_DTCEN_MASK);
+		};
 	}
 
 	/*
@@ -970,6 +995,12 @@ static struct mchp_i2s_mcc_soc_data mchp_i2s_mcc_sama7g5 = {
 	.has_fifo = true,
 };
 
+static struct mchp_i2s_mcc_soc_data mchp_i2s_mcc_sama7d65 = {
+	.data_pin_pair_num = 4,
+	.has_fifo = true,
+	.direct_path_avail = true,
+};
+
 static const struct of_device_id mchp_i2s_mcc_dt_ids[] = {
 	{
 		.compatible = "microchip,sam9x60-i2smcc",
@@ -978,6 +1009,10 @@ static const struct of_device_id mchp_i2s_mcc_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-i2smcc",
 		.data = &mchp_i2s_mcc_sama7g5,
+	},
+	{
+		.compatible = "microchip,sama7d65-i2smcc",
+		.data = &mchp_i2s_mcc_sama7d65,
 	},
 	{ /* sentinel */ }
 };
@@ -1028,6 +1063,7 @@ static int mchp_i2s_mcc_probe(struct platform_device *pdev)
 	struct mchp_i2s_mcc_dev *dev;
 	struct resource *mem;
 	struct regmap *regmap;
+	struct device_node *np;
 	void __iomem *base;
 	u32 version;
 	int irq;
@@ -1108,6 +1144,12 @@ static int mchp_i2s_mcc_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	/*Check if we have direct path disabled*/
+	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
+	if (!np && dev->soc->direct_path_avail) {
+		dev->direct_path = true;
+		of_node_put(np);
+	}
 	/* Get IP version. */
 	regmap_read(dev->regmap, MCHP_I2SMCC_VERSION, &version);
 	dev_info(&pdev->dev, "hw version: %#lx\n",
