@@ -21,7 +21,9 @@ properties:
     const: 0
 
   compatible:
-    const: microchip,sama7g5-spdifrx
+    enum:
+      - microchip,sama7g5-spdifrx
+      - microchip,sama7d65-spdifrx
 
   reg:
     maxItems: 1
