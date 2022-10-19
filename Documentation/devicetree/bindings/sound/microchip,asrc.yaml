@@ -17,7 +17,10 @@ description:
 
 properties:
   compatible:
-    const: microchip,sama7g5-asrc
+    enum:
+      - microchip,sama7g5-asrc
+      - microchip,sama7d65-asrc
+
 
   reg:
     maxItems: 1
@@ -75,6 +78,20 @@ properties:
       'trigger-indexes' will correspond to the second phandle in 'triggers',
       etc.
 
+  microchip,direct-path-indexes:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItem: 1
+    maxItem: 10
+    description: |
+      An array of IDs correspoding to TX, RX indexes in direct path registers
+      for Audio IPs communicating with ASRC though direct path.
+
+  microchip,disable-direct-path:
+    description: |
+      Paramater that disables direct path mode for ASRC operations and uses
+      DMA to transfer data between Audio IPs and ASRC.
+    type: boolean
+
 required:
   - compatible
   - reg
@@ -86,6 +103,17 @@ required:
   - dma-names
   - microchip,triggers
   - microchip,trigger-indexes
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - microchip,sama7d65-asrc
+    then:
+      required:
+        - microchip,direct-path-indexes
 
 additionalProperties: false
 
@@ -113,5 +141,13 @@ examples:
         clock-names = "pclk", "gclk";
         microchip,triggers = <&i2s0>, <&i2s1>, <&pdmc0>, <&pdmc1>, <&ssc0>,
                              <&ssc1>, <&spdiftx>, <&spdifrx>;
-        microchip,trigger-indexes = <1>, <2>, <3>, <4>, <5>, <8>, <9>, <10>;
+	microchip,trigger-indexes = <1>, <2>, <3>, <4>, <5>, <8>, <9>, <10>;
+        microchip,direct-path-indexes = <1>, <0>, /* I2SMCC0: TX, RX */
+                                        <0>, <1>, /* I2SMCC1: TX, RX */
+                                        <3>, <3>, /* PDMC0:   TX, RX */
+                                        <4>, <4>, /* PDMC1:   TX, RX */
+                                        <5>, <5>, /* SSC0:    TX, TX */
+                                        <6>, <6>, /* SSC1:    TX, RX */
+                                        <2>, <2>, /* SPDIFTX: TX */
+                                        <2>, <2>; /* SPDIFRX: RX */
     };
