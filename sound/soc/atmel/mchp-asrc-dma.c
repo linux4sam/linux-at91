@@ -15,6 +15,8 @@
 #define MCHP_ASRC_DMAENGINE_PCM_DRV_NAME  "mchp_snd_asrc_dmaengine_pcm"
 #define MCHP_ASRC_DMABUF_SIZE	(512 * 1024)
 
+static bool mchp_asrc_direct_path;
+
 struct mchp_asrc_dma_be_priv {
 	struct device				*dev;
 	struct of_phandle_args			*phandle;
@@ -197,32 +199,33 @@ static int mchp_asrc_dma_close(struct snd_soc_component *component,
 	return 0;
 }
 
-static void mchp_asrc_start_handle(unsigned long data)
+static int mchp_asrc_dmaengine_start(struct mchp_asrc_dma_priv *dma_priv)
 {
-	struct mchp_asrc_dma_priv *dma_priv = (struct mchp_asrc_dma_priv *)data;
 	struct mchp_asrc_dma_be_priv *dma_be_priv;
 
 	list_for_each_entry(dma_be_priv, &dma_priv->dma_in_head, list) {
-		if (unlikely(!dma_be_priv->desc)) {
+		if (dma_be_priv->desc) {
+			dev_dbg(dma_priv->dev, "%s() DMA: in BE channel %s for %sn", __func__,
+				dma_be_priv->desc->chan->name,
+				dma_be_priv->phandle ? dma_be_priv->phandle->np->name : "front-end");
+		} else if (!mchp_asrc_direct_path) {
 			dev_err(dma_priv->dev, "in BE %s DMA descriptor not initialized\n",
 				dma_be_priv->phandle ? dma_be_priv->phandle->np->name :
-						       "front-end");
-			return;
+				"front-end");
+			return -EINVAL;
 		}
-		dev_dbg(dma_priv->dev, "%s() DMA: in BE channel %s for %s\n", __func__,
-			dma_be_priv->desc->chan->name,
-			dma_be_priv->phandle ? dma_be_priv->phandle->np->name : "front-end");
 	}
 	list_for_each_entry(dma_be_priv, &dma_priv->dma_out_head, list) {
-		if (unlikely(!dma_be_priv->desc)) {
-			dev_err(dma_priv->dev, "out BE %s DMA descriptor not initialized\n",
+		if (dma_be_priv->desc) {
+			dev_dbg(dma_priv->dev, "%s() DMA: out BE channel %s for %s\n", __func__,
+				dma_be_priv->desc->chan->name,
+				dma_be_priv->phandle ? dma_be_priv->phandle->np->name : "front-end");
+		} else if (!mchp_asrc_direct_path) {
+			dev_err(dma_priv->dev, "out BE %s DMA descriptor not initializedn",
 				dma_be_priv->phandle ? dma_be_priv->phandle->np->name :
-						       "front-end");
-			return;
+				"front-end");
+			return -EINVAL;
 		}
-		dev_dbg(dma_priv->dev, "%s() DMA: out BE channel %s for %s\n", __func__,
-			dma_be_priv->desc->chan->name,
-			dma_be_priv->phandle ? dma_be_priv->phandle->np->name : "front-end");
 	}
 
 	/* start transmit channel DMAs */
@@ -231,15 +234,15 @@ static void mchp_asrc_start_handle(unsigned long data)
 		if (!dma_be_priv->phandle) {
 			dma_priv->cookie = dmaengine_submit(dma_be_priv->desc);
 			dev_info(dma_priv->dev, "\tfront-end\n");
-		} else {
+			dma_async_issue_pending(dma_be_priv->desc->chan);
+		} else if (!mchp_asrc_direct_path) {
 			dmaengine_submit(dma_be_priv->desc);
 			dev_info(dma_priv->dev, "\t%s, %d channels\n",
 				 dma_be_priv->phandle->np->full_name,
 				 params_channels(&dma_be_priv->dpcm->be->dpcm[SNDRV_PCM_STREAM_CAPTURE].hw_params));
+			dma_async_issue_pending(dma_be_priv->desc->chan);
 		}
 	}
-	list_for_each_entry(dma_be_priv, &dma_priv->dma_in_head, list)
-		dma_async_issue_pending(dma_be_priv->desc->chan);
 
 	/* start receive channel DMAs */
 	dev_info(dma_priv->dev, "ASRC OUT AIF(s):\n");
@@ -247,15 +250,17 @@ static void mchp_asrc_start_handle(unsigned long data)
 		if (!dma_be_priv->phandle) {
 			dma_priv->cookie = dmaengine_submit(dma_be_priv->desc);
 			dev_info(dma_priv->dev, "\tfront-end\n");
-		} else {
+			dma_async_issue_pending(dma_be_priv->desc->chan);
+		} else if (!mchp_asrc_direct_path) {
 			dmaengine_submit(dma_be_priv->desc);
 			dev_info(dma_priv->dev, "\t%s, %d channels\n",
 				 dma_be_priv->phandle->np->full_name,
 				 params_channels(&dma_be_priv->dpcm->be->dpcm[SNDRV_PCM_STREAM_PLAYBACK].hw_params));
+			dma_async_issue_pending(dma_be_priv->desc->chan);
 		}
 	}
-	list_for_each_entry(dma_be_priv, &dma_priv->dma_out_head, list)
-		dma_async_issue_pending(dma_be_priv->desc->chan);
+
+	return 0;
 }
 
 static int mchp_asrc_dmaengine_pcm_prepare_slave_config(struct device *dev,
@@ -271,7 +276,6 @@ static int mchp_asrc_dmaengine_pcm_prepare_slave_config(struct device *dev,
 		return ret;
 
 	snd_dmaengine_pcm_set_config_from_dai_data(substream, dma_data, slave_config);
-
 	dev_dbg(dev,
 		"%s() FE AIF dir %s, src addr %pap, dst addr: %pap, src_addr_width %d, dst_addr_width %d, src maxburst %u, dst maxburst %u\n",
 		__func__,
@@ -304,7 +308,12 @@ mchp_asrc_be_dmaengine_slave_config(struct mchp_asrc_dmaengine_dai_dma *dma,
 	dmaengine_list = is_playback ? &dma->dma_out_list : &dma->dma_in_list;
 	list_for_each_entry(dma_be, dmaengine_list, list) {
 		if (dma_be->phandle && dma_be->phandle->np == dai->dev->of_node) {
-			dev_dbg(dev, "found DMA data %s\n", dma_be->phandle->np->name);
+			if (mchp_asrc_direct_path && !be->dai_link->dynamic)
+				continue;
+
+			/* This is a FE with DMA (involved or not in DP link). */
+			dev_dbg(dev, "found DMA data %s\n",
+				dma_be->phandle->np->name);
 			break;
 		}
 	}
@@ -402,6 +411,13 @@ static int mchp_asrc_dma_hw_params(struct snd_soc_component *component,
 	/* save BEs for this substream */
 	for_each_dpcm_be(rtd, substream->stream, dpcm) {
 		struct snd_soc_pcm_runtime *be = dpcm->be;
+
+		/*
+		 * If DP available and FE is connected to user space configure
+		 * DMA on this link. Otherwise, use DP and skip DMA.
+		 */
+		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
+			break;
 
 		if (dpcm->fe != rtd)
 			continue;
@@ -658,6 +674,10 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 			continue;
 		}
 
+		/* This is a BE with DP configured thus, don't use DMA for it. */
+		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
+			continue;
+
 		dpcm = dma_be_priv->dpcm;
 		be = dpcm->be;
 		dai = snd_soc_rtd_to_cpu(be, 0);
@@ -720,6 +740,10 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 			continue;
 		}
 
+		/* This is a BE with DP configured thus, don't use DMA for it. */
+		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
+			continue;
+
 		dpcm = dma_be_priv->dpcm;
 		be = dpcm->be;
 		dai = snd_soc_rtd_to_cpu(be, 0);
@@ -771,7 +795,6 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 			dev_err(dev, "failed to prepare client DMA for FE %s\n", cpu_dai->name);
 			return -ENOMEM;
 		}
-
 		dma_fe_priv->desc = desc;
 		dma_fe_priv->desc->callback = mchp_asrc_pcm_dma_complete;
 		dma_fe_priv->desc->callback_param = subs;
@@ -784,11 +807,8 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 	} else {
 		dev_dbg(dev, "%s() FE DMA not found\n", __func__);
 	}
+		return mchp_asrc_dmaengine_start(priv);
 
-	dev_dbg(dev, "%s: initializing start_handle tasklet\n", __func__);
-	tasklet_init(&dma->start_handle, &mchp_asrc_start_handle, (unsigned long)priv);
-
-	return 0;
 }
 
 static void mchp_asrc_dmaengine_resume(struct mchp_asrc_dma_priv *priv)
@@ -961,7 +981,8 @@ const struct snd_soc_component_driver mchp_asrc_platform = {
 };
 EXPORT_SYMBOL_GPL(mchp_asrc_platform);
 
-int mchp_asrc_pcm_register(struct device *dev)
+int mchp_asrc_pcm_register(struct device *dev, struct regmap *map,
+			   bool direct_path)
 {
 	int err;
 
@@ -970,6 +991,8 @@ int mchp_asrc_pcm_register(struct device *dev)
 		dev_err(dev, "failed to register ASoC platform for ASRC\n");
 		return err;
 	}
+
+	mchp_asrc_direct_path = direct_path;
 
 	return 0;
 }

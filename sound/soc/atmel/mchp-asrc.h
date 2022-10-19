@@ -23,10 +23,10 @@ struct mchp_asrc_dmaengine_be_dma {
 struct mchp_asrc_dmaengine_dai_dma {
 	struct list_head dma_in_list;
 	struct list_head dma_out_list;
-	struct tasklet_struct start_handle;
 	int unlocked_dsps;
 };
 
-int mchp_asrc_pcm_register(struct device *dev);
+int mchp_asrc_pcm_register(struct device *dev, struct regmap *regmap,
+			   bool direct_path);
 
 #endif	/* __MCHP_ASRC_H */

@@ -47,6 +47,7 @@
 
 #define MCHP_ASRC_ESR			0x00A8	/* Error Status Register */
 
+#define MCHP_ASRC_DAPSELR		0x00B4	/* Direct Access Peripheral Select Register */
 #define MCHP_ASRC_WPMR			0x00E4	/* Write Protection Mode Register */
 #define MCHP_ASRC_WPSR			0x00E8	/* Write Protection Status Register */
 
@@ -66,6 +67,14 @@
 
 /* Sampling frequency greater than 96 KHz  */
 #define MCHP_ASRC_MR_GT96K		BIT(12)
+
+/* Direct Access Transmit Holding Register Source */
+#define MCHP_ASRC_MR_DATHRX(thr)	BIT(16 + (thr))
+#define MCHP_ASRC_MR_DATHRX_MASK	GENMASK(19, 16)
+
+/* Direct Access Receive Holding Register Source */
+#define MCHP_ASRC_MR_DARHRX(rhr)	BIT(24 + (rhr))
+#define MCHP_ASRC_MR_DARHRX_MASK	GENMASK(27, 24)
 
 /*
  * ---- Ratio Register of Stereo Channel x (Read/Write) ----
@@ -165,6 +174,14 @@
 #define MCHP_ASRC_ESR_INCFGERR_MASK	GENMASK(4, 0)
 #define MCHP_ASRC_ESR_OUTCFGERR_MASK	GENMASK(12, 8)
 
+/* Direct Access Channel x Input Audio Peripheral Source */
+#define MCHP_ASRC_DAPSELR_IN_CH_MASK(ch)	GENMASK((2 + (ch) * 4), ((ch) * 4))
+#define MCHP_ASRC_DAPSELR_IN_CH(ch, idx)	((idx) << (4 * (ch)))
+
+/* Direct Access Channel x Output Audio Peripheral Destination */
+#define MCHP_ASRC_DAPSELR_OUT_CH_MASK(ch)	GENMASK((18 + (ch) * 4), (16 + (ch) * 4))
+#define MCHP_ASRC_DAPSELR_OUT_CH(ch, idx)	((idx) << (16 + 4 * (ch)))
+
 /*
  * ---- Version Register (Read-only) ----
  */
@@ -173,6 +190,7 @@
 #define MCHP_ASRC_LT96K_RATIO_MIN		2048
 #define MCHP_ASRC_GT96K_RATIO_MIN		1024
 #define MCHP_ASRC_TRIG_IDX_MAX_VAL		16
+#define MCHP_ASRC_DP_IDX_MAX			10
 #define MCHP_ASRC_RATIO_MAX			MCHP_ASRC_RATIO_INRATIO_MASK
 #define MCHP_ASRC_OPMODE_MAX			5
 
@@ -366,6 +384,7 @@ struct mchp_asrc_be_rtm {
 	struct mchp_asrc_be_trigger	*trig;	/* backpointer */
 	struct snd_pcm_hw_params	*hw_params;	// used by the links that are not BE
 	struct mchp_asrc_slot const	*slot;
+	struct snd_soc_pcm_runtime	*dpcm_be;
 	struct list_head		list;
 };
 
@@ -375,6 +394,8 @@ struct mchp_asrc_be_trigger {
 	struct mchp_asrc_dev		*priv;				/* backpointer */
 	struct of_phandle_args		*phandle;
 	u32				idx;
+	u32				dp_tx_idx;
+	u32				dp_rx_idx;
 };
 
 struct mchp_asrc_dsp_priv {
@@ -404,6 +425,7 @@ struct mchp_asrc_dev {
 	int					trig_count;
 	int					thr_opmode;
 	int					rhr_opmode;
+	int					direct_path;
 };
 
 static inline int mchp_asrc_period_to_burst(int period_size, int sample_size)
@@ -732,6 +754,7 @@ static int mchp_asrc_bes_get(struct mchp_asrc_dev *priv, struct snd_pcm_substrea
 				rtm_be->trig = trig_be;
 
 			rtm_be->hw_params = &be->dpcm[substream->stream].hw_params;
+			rtm_be->dpcm_be = be;
 
 			/* keep the order */
 			list_add_tail(&rtm_be->list, head);
@@ -1020,8 +1043,13 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 	bool is_playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	u32 ratio;
 	unsigned int channels = params ? params_channels(params) : 0;
+	unsigned int dsps_req = (channels + 1) / 2;
 	u32 ch_conf = 0;
 	u32 ch_conf_mask = 0;
+	u32 dapselr_mask = 0;
+	u32 dapselr = 0;
+	u32 mr_mask = MCHP_ASRC_MR_DATHRX_MASK | MCHP_ASRC_MR_DARHRX_MASK;
+	u32 mr_val = 0;
 	int ret;
 	u32 mr;
 	u32 trig = 0, trig_mask = 0;
@@ -1179,6 +1207,14 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 
 		for (dsp = slot_be->first_dsp;
 		     dsp < slot_be->first_dsp + slot_be->dsp_count; dsp++) {
+			/* Configure input direct path. */
+			if (priv->direct_path && rtm_be && rtm_be->dpcm_be &&
+				rtm_be->dpcm_be->dai_link->no_pcm) {
+					dapselr_mask |= MCHP_ASRC_DAPSELR_IN_CH_MASK(dsp);
+					dapselr |= MCHP_ASRC_DAPSELR_IN_CH(dsp, trig_be->dp_rx_idx);
+					mr_val |= MCHP_ASRC_MR_DATHRX(dsp);
+			}
+
 			trig_mask |= MCHP_ASRC_TRIG_TRIGSELIN_MASK(dsp);
 			trig |= MCHP_ASRC_TRIG_TRIGSELIN(idx, dsp);
 		}
@@ -1202,7 +1238,9 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 			trig_be ? trig_be->phandle->np->full_name : dai->name,
 			period_bytes, physical_width, maxburst);
 	}
+	regmap_update_bits(priv->regmap, MCHP_ASRC_DAPSELR, dapselr_mask, dapselr);
 
+	i = 0;
 	list_for_each_entry(rtm_be, &pcm->list_head_out, list) {
 		struct mchp_asrc_be_trigger *trig_be = rtm_be->trig;
 		struct mchp_asrc_slot const *slot_be = rtm_be->slot;
@@ -1212,6 +1250,16 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 			params_channels(rtm_be->hw_params) * physical_width;
 		int maxburst = mchp_asrc_period_to_burst(period_bytes, physical_width);
 		u32 idx = trig_be ? trig_be->idx : 0;
+
+		/* Configure output direct path. */
+		if (priv->direct_path && rtm_be && rtm_be->dpcm_be &&
+		    rtm_be->dpcm_be->dai_link->no_pcm) {
+
+			dapselr_mask |= MCHP_ASRC_DAPSELR_OUT_CH_MASK(i);
+			dapselr |= MCHP_ASRC_DAPSELR_OUT_CH(i, trig_be->dp_tx_idx);
+			mr_val |= MCHP_ASRC_MR_DARHRX(i);
+
+		}
 
 		/* treat odd streams, set only last DSP as mono */
 		if (chan_be % 2) {
@@ -1245,6 +1293,7 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 		dev_dbg(priv->dev, "%s: period bytes %d, width %d -> maxburst %d\n",
 			trig_be ? trig_be->phandle->np->full_name : dai->name,
 			period_bytes, physical_width, maxburst);
+		i++;
 	}
 
 	mchp_asrc_maxburst_limit(priv->thr_opmode, priv->rhr_opmode, is_mono, &pcm->maxburst);
@@ -1421,14 +1470,18 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 	}
 
 __skip_inout:
-	dev_dbg(priv->dev, "writing TRIG %#x, VBPS_IN %#x, VBPS_OUT %#x, CH_CONF %#x\n",
+	dev_dbg(priv->dev, "writing TRIG %#x, VBPS_IN %#x, VBPS_OUT %#x, CH_CONF %#x\n"
+		"DAPSELR_MASK=%#x, DAPSELR=%#x\n",
 		trig & trig_mask, vbps_in & vbps_mask, vbps_out & vbps_mask,
-		ch_conf & ch_conf_mask);
+		ch_conf & ch_conf_mask,
+		dapselr_mask, dapselr);
 
 	regmap_update_bits(priv->regmap, MCHP_ASRC_TRIG, trig_mask, trig);
 	regmap_update_bits(priv->regmap, MCHP_ASRC_VBPS_IN, vbps_mask, vbps_in);
 	regmap_update_bits(priv->regmap, MCHP_ASRC_VBPS_OUT, vbps_mask, vbps_out);
 	regmap_update_bits(priv->regmap, MCHP_ASRC_CH_CONF, ch_conf_mask, ch_conf);
+	regmap_update_bits(priv->regmap, MCHP_ASRC_DAPSELR, dapselr_mask, dapselr);
+	regmap_update_bits(priv->regmap, MCHP_ASRC_MR, mr_mask, mr_val);
 
 	snd_soc_dai_init_dma_data(dai, dma, dma);
 __skip_conf:
@@ -1671,7 +1724,7 @@ static void mchp_asrc_dsps_trigger(struct mchp_asrc_dev *priv, struct mchp_asrc_
 
 	for (dsp = slot_be->first_dsp; dsp < slot_be->first_dsp + slot_be->dsp_count; dsp++) {
 		/* Enable interrupt and wait for DPLL LOCK */
-		if (enable)
+		if (enable && !priv->direct_path)
 			ir_reg = MCHP_ASRC_IER(dsp);
 		else
 			ir_reg = MCHP_ASRC_IDR(dsp);
@@ -1880,7 +1933,6 @@ static void mchp_asrc_block_pending_intr(struct mchp_asrc_dev *priv,
 		if (!priv->dsp[block].dma->unlocked_dsps) {
 			dev_dbg_ratelimited(dev, "block %d: DSPs ready, calling DMA handle\n",
 					    block);
-			tasklet_schedule(&priv->dsp[block].dma->start_handle);
 		} else {
 			dev_dbg_ratelimited(dev, "block %d: waiting for %d more DSPs to lock\n",
 					    block, priv->dsp[block].dma->unlocked_dsps);
@@ -1928,6 +1980,9 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 	struct mchp_asrc_dev *priv;
 	struct regmap *regmap;
 	void __iomem *base;
+	struct property *prop;
+	const __be32 *cur;
+	const void *data;
 	u32 pv;
 	u32 version;
 	int irq;
@@ -1939,6 +1994,10 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	data = device_get_match_data(&pdev->dev);
+	if (data && !of_property_present(np, "microchip,disable-direct-path"))
+		priv->direct_path = *(bool *)data;
 
 	/* Map I/O registers */
 	base = devm_platform_get_and_ioremap_resource(pdev, 0, &priv->mem);
@@ -2045,6 +2104,48 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 			priv->trig[i].idx);
 	}
 #endif
+
+	count = 0;
+	of_property_for_each_u32(np, "microchip,direct-path-indexes", prop, cur, pv) {
+		struct mchp_asrc_be_trigger *trig_be = &priv->trig[count / 2];
+
+		if (pv > MCHP_ASRC_DP_IDX_MAX) {
+			dev_err(&pdev->dev,
+				"error: microchip,direct-path-indexes too big: %d\n",
+				pv);
+			err = -EINVAL;
+			goto __cleanup_of_phandle_triggers;
+		}
+
+		/* skip not found phandle */
+		if (!trig_be->phandle)
+			continue;
+
+		if (!(count % 2))
+			trig_be->dp_tx_idx = pv;
+		else
+			trig_be->dp_rx_idx = pv;
+
+		count++;
+
+		if (count > priv->trig_count * 2) {
+			dev_err(&pdev->dev,
+				"Too many microchip,direct-path-indexes: %d\n", count);
+			err = -EINVAL;
+			goto __cleanup_of_phandle_triggers;
+		}
+	}
+
+#ifdef DEBUG
+	dev_dbg(&pdev->dev, "Direct path IDs %d:\n", count);
+	for (i = 0; i < count; i++) {
+		dev_dbg(&pdev->dev, "%s, DP: TX=%d, RX=%d\n",
+			priv->trig[i / 2].phandle->np->full_name,
+			priv->trig[i / 2].dp_tx_idx,
+			priv->trig[i / 2].dp_rx_idx);
+	}
+#endif
+
 	priv->thr_opmode = -1;
 	priv->rhr_opmode = -1;
 
@@ -2058,7 +2159,7 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 		goto __cleanup_of_phandle_triggers;
 	}
 
-	err = mchp_asrc_pcm_register(&pdev->dev);
+	err = mchp_asrc_pcm_register(&pdev->dev, regmap, priv->direct_path);
 	if (err) {
 		dev_err(&pdev->dev, "failed to register ASoC platform\n");
 		goto __cleanup_of_phandle_triggers;
@@ -2105,9 +2206,15 @@ static void mchp_asrc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(priv->pclk);
 }
 
+static const int sama7d65_asrc_direct_path = 1;
+
 static const struct of_device_id mchp_asrc_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-asrc",
+	},
+	{
+		.compatible = "microchip,sama7d65-asrc",
+		.data = &sama7d65_asrc_direct_path,
 	},
 	{ /* sentinel */ }
 };
