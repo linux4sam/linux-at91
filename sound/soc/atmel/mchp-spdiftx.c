@@ -23,6 +23,7 @@
  */
 #define SPDIFTX_CR			0x00	/* Control Register */
 #define SPDIFTX_MR			0x04	/* Mode Register */
+#define SPDIFTX_EMR			0x08	/* Extended Mode Register */
 #define SPDIFTX_CDR			0x0C	/* Common Data Register */
 
 #define SPDIFTX_IER			0x14	/* Interrupt Enable Register */
@@ -70,11 +71,16 @@
 #define SPDIFTX_MR_CMODE_TOGGLE_ACCESS		(1 << 4)
 #define SPDIFTX_MR_CMODE_INTERLVD_ACCESS	(2 << 4)
 
+/* Transmitter direct access enable. */
+#define	SPDIFTX_MR_TXDIRECT		BIT(6)
+
 /* Valid Bits per Sample */
 #define SPDIFTX_MR_VBPS_MASK		GENMASK(13, 8)
+#define SPDIFTX_MR_VBPS(bps)		(((bps) << 8) & SPDIFTX_MR_VBPS_MASK)
 
 /* Chunk Size */
 #define SPDIFTX_MR_CHUNK_MASK		GENMASK(19, 16)
+#define SPDIFTX_MR_CHUNK(size)		(((size) << 16) & SPDIFTX_MR_CHUNK_MASK)
 
 /* Validity Bits for Channels 1 and 2 */
 #define SPDIFTX_MR_VALID1			BIT(24)
@@ -87,6 +93,15 @@
 
 /* Bytes per Sample */
 #define SPDIFTX_MR_BPS_MASK		GENMASK(29, 28)
+#define SPDIFTX_MR_BPS(bytes) \
+	((((bytes) - 1) << 28) & SPDIFTX_MR_BPS_MASK)
+
+/*
+ * ---- Extended Mode Register ----
+ */
+/* Direct Audio Transmit Channel Enable */
+#define SPDIFTX_EMR_DTCEN(ch)		BIT((ch) + 24)
+#define SPDIFTX_EMR_DTCEN_MASK		GENMASK(31, 24)
 
 /*
  * ---- Interrupt Enable/Disable/Mask/Status Register (Write/Read-only) ----
@@ -187,6 +202,14 @@ struct mchp_spdiftx_mixer_control {
 	spinlock_t				lock; /* exclusive access to control data */
 };
 
+/**
+ * struct mchp_spdiftx_soc: SPDIFTX SoC specific data
+ * @direct_path_avail: specify if ASRC direct path is available
+ */
+struct mchp_spdiftx_soc {
+	unsigned int direct_path_avail;
+};
+
 struct mchp_spdiftx_dev {
 	struct mchp_spdiftx_mixer_control	control;
 	struct snd_dmaengine_dai_dma_data	playback;
@@ -196,6 +219,8 @@ struct mchp_spdiftx_dev {
 	struct clk				*gclk;
 	unsigned int				fmt;
 	unsigned int				suspend_irq;
+	const struct mchp_spdiftx_soc		*soc;
+	bool					direct_path;
 };
 
 static inline int mchp_spdiftx_is_running(struct mchp_spdiftx_dev *dev)
@@ -306,6 +331,7 @@ static int mchp_spdiftx_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct mchp_spdiftx_dev *dev = snd_soc_dai_get_drvdata(dai);
 	struct mchp_spdiftx_mixer_control *ctrl = &dev->control;
+	struct snd_soc_pcm_runtime *be = asoc_substream_to_rtd(substream);
 	int ret;
 
 	/* do not start/stop while channel status or user data is updated */
@@ -313,11 +339,19 @@ static int mchp_spdiftx_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_START:
-		regmap_write(dev->regmap, SPDIFTX_IER, dev->suspend_irq |
-			     SPDIFTX_IR_TXUDR | SPDIFTX_IR_TXOVR);
-		dev->suspend_irq = 0;
+		/* Direct path mode does not use IRQs so this is safe behavior*/
+		if (!dev->direct_path) {
+			regmap_write(dev->regmap, SPDIFTX_IER, dev->suspend_irq |
+						SPDIFTX_IR_TXUDR | SPDIFTX_IR_TXOVR);
+			dev->suspend_irq = 0;
+		}
 		fallthrough;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		/* Direct path mode does not use IRQs so this is safe behavior*/
+		if (dev->direct_path && be->dai_link->no_pcm)
+			regmap_write(dev->regmap, SPDIFTX_IDR, dev->suspend_irq |
+					    SPDIFTX_IR_TXUDR);
+
 		ret = regmap_update_bits(dev->regmap, SPDIFTX_MR, SPDIFTX_MR_TXEN_MASK,
 					 SPDIFTX_MR_TXEN_ENABLE);
 		break;
@@ -349,8 +383,10 @@ static int mchp_spdiftx_hw_params(struct snd_pcm_substream *substream,
 	unsigned long flags;
 	struct mchp_spdiftx_dev *dev = snd_soc_dai_get_drvdata(dai);
 	struct mchp_spdiftx_mixer_control *ctrl = &dev->control;
-	u32 mr;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	u32 mr, emr = 0;
 	unsigned int bps = params_physical_width(params) / 8;
+	u32 ch, channels = params_channels(params);
 	unsigned char aes3;
 	int ret;
 
@@ -434,6 +470,15 @@ static int mchp_spdiftx_hw_params(struct snd_pcm_substream *substream,
 			params_format(params));
 		return -EINVAL;
 	}
+	if (dev->direct_path) {
+		if (rtd->dai_link->no_pcm) {
+			mr |= SPDIFTX_MR_TXDIRECT;
+			for (ch = 0; ch < channels; ch++)
+				emr |= SPDIFTX_EMR_DTCEN(ch);
+		} else {
+			mr &= ~SPDIFTX_MR_TXDIRECT;
+		}
+	}
 
 	mr |= FIELD_PREP(SPDIFTX_MR_BPS_MASK, bps - 1);
 
@@ -501,6 +546,9 @@ static int mchp_spdiftx_hw_params(struct snd_pcm_substream *substream,
 
 	dev_dbg(dev->dev, "%s(): GCLK set to %d\n", __func__,
 		params_rate(params) * SPDIFTX_GCLK_RATIO);
+
+	regmap_update_bits(dev->regmap, SPDIFTX_EMR, SPDIFTX_EMR_DTCEN_MASK,
+			   emr);
 
 	regmap_write(dev->regmap, SPDIFTX_MR, mr);
 
@@ -721,10 +769,19 @@ static const struct snd_soc_component_driver mchp_spdiftx_component = {
 	.legacy_dai_naming	= 1,
 };
 
+static const struct mchp_spdiftx_soc mchp_spdiftx_soc_data = {
+	.direct_path_avail = 1,
+};
+
 static const struct of_device_id mchp_spdiftx_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-spdiftx",
 	},
+	{
+		.compatible = "microchip,sama7d65-spdiftx",
+		.data = &mchp_spdiftx_soc_data,
+	},
+
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mchp_spdiftx_dt_ids);
@@ -783,6 +840,7 @@ static int mchp_spdiftx_probe(struct platform_device *pdev)
 	struct mchp_spdiftx_dev *dev;
 	struct resource *mem;
 	struct regmap *regmap;
+	struct device_node *np;
 	void __iomem *base;
 	struct mchp_spdiftx_mixer_control *ctrl;
 	int irq;
@@ -838,6 +896,7 @@ static int mchp_spdiftx_probe(struct platform_device *pdev)
 	ctrl->ch_stat[0] = IEC958_AES0_CON_NOT_COPYRIGHT |
 			   IEC958_AES0_CON_EMPHASIS_NONE;
 
+	dev->soc = device_get_match_data(&pdev->dev);
 	dev->dev = &pdev->dev;
 	dev->regmap = regmap;
 	platform_set_drvdata(pdev, dev);
@@ -864,6 +923,13 @@ static int mchp_spdiftx_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "failed to register component: %d\n", err);
 		goto pm_runtime_suspend;
+	}
+
+	/*Check if we have direct path disabled*/
+	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
+	if (!np && dev->soc->direct_path_avail) {
+		dev->direct_path = true;
+		of_node_put(np);
 	}
 
 	return 0;
