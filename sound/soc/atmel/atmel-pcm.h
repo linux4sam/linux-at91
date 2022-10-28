@@ -62,6 +62,7 @@ struct atmel_pcm_dma_params {
 	struct atmel_ssc_mask *mask;	/* SSC & PDC status bits */
 	struct snd_pcm_substream *substream;
 	void (*dma_intr_handler)(u32, struct snd_pcm_substream *);
+	bool direct_path;
 };
 
 /*

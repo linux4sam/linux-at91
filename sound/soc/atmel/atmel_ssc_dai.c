@@ -156,8 +156,8 @@ static irqreturn_t atmel_ssc_interrupt(int irq, void *dev_id)
 	for (i = 0; i < ARRAY_SIZE(ssc_p->dma_params); i++) {
 		dma_params = ssc_p->dma_params[i];
 
-		if ((dma_params != NULL) &&
-			(dma_params->dma_intr_handler != NULL)) {
+		if (dma_params && dma_params->direct_path &&
+		    dma_params->dma_intr_handler) {
 			ssc_substream_mask = (dma_params->mask->ssc_endx |
 					dma_params->mask->ssc_endbuf);
 			if (ssc_sr & ssc_substream_mask) {
@@ -463,8 +463,9 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
 	struct atmel_ssc_info *ssc_p = &ssc_info[id];
 	struct ssc_device *ssc = ssc_p->ssc;
 	struct atmel_pcm_dma_params *dma_params;
-	int dir, channels, bits;
-	u32 tfmr, rfmr, tcmr, rcmr;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int dir, channels, ch, bits;
+	u32 tfmr, rfmr, tcmr, rcmr, damr = 0;
 	int ret;
 	int fslen, fslen_ext, fs_osync, fs_edge;
 	u32 cmr_div;
@@ -663,9 +664,27 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	pr_debug("atmel_ssc_hw_params: "
-			"RCMR=%08x RFMR=%08x TCMR=%08x TFMR=%08x\n",
-			rcmr, rfmr, tcmr, tfmr);
+	if (ssc->pdata->direct_path) {
+		if (rtd->dai_link->no_pcm) {
+			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+				damr |= SSC_BIT(DAMR_DATXEN);
+			else
+				damr |= SSC_BIT(DAMR_DARXEN);
+
+			for (ch = 0; ch < channels; ch++)
+				damr |= BIT(SSC_DAMR_DATCEN_OFFSET + ch);
+
+			dma_params->direct_path = true;
+		} else {
+			dma_params->direct_path = false;
+		}
+	} else {
+		dma_params->direct_path = false;
+	}
+
+	pr_debug("atmel_ssc_hw_params:"
+			"RCMR=%08x RFMR=%08x TCMR=%08x TFMR=%08x DMAR=%08x\n",
+			rcmr, rfmr, tcmr, tfmr, damr);
 
 	if (!ssc_p->initialized) {
 		if (!ssc_p->ssc->pdata->use_dma) {
@@ -699,6 +718,9 @@ static int atmel_ssc_hw_params(struct snd_pcm_substream *substream,
 	/* set receive clock mode and format */
 	ssc_writel(ssc_p->ssc->regs, RCMR, rcmr);
 	ssc_writel(ssc_p->ssc->regs, RFMR, rfmr);
+
+	/* set DAMR */
+	ssc_writel(ssc_p->ssc->regs, DAMR, damr);
 
 	/* set transmit clock mode and format */
 	ssc_writel(ssc_p->ssc->regs, TCMR, tcmr);

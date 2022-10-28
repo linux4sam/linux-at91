@@ -9,6 +9,7 @@
 struct atmel_ssc_platform_data {
 	int			use_dma;
 	int			has_fslen_ext;
+	int			direct_path;
 };
 
 struct ssc_device {
@@ -140,6 +141,15 @@ void ssc_free(struct ssc_device *ssc);
 #define SSC_THR				0x00000024
 #define SSC_THR_TDAT_SIZE			32
 #define SSC_THR_TDAT_OFFSET			 0
+
+/* SSC Direct Access Mode Register */
+#define SSC_DAMR			0x0000002c
+#define SSC_DAMR_DATXEN_SIZE			 1
+#define SSC_DAMR_DATXEN_OFFSET			 0
+#define SSC_DAMR_DARXEN_SIZE			 1
+#define SSC_DAMR_DARXEN_OFFSET			 1
+#define SSC_DAMR_DATCEN_SIZE			 1
+#define SSC_DAMR_DATCEN_OFFSET			 8
 
 /* SSC Receive Sync. Holding Register */
 #define SSC_RSHR			0x00000030

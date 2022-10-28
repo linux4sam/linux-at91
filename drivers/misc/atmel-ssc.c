@@ -96,6 +96,12 @@ static struct atmel_ssc_platform_data at91sam9g45_config = {
 	.has_fslen_ext = 1,
 };
 
+static struct atmel_ssc_platform_data microchip_sama7d65_config = {
+	.use_dma = 1,
+	.has_fslen_ext = 1,
+	.direct_path = 1,
+};
+
 static const struct platform_device_id atmel_ssc_devtypes[] = {
 	{
 		.name = "at91rm9200_ssc",
@@ -106,6 +112,9 @@ static const struct platform_device_id atmel_ssc_devtypes[] = {
 	}, {
 		.name = "at91sam9g45_ssc",
 		.driver_data = (unsigned long) &at91sam9g45_config,
+	}, {
+		.name = "mchp_sama7d65_ssc",
+		.driver_data = (unsigned long) &microchip_sama7d65_config,
 	}, {
 		/* sentinel */
 	}
@@ -122,6 +131,9 @@ static const struct of_device_id atmel_ssc_dt_ids[] = {
 	}, {
 		.compatible = "atmel,at91sam9g45-ssc",
 		.data = &at91sam9g45_config,
+	}, {
+		.compatible = "microchip,sama7d65-ssc",
+		.data = &microchip_sama7d65_config,
 	}, {
 		/* sentinel */
 	}
@@ -192,6 +204,7 @@ static int ssc_probe(struct platform_device *pdev)
 	struct resource *regs;
 	struct ssc_device *ssc;
 	const struct atmel_ssc_platform_data *plat_dat;
+	struct device_node *np;
 
 	ssc = devm_kzalloc(&pdev->dev, sizeof(struct ssc_device), GFP_KERNEL);
 	if (!ssc) {
@@ -247,6 +260,14 @@ static int ssc_probe(struct platform_device *pdev)
 
 	if (ssc_sound_dai_probe(ssc))
 		dev_err(&pdev->dev, "failed to auto-setup ssc for audio\n");
+
+	if (ssc->pdata->direct_path) {
+		np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
+		if (np) {
+			ssc->pdata->direct_path = 0;
+			of_node_put(np);
+		}
+	}
 
 	return 0;
 }
