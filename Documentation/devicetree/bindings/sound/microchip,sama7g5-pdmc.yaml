@@ -18,7 +18,9 @@ allOf:
 
 properties:
   compatible:
-    const: microchip,sama7g5-pdmc
+    enum:
+      - microchip,sama7g5-pdmc
+      - microchip,sama7d65-pdmc
 
   reg:
     maxItems: 1
