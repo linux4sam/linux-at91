@@ -44,6 +44,8 @@
 #define MCHP_PDMC_MR_PDMCEN_MASK	GENMASK(3, 0)
 #define MCHP_PDMC_MR_PDMCEN(ch)		(BIT(ch) & MCHP_PDMC_MR_PDMCEN_MASK)
 
+#define MCHP_PDMC_MR_DST		BIT(12)
+
 #define MCHP_PDMC_MR_OSR_MASK		GENMASK(17, 16)
 #define MCHP_PDMC_MR_OSR64		(1 << 16)
 #define MCHP_PDMC_MR_OSR128		(2 << 16)
@@ -125,6 +127,7 @@ struct mchp_pdmc {
 	int sinc_order;
 	bool audio_filter_en;
 	atomic_t busy_stream;
+	bool direct_path;
 };
 
 static const char *const mchp_pdmc_sinc_filter_order_text[] = {
@@ -523,6 +526,7 @@ static int mchp_pdmc_hw_params(struct snd_pcm_substream *substream,
 {
 	struct mchp_pdmc *dd = snd_soc_dai_get_drvdata(dai);
 	struct snd_soc_component *comp = dai->component;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned long gclk_rate = 0;
 	unsigned long best_diff_rate = ~0UL;
 	unsigned int channels = params_channels(params);
@@ -603,11 +607,17 @@ static int mchp_pdmc_hw_params(struct snd_pcm_substream *substream,
 	mr_val |= FIELD_PREP(MCHP_PDMC_MR_CHUNK_MASK, dd->addr.maxburst);
 	dev_dbg(comp->dev, "maxburst set to %d\n", dd->addr.maxburst);
 
+	if (dd->direct_path) {
+		if (rtd->dai_link->no_pcm)
+			mr_val |= MCHP_PDMC_MR_DST;
+	}
+
 	snd_soc_component_update_bits(comp, MCHP_PDMC_MR,
 				      MCHP_PDMC_MR_OSR_MASK |
 				      MCHP_PDMC_MR_SINCORDER_MASK |
 				      MCHP_PDMC_MR_SINC_OSR_MASK |
-				      MCHP_PDMC_MR_CHUNK_MASK, mr_val);
+				      MCHP_PDMC_MR_CHUNK_MASK |
+				      MCHP_PDMC_MR_DST, mr_val);
 
 	snd_soc_component_write(comp, MCHP_PDMC_CFGR, cfgr_val);
 
@@ -642,6 +652,7 @@ static int mchp_pdmc_trigger(struct snd_pcm_substream *substream,
 {
 	struct mchp_pdmc *dd = snd_soc_dai_get_drvdata(dai);
 	struct snd_soc_component *cpu = dai->component;
+	struct snd_soc_pcm_runtime *be = asoc_substream_to_rtd(substream);
 #ifdef DEBUG
 	u32 val;
 #endif
@@ -656,18 +667,26 @@ static int mchp_pdmc_trigger(struct snd_pcm_substream *substream,
 
 		mchp_pdmc_noise_filter_workaround(dd);
 
-		/* Enable interrupts. */
-		regmap_write(dd->regmap, MCHP_PDMC_IER, dd->suspend_irq |
-			     MCHP_PDMC_IR_RXOVR | MCHP_PDMC_IR_RXUDR);
-		dd->suspend_irq = 0;
+		/* Do not Enable IRQs for Direct path mode*/
+		if (dd->direct_path && be->dai_link->no_pcm) {
+			regmap_write(dd->regmap, MCHP_PDMC_IDR, dd->suspend_irq |
+			     MCHP_PDMC_IR_RXOVR | MCHP_PDMC_IR_RXUDR | MCHP_PDMC_IR_RXFULL);
+		} else if (!dd->direct_path) {
+			/* Enable interrupts. */
+			regmap_write(dd->regmap, MCHP_PDMC_IER, dd->suspend_irq |
+					MCHP_PDMC_IR_RXOVR | MCHP_PDMC_IR_RXUDR);
+			dd->suspend_irq = 0;
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		regmap_read(dd->regmap, MCHP_PDMC_IMR, &dd->suspend_irq);
 		fallthrough;
 	case SNDRV_PCM_TRIGGER_STOP:
 		/* Disable overrun and underrun error interrupts */
-		regmap_write(dd->regmap, MCHP_PDMC_IDR, dd->suspend_irq |
-			     MCHP_PDMC_IR_RXOVR | MCHP_PDMC_IR_RXUDR);
+		if (!dd->direct_path || (dd->direct_path && !be->dai_link->no_pcm)) {
+			regmap_write(dd->regmap, MCHP_PDMC_IDR, dd->suspend_irq |
+					MCHP_PDMC_IR_RXOVR | MCHP_PDMC_IR_RXUDR);
+		}
 		fallthrough;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		snd_soc_component_update_bits(cpu, MCHP_PDMC_MR,
@@ -1013,7 +1032,9 @@ static int mchp_pdmc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mchp_pdmc *dd;
 	struct resource *res;
+	struct device_node *np;
 	void __iomem *io_base;
+	const void *data;
 	u32 version;
 	int irq;
 	int ret;
@@ -1021,6 +1042,17 @@ static int mchp_pdmc_probe(struct platform_device *pdev)
 	dd = devm_kzalloc(dev, sizeof(*dd), GFP_KERNEL);
 	if (!dd)
 		return -ENOMEM;
+
+	data = device_get_match_data(&pdev->dev);
+	if (data) {
+		dd->direct_path = *(bool *)data;
+		np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
+		if (np) {
+			dd->direct_path = false;
+			of_node_put(np);
+		}
+	}
+
 
 	dd->dev = &pdev->dev;
 	ret = mchp_pdmc_dt_init(dd);
@@ -1124,10 +1156,14 @@ static void mchp_pdmc_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(dd->dev);
 }
+static const bool sama7d65_pdmc_direct_path = true;
 
 static const struct of_device_id mchp_pdmc_of_match[] = {
 	{
 		.compatible = "microchip,sama7g5-pdmc",
+	}, {
+		.compatible = "microchip,sama7d65-pdmc",
+		.data = &sama7d65_pdmc_direct_path,
 	}, {
 		/* sentinel */
 	}
