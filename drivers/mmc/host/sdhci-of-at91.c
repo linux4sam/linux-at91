@@ -232,6 +232,7 @@ static const struct sdhci_at91_soc_data soc_data_sama7g5 = {
 	.baseclk_is_generated_internally = true,
 	.divider_for_baseclk = 2,
 	.max_sdr104_clk = 200000000,
+	.quirks2 = SDHCI_QUIRK2_AT91_HS400_PRESET,
 };
 
 static const struct of_device_id sdhci_at91_dt_match[] = {
