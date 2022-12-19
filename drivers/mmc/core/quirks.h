@@ -221,6 +221,8 @@ static inline bool mmc_fixup_of_compatible_match(struct mmc_card *card,
 			return true;
 		}
 	}
+	if (of_device_is_compatible(mmc_dev(card->host)->of_node, compatible))
+		return true;
 
 	return false;
 }
