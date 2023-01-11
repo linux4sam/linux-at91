@@ -59,3 +59,11 @@ config VIDEO_MICROCHIP_CSI2DC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called microchip-csi2dc.
+
+config VIDEO_MCHP_DSCMI
+	tristate "Microchip Digital Serial Camera Memory Interface Driver"
+	depends on VIDEO_V4L2
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	help
+	  Microchip Digital Serial Camera Memory Interface Driver Support For Smart Embedded Vision Kit.
