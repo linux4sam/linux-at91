@@ -51,6 +51,10 @@
 #define MCHP_DSCMI_FRAME_START_REG		0x1084
 #define MCHP_DSCMI_STREAM_ADDR_LOW		0x1088
 #define MCHP_DSCMI_STREAM_ADDR_HIGH		0x108C
+#define MCHP_DSCMI_H264_RATIO			0x1108
+#define MCHP_DSCMI_R_FRAME_WIDTH		0x110C
+#define MCHP_DSCMI_R_FRAME_HIGHT		0x1110
+#define MCHP_DSCMI_OSD_X_Y_POS			0x1100
 
 /* Offset address to get video capability */
 #define MCHP_DSCMI_CAPABILITIES_V4L2		0x1500
@@ -58,7 +62,7 @@
 #define MCHP_DSCMI_FRAME_START			0x1
 #define MCHP_DSCMI_FRAME_STOP			0x0
 
-#define MCHP_DSCMI_H264_NUM_CTRLS		8
+#define MCHP_DSCMI_H264_NUM_CTRLS		11
 #define MCHP_DSCMI_NUM_CTRLS			7
 
 #define MCHP_DSCMI_CAM_POWER_ON			1
@@ -84,6 +88,9 @@
 #define MCHP_DSCMI_CID_GREEN_GAIN		(V4L2_CID_USER_BASE | 0x1002)
 #define MCHP_DSCMI_CID_BLUE_GAIN		(V4L2_CID_USER_BASE | 0x1003)
 #define MCHP_DSCMI_CID_Q_FACTOR			(V4L2_CID_USER_BASE | 0x1004)
+#define MCHP_DSCMI_CID_OSD_X_POS		(V4L2_CID_USER_BASE | 0x1005)
+#define MCHP_DSCMI_CID_OSD_Y_POS		(V4L2_CID_USER_BASE | 0x1006)
+#define MCHP_DSCMI_CID_OSD_ENABLE		(V4L2_CID_USER_BASE | 0x1007)
 
 /* Default resolution */
 #define MCHP_DSCMI_FIXED_WIDTH			1280
@@ -104,6 +111,23 @@
 #define MCHP_DSCMI_Q_FACTOR_CTL_MAX		52
 #define MCHP_DSCMI_Q_FACTOR_CTL_MIN		25
 #define MCHP_DSCMI_Q_FACTOR_CTL_DEFAULT		30
+
+/* Text overlay (On Screen Display) */
+#define MCHP_DSCMI_OSD_X_Y_POS_MAX		4096
+#define MCHP_DSCMI_OSD_X_Y_POS_MIN		4
+#define MCHP_DSCMI_OSD_X_Y_POS_DEFAULT		4
+#define MCHP_DSCMI_OSD_X_Y_POS_STEP		2
+#define MCHP_DSCMI_OSD_ENABLE_MAX		1
+#define MCHP_DSCMI_OSD_ENABLE_MIN		0
+#define MCHP_DSCMI_OSD_ENABLE_DEFAULT		1
+#define MCHP_DSCMI_OSD_ENABLE_STEP		1
+#define MCHP_DSCMI_OSD_DISABLE_MAX_PIX		0x2000
+#define MCHP_DSCMI_OSD_X_POS_SHIFT		16
+
+/* The compression ratio is calculated for every 60 frames */
+#define MCHP_DSCMI_OSD_MAX_FRAMES_RESET_COUNT	60
+#define MCHP_DSCMI_OSD_MAX_FRAMES_INIT		50
+#define MCHP_DSCMI_OSD_MAX_ARRAY		6
 
 /* Auto gain check delay in msecs*/
 #define MCHP_DSCMI_DELAYED_WORK_TIME_M_SEC	150
@@ -131,6 +155,18 @@ enum mchp_dscmi_capabilities {
 struct mchp_dscmi_framesize {
 	u32 width;
 	u32 height;
+};
+
+/**
+ * struct mchp_dscmi_compression_ratio - for compression calculation
+ * @frame_size:		accumulated frames size
+ * @frame_size_index:	accumulated present frames size index
+ * @frame_count:	present frame count
+ */
+struct mchp_dscmi_compression_ratio {
+	u32 frame_size[MCHP_DSCMI_OSD_MAX_ARRAY];
+	u32 frame_size_index;
+	u32 frame_count;
 };
 
 /**
@@ -194,6 +230,7 @@ struct mchp_dscmi_format {
  * @dma_cookie:		DMA engine cookie
  * @dma_lock:		DMA mutex lock for serializing dma use
  * @cambuf:		struct cam_buffer
+ * @h264_ratio:		struct compression_ratio
  * @state:		state of buffers
  * @capabilities:	capabilities to identify the fabric v4l2 support
  * @s_buff_index:	current streaming buf index
@@ -203,6 +240,8 @@ struct mchp_dscmi_format {
  * @brightness:		brightness value
  * @sequence:		frame sequence counter
  * @drop_count:		total frame drop counter
+ * @horizontal_pos:	overlay horizontal position
+ * @vertical_pos:	overlay vertical position
  */
 struct mchp_dscmi_fpga {
 	void __iomem *base;
@@ -225,6 +264,7 @@ struct mchp_dscmi_fpga {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct mutex dma_lock; /* mutex for dma operations */
 	struct mchp_dscmi_cam_buffer cambuf;
+	struct mchp_dscmi_compression_ratio h264_ratio;
 	enum mchp_dscmi_state state;
 	enum mchp_dscmi_capabilities capabilities;
 	dma_cookie_t dma_cookie;
@@ -235,6 +275,8 @@ struct mchp_dscmi_fpga {
 	int brightness;
 	int sequence;
 	int drop_count;
+	int horizontal_pos;
+	int vertical_pos;
 };
 
 struct mchp_dscmi_subdev_entity {
@@ -293,6 +335,36 @@ static inline u32 mchp_dscmi_reg_read(struct mchp_dscmi_fpga *mchp_dscmi,
 				      u32 reg)
 {
 	return readl_relaxed(mchp_dscmi->base + reg);
+}
+
+/*
+ * Compression ratio is the percentage of compressed image over the actual image.
+ * The YUV420 requires 3 bytes per 2 pixels, or 1.5 bytes per pixel, because
+ * groups of pixels share a single color value.
+ * The compression ratio can be calculated as:
+ * (width * height * accumulated-frame-count * bytes-per-pixel) / accumulated-frame-size
+ */
+static u32 compression_ratio_calc(u32 hres, u32 vres, u32 accumulated_frame_size)
+{
+	return ((hres * vres * MCHP_DSCMI_OSD_MAX_FRAMES_RESET_COUNT * 3) /
+		(accumulated_frame_size)) / 2;
+}
+
+/*
+ * The compression ratio is calculated by the driver, but overlaid by
+ * the FPGA logic. It is displayed as a percentage, with the 4 least
+ * significant bits of MCHP_DSCMI_H264_RATIO containing the units,
+ * bits 4 to 7 containing the tens etc to be displayed.
+ */
+
+static void mchp_dscmi_osd_text(struct mchp_dscmi_fpga *mchp_dscmi,
+				u32 compression_ratio)
+{
+	u32 compression_ratio_osd = ((compression_ratio % 10) |
+				    ((compression_ratio / 10 % 10) << 4) |
+				    ((compression_ratio / 100) << 8));
+
+	mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_H264_RATIO, compression_ratio_osd);
 }
 
 static void mchp_dscmi_buffer_done(struct mchp_dscmi_fpga *mchp_dscmi,
@@ -358,7 +430,9 @@ static int mchp_dscmi_start_dma(struct mchp_dscmi_fpga *mchp_dscmi,
 {
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_slave_config config;
-	int ret, buf_size;
+	struct mchp_dscmi_compression_ratio *h264_ratio = &mchp_dscmi->h264_ratio;
+	int ret, buf_size, i;
+	int *frame_size_index = &h264_ratio->frame_size_index;
 
 	memset(&config, 0, sizeof(config));
 
@@ -368,6 +442,33 @@ static int mchp_dscmi_start_dma(struct mchp_dscmi_fpga *mchp_dscmi,
 
 	buf_size = mchp_dscmi->s_buff_size;
 	spin_unlock_irq(&mchp_dscmi->qlock);
+
+	h264_ratio->frame_count++;
+	h264_ratio->frame_size[*frame_size_index] += buf_size;
+
+	if (h264_ratio->frame_count % 10 == 0)
+		(*frame_size_index)++;
+
+	if (*frame_size_index == MCHP_DSCMI_OSD_MAX_ARRAY)
+		*frame_size_index = 0;
+
+	if (h264_ratio->frame_count == MCHP_DSCMI_OSD_MAX_FRAMES_RESET_COUNT) {
+		u32 accumulated_frame_size = 0, compression_ratio, hres, vres;
+
+		for (i = 0; i < MCHP_DSCMI_OSD_MAX_ARRAY; i++)
+			accumulated_frame_size += h264_ratio->frame_size[i];
+
+		hres = mchp_dscmi_reg_read(mchp_dscmi, MCHP_DSCMI_R_FRAME_WIDTH);
+		vres = mchp_dscmi_reg_read(mchp_dscmi, MCHP_DSCMI_R_FRAME_HIGHT);
+
+		compression_ratio = compression_ratio_calc(hres, vres,
+							   accumulated_frame_size);
+
+		mchp_dscmi_osd_text(mchp_dscmi, compression_ratio);
+
+		h264_ratio->frame_count = MCHP_DSCMI_OSD_MAX_FRAMES_INIT;
+		h264_ratio->frame_size[*frame_size_index] = 0;
+	}
 
 	config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
@@ -569,7 +670,7 @@ static int mchp_dscmi_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct mchp_dscmi_fpga *mchp_dscmi = vb2_get_drv_priv(vq);
 	struct v4l2_subdev *subdev = mchp_dscmi->current_subdev->subdev;
-
+	struct mchp_dscmi_compression_ratio *h264_ratio = &mchp_dscmi->h264_ratio;
 	int ret;
 
 	v4l2_subdev_call(subdev, core, s_power, MCHP_DSCMI_CAM_POWER_ON);
@@ -590,6 +691,9 @@ static int mchp_dscmi_start_streaming(struct vb2_queue *vq, unsigned int count)
 	mchp_dscmi->drop_count = 0;
 	mchp_dscmi->s_buff_index = 0;
 	mchp_dscmi->s_buff_size = 0;
+
+	h264_ratio->frame_size_index = 0;
+	h264_ratio->frame_count = 0;
 
 	ret = request_threaded_irq(mchp_dscmi->irq, mchp_dscmi_irq_ext,
 				   mchp_dscmi_irq_thread_fn, IRQF_NO_SUSPEND,
@@ -867,6 +971,23 @@ static inline int contrast_scale_cal(int contrast)
 	return ((325 * (contrast + 128) / (387 - contrast)) >> 5u);
 }
 
+/*
+ * x and y co-ordinates of the OSD, where x is lsb and y is msb
+ */
+
+static void update_osd_coordinates(struct mchp_dscmi_fpga *mchp_dscmi, bool enable)
+{
+	u32 val;
+
+	if (enable) {
+		val = mchp_dscmi->vertical_pos |
+				(mchp_dscmi->horizontal_pos << MCHP_DSCMI_OSD_X_POS_SHIFT);
+	} else {
+		val = MCHP_DSCMI_OSD_DISABLE_MAX_PIX;
+	}
+	mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_OSD_X_Y_POS, val);
+}
+
 static int mchp_dscmi_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mchp_dscmi_fpga *mchp_dscmi;
@@ -919,6 +1040,17 @@ static int mchp_dscmi_s_ctrl(struct v4l2_ctrl *ctrl)
 	case MCHP_DSCMI_CID_Q_FACTOR:
 		mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_FRAME_Q_FACTOR,
 				     ctrl->val);
+		break;
+	case MCHP_DSCMI_CID_OSD_X_POS:
+		mchp_dscmi->horizontal_pos = ctrl->val;
+		update_osd_coordinates(mchp_dscmi, true);
+		break;
+	case MCHP_DSCMI_CID_OSD_Y_POS:
+		mchp_dscmi->vertical_pos = ctrl->val;
+		update_osd_coordinates(mchp_dscmi, true);
+		break;
+	case MCHP_DSCMI_CID_OSD_ENABLE:
+		update_osd_coordinates(mchp_dscmi, ctrl->val);
 		break;
 	case V4L2_CID_AUTOGAIN:
 		if (ctrl->val)
@@ -1048,6 +1180,33 @@ static const struct v4l2_ctrl_config mchp_dscmi_gain_ctrls[] = {
 		.max	= MCHP_DSCMI_Q_FACTOR_CTL_MAX,
 		.def	= MCHP_DSCMI_Q_FACTOR_CTL_DEFAULT,
 		.step	= MCHP_DSCMI_CTL_STEP,
+	}, {
+		.ops	= &mchp_dscmi_ctrl_ops,
+		.id	= MCHP_DSCMI_CID_OSD_X_POS,
+		.type	= V4L2_CTRL_TYPE_INTEGER,
+		.name	= "OSDx Position",
+		.min	= MCHP_DSCMI_OSD_X_Y_POS_MIN,
+		.max	= MCHP_DSCMI_OSD_X_Y_POS_MAX,
+		.def	= MCHP_DSCMI_OSD_X_Y_POS_DEFAULT,
+		.step	= MCHP_DSCMI_OSD_X_Y_POS_STEP,
+	}, {
+		.ops	= &mchp_dscmi_ctrl_ops,
+		.id	= MCHP_DSCMI_CID_OSD_Y_POS,
+		.type	= V4L2_CTRL_TYPE_INTEGER,
+		.name	= "OSDy Position",
+		.min	= MCHP_DSCMI_OSD_X_Y_POS_MIN,
+		.max	= MCHP_DSCMI_OSD_X_Y_POS_MAX,
+		.def	= MCHP_DSCMI_OSD_X_Y_POS_DEFAULT,
+		.step	= MCHP_DSCMI_OSD_X_Y_POS_STEP,
+	}, {
+		.ops	= &mchp_dscmi_ctrl_ops,
+		.id	= MCHP_DSCMI_CID_OSD_ENABLE,
+		.type	= V4L2_CTRL_TYPE_BOOLEAN,
+		.name	= "OSD enable",
+		.min	= MCHP_DSCMI_OSD_ENABLE_MIN,
+		.max	= MCHP_DSCMI_OSD_ENABLE_MAX,
+		.def	= MCHP_DSCMI_OSD_ENABLE_DEFAULT,
+		.step	= MCHP_DSCMI_OSD_ENABLE_STEP,
 	},
 };
 
@@ -1141,6 +1300,13 @@ static int mchp_dscmi_graph_notify_complete(struct v4l2_async_notifier *notifier
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[0], NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[1], NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[2], NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[4], NULL);
+	mchp_dscmi->horizontal_pos = MCHP_DSCMI_OSD_X_Y_POS_MIN;
+
+	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[5], NULL);
+	mchp_dscmi->vertical_pos = MCHP_DSCMI_OSD_X_Y_POS_MIN;
+
+	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[6], NULL);
 
 	if (mchp_dscmi->capabilities == H264)
 		v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[3], NULL);
