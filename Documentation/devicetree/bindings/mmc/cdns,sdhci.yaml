@@ -115,6 +115,8 @@ properties:
     minimum: 0
     maximum: 0x7f
 
+  dma-noncoherent: true
+
 required:
   - compatible
   - reg
