@@ -90,6 +90,8 @@ properties:
       - enum: [ rx_clk, tsu_clk ]
       - const: tsu_clk
 
+  dma-noncoherent: true
+
   local-mac-address: true
 
   phy-mode: true
