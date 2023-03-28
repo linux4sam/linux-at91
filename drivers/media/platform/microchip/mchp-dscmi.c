@@ -1388,8 +1388,8 @@ static void mchp_dscmi_subdev_cleanup(struct mchp_dscmi_fpga *mchp_dscmi)
 	struct mchp_dscmi_subdev_entity *subdev_entity;
 
 	list_for_each_entry(subdev_entity, &mchp_dscmi->subdev_entities, list) {
-		v4l2_async_notifier_unregister(&subdev_entity->notifier);
-		v4l2_async_notifier_cleanup(&subdev_entity->notifier);
+		v4l2_async_nf_unregister(&subdev_entity->notifier);
+		v4l2_async_nf_cleanup(&subdev_entity->notifier);
 	}
 
 	INIT_LIST_HEAD(&mchp_dscmi->subdev_entities);
@@ -1630,12 +1630,12 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 	list_for_each_entry(subdev_entity, &mchp_dscmi->subdev_entities, list) {
 		struct v4l2_async_subdev *async_subdev;
 
-		v4l2_async_notifier_init(&subdev_entity->notifier);
+		v4l2_async_nf_init(&subdev_entity->notifier);
 
-		async_subdev = v4l2_async_notifier_add_fwnode_remote_subdev(&subdev_entity
-									    ->notifier,
-							of_fwnode_handle(subdev_entity->epn),
-							struct v4l2_async_subdev);
+		async_subdev = v4l2_async_nf_add_fwnode_remote(&subdev_entity->notifier,
+							       of_fwnode_handle(subdev_entity
+							       ->epn),
+							       struct v4l2_async_subdev);
 		of_node_put(subdev_entity->epn);
 		subdev_entity->epn = NULL;
 
@@ -1646,8 +1646,7 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 
 		subdev_entity->notifier.ops = &mchp_dscmi_v4l2_async_ops;
 
-		ret = v4l2_async_notifier_register(&mchp_dscmi->v4l2_dev,
-						   &subdev_entity->notifier);
+		ret = v4l2_async_nf_register(&mchp_dscmi->v4l2_dev, &subdev_entity->notifier);
 		if (ret) {
 			dev_err_probe(&pdev->dev, ret,
 				      "Fail to register async notifier\n");
@@ -1679,8 +1678,8 @@ static int mchp_dscmi_remove(struct platform_device *pdev)
 	cancel_delayed_work(&mchp_dscmi->auto_gain_dw);
 	flush_workqueue(mchp_dscmi->auto_gain_wq);
 	destroy_workqueue(mchp_dscmi->auto_gain_wq);
-	v4l2_async_notifier_unregister(&mchp_dscmi->current_subdev->notifier);
-	v4l2_async_notifier_cleanup(&mchp_dscmi->current_subdev->notifier);
+	v4l2_async_nf_unregister(&mchp_dscmi->current_subdev->notifier);
+	v4l2_async_nf_cleanup(&mchp_dscmi->current_subdev->notifier);
 	v4l2_device_unregister(&mchp_dscmi->v4l2_dev);
 	dma_release_channel(mchp_dscmi->dma_chan);
 
