@@ -199,7 +199,6 @@ struct mpfs_sys_controller *mpfs_sys_controller_get(struct device *dev)
 		goto err_no_device;
 
 	match = of_match_node(mpfs_sys_controller_of_match,  dev->parent->of_node);
-	of_node_put(dev->parent->of_node);
 	if (!match)
 		goto err_no_device;
 
