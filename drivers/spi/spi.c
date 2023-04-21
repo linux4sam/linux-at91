@@ -2144,6 +2144,8 @@ void spi_finalize_current_message(struct spi_controller *ctlr)
 	int ret;
 
 	mesg = ctlr->cur_msg;
+	if (!mesg)
+		return;
 
 	if (!ctlr->ptp_sts_supported && !ctlr->transfer_one) {
 		list_for_each_entry(xfer, &mesg->transfers, transfer_list) {
