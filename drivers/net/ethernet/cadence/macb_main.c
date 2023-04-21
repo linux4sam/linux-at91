@@ -5870,6 +5870,8 @@ static int __maybe_unused macb_resume(struct device *dev)
 	macb_restore_features(bp);
 	rtnl_lock();
 
+	if (!of_phy_is_fixed_link(bp->pdev->dev.of_node))
+		phylink_init_phydev(bp->phylink);
 	phylink_start(bp->phylink);
 	rtnl_unlock();
 
