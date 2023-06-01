@@ -55,6 +55,7 @@
 #define MCHP_DSCMI_R_FRAME_WIDTH		0x110C
 #define MCHP_DSCMI_R_FRAME_HIGHT		0x1110
 #define MCHP_DSCMI_OSD_X_Y_POS			0x1100
+#define MCHP_DSCMI_OSD_COLOR			0x1104
 
 /* Offset address to get video capability */
 #define MCHP_DSCMI_CAPABILITIES_V4L2		0x1500
@@ -91,6 +92,7 @@
 #define MCHP_DSCMI_CID_OSD_X_POS		(V4L2_CID_USER_BASE | 0x1005)
 #define MCHP_DSCMI_CID_OSD_Y_POS		(V4L2_CID_USER_BASE | 0x1006)
 #define MCHP_DSCMI_CID_OSD_ENABLE		(V4L2_CID_USER_BASE | 0x1007)
+#define MCHP_DSCMI_CID_OSD_COLOR		(V4L2_CID_USER_BASE | 0x1008)
 
 /* Default resolution */
 #define MCHP_DSCMI_FIXED_WIDTH			1280
@@ -123,6 +125,10 @@
 #define MCHP_DSCMI_OSD_ENABLE_STEP		1
 #define MCHP_DSCMI_OSD_DISABLE_MAX_PIX		0x2000
 #define MCHP_DSCMI_OSD_X_POS_SHIFT		16
+#define MCHP_DSCMI_OSD_COLOR_MAX		0xFFFFFF
+#define MCHP_DSCMI_OSD_COLOR_MIN		0x000000
+#define MCHP_DSCMI_OSD_COLOR_DEFAULT		0xFFFFFF
+#define MCHP_DSCMI_OSD_COLOR_STEP		1
 
 /* The compression ratio is calculated for every 60 frames */
 #define MCHP_DSCMI_OSD_MAX_FRAMES_RESET_COUNT	60
@@ -1052,6 +1058,9 @@ static int mchp_dscmi_s_ctrl(struct v4l2_ctrl *ctrl)
 	case MCHP_DSCMI_CID_OSD_ENABLE:
 		update_osd_coordinates(mchp_dscmi, ctrl->val);
 		break;
+	case MCHP_DSCMI_CID_OSD_COLOR:
+		mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_OSD_COLOR, ctrl->val);
+		break;
 	case V4L2_CID_AUTOGAIN:
 		if (ctrl->val)
 			queue_delayed_work(mchp_dscmi->auto_gain_wq,
@@ -1207,6 +1216,15 @@ static const struct v4l2_ctrl_config mchp_dscmi_gain_ctrls[] = {
 		.max	= MCHP_DSCMI_OSD_ENABLE_MAX,
 		.def	= MCHP_DSCMI_OSD_ENABLE_DEFAULT,
 		.step	= MCHP_DSCMI_OSD_ENABLE_STEP,
+	}, {
+		.ops	= &mchp_dscmi_ctrl_ops,
+		.id	= MCHP_DSCMI_CID_OSD_COLOR,
+		.type	= V4L2_CTRL_TYPE_U16,
+		.name	= "OSD color",
+		.min	= MCHP_DSCMI_OSD_COLOR_MIN,
+		.max	= MCHP_DSCMI_OSD_COLOR_MAX,
+		.def	= MCHP_DSCMI_OSD_COLOR_DEFAULT,
+		.step	= MCHP_DSCMI_OSD_COLOR_STEP,
 	},
 };
 
@@ -1307,6 +1325,7 @@ static int mchp_dscmi_graph_notify_complete(struct v4l2_async_notifier *notifier
 	mchp_dscmi->vertical_pos = MCHP_DSCMI_OSD_X_Y_POS_MIN;
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[6], NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[7], NULL);
 
 	if (mchp_dscmi->capabilities == H264)
 		v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_dscmi_gain_ctrls[3], NULL);
