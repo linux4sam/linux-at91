@@ -1219,7 +1219,7 @@ static const struct v4l2_ctrl_config mchp_dscmi_gain_ctrls[] = {
 	}, {
 		.ops	= &mchp_dscmi_ctrl_ops,
 		.id	= MCHP_DSCMI_CID_OSD_COLOR,
-		.type	= V4L2_CTRL_TYPE_U16,
+		.type	= V4L2_CTRL_TYPE_INTEGER,
 		.name	= "OSD color",
 		.min	= MCHP_DSCMI_OSD_COLOR_MIN,
 		.max	= MCHP_DSCMI_OSD_COLOR_MAX,
