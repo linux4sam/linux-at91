@@ -836,6 +836,9 @@ static int mchp_dscmi_s_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct mchp_dscmi_fpga *mchp_dscmi = video_drvdata(file);
 
+	if (mchp_dscmi->capabilities == H264)
+		return mchp_dscmi_try_fmt_vid_cap(file, priv, fmt);
+
 	if (vb2_is_streaming(&mchp_dscmi->queue))
 		return -EBUSY;
 
