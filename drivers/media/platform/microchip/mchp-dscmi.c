@@ -795,6 +795,9 @@ static int mchp_dscmi_try_fmt(struct mchp_dscmi_fpga *mchp_dscmi,
 	v4l2_fill_mbus_format(&format.format, pix,
 			      mchp_dscmi_formats[mchp_dscmi->capabilities].mbus_code);
 
+	format.format.width = MCHP_DSCMI_MAX_WIDTH;
+	format.format.height = MCHP_DSCMI_MAX_HEIGHT;
+
 	ret = v4l2_subdev_call(subdev, pad, set_fmt, NULL, &format);
 	if (ret < 0)
 		return ret;
