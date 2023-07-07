@@ -73,13 +73,23 @@
 
 #define ATMEL_AES_DMA_THRESHOLD		256
 
-
+/**
+ * struct atmel_aes_caps: at91 aes capabilities
+ * @has_dualbuff: dual buffer support
+ * @has_cfb64: cfb64 support
+ * @has_gcm: gcm support
+ * @has_xts: xts suppport
+ * @has_authenc: authentication support
+ * @max_burst_size: max DMA bust size
+ * @has_6words_limitation: some versions of IP have a 6 word headder limitation
+ */
 struct atmel_aes_caps {
 	bool			has_dualbuff;
 	bool			has_gcm;
 	bool			has_xts;
 	bool			has_authenc;
 	u32			max_burst_size;
+	bool			has_6words_limitation;
 };
 
 struct atmel_aes_dev;
@@ -138,6 +148,8 @@ struct atmel_aes_xts_ctx {
 struct atmel_aes_authenc_ctx {
 	struct atmel_aes_base_ctx	base;
 	struct atmel_sha_authenc_ctx	*auth;
+
+	struct crypto_aead		*fallback;
 };
 #endif
 
@@ -1928,6 +1940,12 @@ static int atmel_aes_authenc_setkey(struct crypto_aead *tfm, const u8 *key,
 	memcpy(ctx->base.key, keys.enckey, keys.enckeylen);
 
 	memzero_explicit(&keys, sizeof(keys));
+
+	if (ctx->base.dd->caps.has_6words_limitation) {
+		crypto_aead_clear_flags(ctx->fallback, CRYPTO_TFM_REQ_MASK);
+		crypto_aead_set_flags(ctx->fallback, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+		crypto_aead_setkey(ctx->fallback, key, keylen);
+	}
 	return 0;
 
 badkey:
@@ -1940,15 +1958,27 @@ static int atmel_aes_authenc_init_tfm(struct crypto_aead *tfm,
 {
 	struct atmel_aes_authenc_ctx *ctx = crypto_aead_ctx(tfm);
 	unsigned int auth_reqsize = atmel_sha_authenc_get_reqsize();
+	struct aead_alg *alg = crypto_aead_alg(tfm);
 	struct atmel_aes_dev *dd;
 
 	dd = atmel_aes_dev_alloc(&ctx->base);
 	if (!dd)
 		return -ENODEV;
 
+	if (dd->caps.has_6words_limitation) {
+		ctx->fallback = crypto_alloc_aead(alg->base.cra_name, 0,
+						CRYPTO_ALG_NEED_FALLBACK | CRYPTO_ALG_ASYNC);
+		if (IS_ERR(ctx->fallback)) {
+			dev_err(dd->dev, "fallback driver fail %s\n", alg->base.cra_name);
+			return PTR_ERR(ctx->fallback);
+		}
+	}
 	ctx->auth = atmel_sha_authenc_spawn(auth_mode);
-	if (IS_ERR(ctx->auth))
+	if (IS_ERR(ctx->auth)) {
+		if (dd->caps.has_6words_limitation)
+			crypto_free_aead(ctx->fallback);
 		return PTR_ERR(ctx->auth);
+	}
 
 	crypto_aead_set_reqsize(tfm, (sizeof(struct atmel_aes_authenc_reqctx) +
 				      auth_reqsize));
@@ -1988,6 +2018,8 @@ static void atmel_aes_authenc_exit_tfm(struct crypto_aead *tfm)
 	struct atmel_aes_authenc_ctx *ctx = crypto_aead_ctx(tfm);
 
 	atmel_sha_authenc_free(ctx->auth);
+	if (ctx->base.dd->caps.has_6words_limitation)
+		crypto_free_aead(ctx->fallback);
 }
 
 static int atmel_aes_authenc_crypt(struct aead_request *req,
@@ -1996,8 +2028,10 @@ static int atmel_aes_authenc_crypt(struct aead_request *req,
 	struct atmel_aes_authenc_reqctx *rctx = aead_request_ctx(req);
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct atmel_aes_base_ctx *ctx = crypto_aead_ctx(tfm);
+	struct atmel_aes_authenc_ctx *actx = crypto_aead_ctx(tfm);
 	u32 authsize = crypto_aead_authsize(tfm);
 	bool enc = (mode & AES_FLAGS_ENCRYPT);
+	bool limitation = ctx->dd->caps.has_6words_limitation;
 
 	/* Compute text length. */
 	if (!enc && req->cryptlen < authsize)
@@ -2011,6 +2045,26 @@ static int atmel_aes_authenc_crypt(struct aead_request *req,
 	 */
 	if (!rctx->textlen && !req->assoclen)
 		return -EINVAL;
+	/*
+	 *Check if data size triggers the HW limitation and
+	 * run fallback functions
+	 */
+	if ((req->assoclen != 16) && limitation) {
+		struct aead_request *subreq = aead_request_ctx(req);
+		int ret;
+
+		aead_request_set_tfm(subreq, actx->fallback);
+		aead_request_set_callback(subreq, req->base.flags,
+					  req->base.complete, req->base.data);
+		aead_request_set_crypt(subreq, req->src, req->dst,
+				       req->cryptlen, req->iv);
+		aead_request_set_ad(subreq, req->assoclen);
+
+		if (enc)
+			return crypto_aead_encrypt(subreq);
+		else
+			return crypto_aead_decrypt(subreq);
+	}
 
 	rctx->base.mode = mode;
 	ctx->block_size = AES_BLOCK_SIZE;
@@ -2294,12 +2348,14 @@ static void atmel_aes_get_cap(struct atmel_aes_dev *dd)
 	dd->caps.has_xts = 0;
 	dd->caps.has_authenc = 0;
 	dd->caps.max_burst_size = 1;
+	dd->caps.has_6words_limitation = 0;
 
 	/* keep only major version number */
 	switch (dd->hw_version & 0xff0) {
 	case 0x800:
 	case 0x700:
 	case 0x600:
+		dd->caps.has_6words_limitation = 1;
 	case 0x500:
 		dd->caps.has_dualbuff = 1;
 		dd->caps.has_gcm = 1;
