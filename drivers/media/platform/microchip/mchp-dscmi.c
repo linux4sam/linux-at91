@@ -22,6 +22,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/videodev2.h>
+#include <linux/of_device.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-dev.h>
@@ -56,6 +57,7 @@
 #define MCHP_DSCMI_R_FRAME_HIGHT		0x1110
 #define MCHP_DSCMI_OSD_X_Y_POS			0x1100
 #define MCHP_DSCMI_OSD_COLOR			0x1104
+#define MCHP_DSCMI_OSD_EN			0x1114
 
 /* Offset address to get video capability */
 #define MCHP_DSCMI_CAPABILITIES_V4L2		0x1500
@@ -141,6 +143,8 @@
 /* Minimum wait time for camera to stabilize */
 #define MCHP_DSCMI_DELAYED_CAM_M_SEC		100
 
+#define MCHP_DSCMI_OSD_EN_FPGA_RTL		BIT(0)
+
 enum mchp_dscmi_state {
 	STOPPED = 0,
 	WAIT_FOR_BUFFER,
@@ -161,6 +165,10 @@ enum mchp_dscmi_capabilities {
 struct mchp_dscmi_framesize {
 	u32 width;
 	u32 height;
+};
+
+struct mchp_dscmi_driver_platdata {
+	u32 quirks;
 };
 
 /**
@@ -283,6 +291,7 @@ struct mchp_dscmi_fpga {
 	int drop_count;
 	int horizontal_pos;
 	int vertical_pos;
+	bool has_hw_osd_enable;
 };
 
 struct mchp_dscmi_subdev_entity {
@@ -1062,7 +1071,10 @@ static int mchp_dscmi_s_ctrl(struct v4l2_ctrl *ctrl)
 		update_osd_coordinates(mchp_dscmi, true);
 		break;
 	case MCHP_DSCMI_CID_OSD_ENABLE:
-		update_osd_coordinates(mchp_dscmi, ctrl->val);
+		if (mchp_dscmi->has_hw_osd_enable)
+			mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_OSD_EN, ctrl->val);
+		else
+			update_osd_coordinates(mchp_dscmi, ctrl->val);
 		break;
 	case MCHP_DSCMI_CID_OSD_COLOR:
 		mchp_dscmi_reg_write(mchp_dscmi, MCHP_DSCMI_OSD_COLOR, ctrl->val);
@@ -1559,6 +1571,7 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 	struct dma_chan *chan;
 	struct resource *res, r;
 	int ret;
+	struct mchp_dscmi_driver_platdata *ddata;
 
 	mchp_dscmi = devm_kzalloc(&pdev->dev,
 				  sizeof(struct mchp_dscmi_fpga), GFP_KERNEL);
@@ -1574,6 +1587,14 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 	ret = mchp_dscmi_read_capabilities(pdev, mchp_dscmi);
 	if (ret < 0)
 		return ret;
+
+	ddata = of_device_get_match_data(&pdev->dev);
+	if (ddata) {
+		if (ddata->quirks & MCHP_DSCMI_OSD_EN_FPGA_RTL)
+			mchp_dscmi->has_hw_osd_enable = true;
+		else
+			mchp_dscmi->has_hw_osd_enable = false;
+	}
 
 	np = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
 	if (!np)
@@ -1711,8 +1732,17 @@ static int mchp_dscmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mchp_dscmi_driver_platdata mpfs_osd = {
+	.quirks = MCHP_DSCMI_OSD_EN_FPGA_RTL,
+};
+
 static const struct of_device_id mchp_dscmi_of_match[] = {
-	{ .compatible = "microchip,fpga-dscmi" },
+	{
+		.compatible = "microchip,fpga-dscmi",
+	}, {
+		.compatible = "microchip,fpga-dscmi-rtl-v2306",
+		.data = &mpfs_osd,
+	},
 	{}
 };
 
