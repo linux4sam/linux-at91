@@ -8,3 +8,6 @@ obj-$(CONFIG_VIDEO_MICROCHIP_ISC) += microchip-isc.o
 obj-$(CONFIG_VIDEO_MICROCHIP_XISC) += microchip-xisc.o
 obj-$(CONFIG_VIDEO_MICROCHIP_CSI2DC) += microchip-csi2dc.o
 obj-$(CONFIG_VIDEO_MCHP_DSCMI) += mchp-dscmi.o
+obj-$(CONFIG_VIDEO_MICROCHIP_COMMON) += microchip-common.o
+obj-$(CONFIG_VIDEO_MICROCHIP_MIPI_CSI2) += microchip-mipi-csi2rx.o
+
