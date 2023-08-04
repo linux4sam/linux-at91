@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/microchip,video-capture.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Video Capture
+
+maintainers:
+  - Shravan Chiappa  <shravan.chippa@microchip.com>
+
+description:
+  Microchip Video Capture IP processes the video streams through one or more
+  video IP cores. The DT node of the video capture represents as a top level
+  node of the pipeline.
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - microchip,video-dma-rtl-v0
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: AXI Lite clock
+      - description: Video frame clock
+
+  clock-names:
+    items:
+      - const: axi
+      - const: video
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        description: |
+          Input / sink port node, endpoint describing modules connected video capture IP.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - ports
+
+additionalProperties: false
+
+example:
+  - |
+    video_cap0: video-cap@50020000 {
+        compatible = "microchip,video-dma-rtl-v0";
+        reg = <0x50020000 0x10000>;
+        interrupt-parent = <&plic>;
+        interrupts = <121>;
+        clock-names = "axi", "video";
+        clocks = <&axi_clk_0>, <&video_clk_0>;
+        status = "okay";
+
+        ports {
+          #address-cells = <1>
+          #size-cells = <0>;
+            port@1 {
+                /* Sink port */
+                reg = <0>;
+                video_cap_in0: endpoint {
+                    remote-endpoint = <&any_in>;
+                };
+            };
+        };
+    };
+
+...
+
