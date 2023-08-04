@@ -86,3 +86,13 @@ config VIDEO_MICROCHIP_MIPI_CSI2
 	help
 	  Microchip MIPI CSI2 FPGA Soft IP Driver Support.
 
+config VIDEO_MICROCHIP_VIDEO_CAPTURE
+	tristate "Microchip Video Capture Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Video Capture Driver Support For FPGA Soft IP.
+
