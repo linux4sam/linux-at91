@@ -1008,7 +1008,7 @@ atc_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 		lli->ctrla = ctrla | xfer_count;
 		lli->ctrlb = ctrlb;
 
-		desc->sg[i].len = xfer_count << src_width;
+		atdma_sg->len = xfer_count << src_width;
 
 		atdma_lli_chain(desc, i);
 	}
@@ -1352,7 +1352,7 @@ atc_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 				     len >> reg_width;
 			lli->ctrlb = ctrlb;
 
-			desc->sg[i].len = len;
+			atdma_sg->len = len;
 			total_len += len;
 
 			atdma_lli_chain(desc, i);
@@ -1453,7 +1453,7 @@ atc_dma_cyclic_fill_desc(struct dma_chan *chan, struct at_desc *desc,
 		     FIELD_PREP(ATC_DST_WIDTH, reg_width) |
 		     FIELD_PREP(ATC_SRC_WIDTH, reg_width) |
 		     period_len >> reg_width;
-	desc->sg[i].len = period_len;
+	atdma_sg->len = period_len;
 
 	return 0;
 }
