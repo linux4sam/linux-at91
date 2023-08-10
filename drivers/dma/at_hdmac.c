@@ -1306,7 +1306,6 @@ atc_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 			atdma_sg->len = len;
 			total_len += len;
 
-			desc->sg[i].len = len;
 			atdma_lli_chain(desc, i);
 		}
 		break;
