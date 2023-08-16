@@ -292,7 +292,6 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 	struct mchp_vcpp_fpga *mchp_vcpp = dev_id;
 	struct mchp_vcpp_buffer *buf;
 	struct v4l2_pix_format *pix = &mchp_vcpp->format.fmt.pix;
-	u32 size;
 
 	spin_lock_irq(&mchp_vcpp->qlock);
 
@@ -525,6 +524,8 @@ static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = vb2_get_drv_priv(vq);
 
+	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
+
 	free_irq(mchp_vcpp->irq, mchp_vcpp);
 
 	spin_lock_irq(&mchp_vcpp->qlock);
@@ -536,7 +537,6 @@ static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 
 	spin_unlock_irq(&mchp_vcpp->qlock);
 
-	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 	writel_relaxed(MCHP_VCPP_CORE_RESET, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 
 	mchp_vcpp_pipeline_set_stream(mchp_vcpp, false);
