@@ -1105,7 +1105,6 @@ err_graph_cleanup:
 
 static int mchp_vcpp_probe(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct mchp_vcpp_fpga *mchp_vcpp;
 	struct vb2_queue *vb2_q;
 	struct resource *res;
