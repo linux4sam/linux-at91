@@ -1571,7 +1571,7 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 	struct dma_chan *chan;
 	struct resource *res, r;
 	int ret;
-	struct mchp_dscmi_driver_platdata *ddata;
+	const struct mchp_dscmi_driver_platdata *ddata;
 
 	mchp_dscmi = devm_kzalloc(&pdev->dev,
 				  sizeof(struct mchp_dscmi_fpga), GFP_KERNEL);
