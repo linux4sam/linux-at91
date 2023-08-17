@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Microchip comman functions for all drivers.
+ * Microchip Video Common Driver.
  *
  * Copyright (C) 2023 Microchip Technology Inc. and its subsidiaries
  * Author: Shravan Chippa <shavan.chippa@microchip.com>
@@ -212,3 +212,6 @@ int mvc_enum_frame_size(struct v4l2_subdev *subdev,
 }
 EXPORT_SYMBOL_GPL(mvc_enum_frame_size);
 
+MODULE_DESCRIPTION("Microchip Video Common Driver");
+MODULE_AUTHOR("Shravan Chippa <shravan.chippa@microchip.com>");
+MODULE_LICENSE("GPL");
