@@ -784,7 +784,7 @@ static int mchp_vcpp_graph_build_one(struct mchp_vcpp_fpga *mchp_vcpp,
 	struct media_pad *remote_pad;
 	struct mchp_vcpp_graph_entity *graph_entity;
 	struct v4l2_fwnode_link link;
-	struct fwnode_handle *ep_fw_handle;
+	struct fwnode_handle *ep_fw_handle = NULL;
 	int ret = 0;
 
 	dev_dbg(mchp_vcpp->dev, "creating links for entity %s\n", local->name);
