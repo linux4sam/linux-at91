@@ -374,6 +374,34 @@ static int atmel_hlcdc_connector_output_mode(struct drm_connector_state *state)
 	 */
 	if (encoder->encoder_type == DRM_MODE_ENCODER_DSI)
 		return atmel_xlcdc_connector_output_dsi(encoder, info);
+	else if (encoder->encoder_type == DRM_MODE_ENCODER_LVDS) {
+		switch (atmel_hlcdc_encoder_get_bus_fmt(encoder)) {
+		case 0:
+			break;
+		case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+		case MEDIA_BUS_FMT_RGB666_1X18:
+			return ATMEL_HLCDC_RGB666_OUTPUT;
+		case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+		case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:
+		default:
+			return ATMEL_HLCDC_RGB888_OUTPUT;
+		}
+
+		for (j = 0; j < info->num_bus_formats; j++) {
+			switch (info->bus_formats[j]) {
+			case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+			case MEDIA_BUS_FMT_RGB666_1X18:
+				supported_fmts |= ATMEL_HLCDC_RGB666_OUTPUT;
+				break;
+			case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+			case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:
+			default:
+				supported_fmts |= ATMEL_HLCDC_RGB888_OUTPUT;
+				break;
+			}
+		}
+		return supported_fmts;
+	}
 
 	switch (atmel_hlcdc_encoder_get_bus_fmt(encoder)) {
 	case 0:
