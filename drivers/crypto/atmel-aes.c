@@ -78,7 +78,7 @@
  * @has_dualbuff: dual buffer support
  * @has_cfb64: cfb64 support
  * @has_gcm: gcm support
- * @has_xts: xts suppport
+ * @has_xts: xts support
  * @has_authenc: authentication support
  * @max_burst_size: max DMA bust size
  * @has_6words_limitation: some versions of IP have a 6 word headder limitation
@@ -1943,7 +1943,9 @@ static int atmel_aes_authenc_setkey(struct crypto_aead *tfm, const u8 *key,
 
 	if (ctx->base.dd->caps.has_6words_limitation) {
 		crypto_aead_clear_flags(ctx->fallback, CRYPTO_TFM_REQ_MASK);
-		crypto_aead_set_flags(ctx->fallback, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+		crypto_aead_set_flags(ctx->fallback,
+				      crypto_aead_get_flags(tfm) &
+				      CRYPTO_TFM_REQ_MASK);
 		crypto_aead_setkey(ctx->fallback, key, keylen);
 	}
 	return 0;
@@ -2051,7 +2053,6 @@ static int atmel_aes_authenc_crypt(struct aead_request *req,
 	 */
 	if ((req->assoclen != 16) && limitation) {
 		struct aead_request *subreq = aead_request_ctx(req);
-		int ret;
 
 		aead_request_set_tfm(subreq, actx->fallback);
 		aead_request_set_callback(subreq, req->base.flags,
@@ -2356,6 +2357,7 @@ static void atmel_aes_get_cap(struct atmel_aes_dev *dd)
 	case 0x700:
 	case 0x600:
 		dd->caps.has_6words_limitation = 1;
+		fallthrough;
 	case 0x500:
 		dd->caps.has_dualbuff = 1;
 		dd->caps.has_gcm = 1;
