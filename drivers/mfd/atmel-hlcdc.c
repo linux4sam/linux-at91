@@ -114,6 +114,13 @@ static int atmel_hlcdc_probe(struct platform_device *pdev)
 		return PTR_ERR(hlcdc->sys_clk);
 	}
 
+	/* Get the optional clock (LVDS PLL) in case if the LVDS interface is used */
+	hlcdc->lvds_pll_clk = devm_clk_get_optional(dev, "lvds_pll_clk");
+	if (IS_ERR(hlcdc->lvds_pll_clk)) {
+		dev_info(dev, "failed to get lvds PLL clock\n");
+		hlcdc->lvds_pll_clk = NULL;
+	}
+
 	hlcdc->slow_clk = devm_clk_get(dev, "slow_clk");
 	if (IS_ERR(hlcdc->slow_clk)) {
 		dev_err(dev, "failed to get slow clock\n");
