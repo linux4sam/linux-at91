@@ -108,17 +108,21 @@ static int atmel_hlcdc_probe(struct platform_device *pdev)
 		return PTR_ERR(hlcdc->periph_clk);
 	}
 
+	/*
+	 * Obtain one of the essential clocks (GCK / LVDS PLL) necessary for
+	 * the LCD to function. GCK for PDA and MIPI Display, LVDS PLL for LVDS
+	 * Display. DT is expected to have any one of the clocks, not both.
+	 */
+	hlcdc->sys_clk = NULL;
+	hlcdc->lvds_pll_clk = NULL;
 	hlcdc->sys_clk = devm_clk_get(dev, "sys_clk");
 	if (IS_ERR(hlcdc->sys_clk)) {
-		dev_err(dev, "failed to get system clock\n");
-		return PTR_ERR(hlcdc->sys_clk);
-	}
-
-	/* Get the optional clock (LVDS PLL) in case if the LVDS interface is used */
-	hlcdc->lvds_pll_clk = devm_clk_get_optional(dev, "lvds_pll_clk");
-	if (IS_ERR(hlcdc->lvds_pll_clk)) {
-		dev_info(dev, "failed to get lvds PLL clock\n");
-		hlcdc->lvds_pll_clk = NULL;
+		dev_dbg(dev, "failed to get sys_clk\n");
+		hlcdc->lvds_pll_clk = devm_clk_get(dev, "lvds_pll_clk");
+		if (IS_ERR(hlcdc->lvds_pll_clk)) {
+			dev_err(dev, "failed to get GCK and LVDS_PLL\n");
+			return PTR_ERR(hlcdc->lvds_pll_clk);
+		}
 	}
 
 	hlcdc->slow_clk = devm_clk_get(dev, "slow_clk");
