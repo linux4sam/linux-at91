@@ -16,6 +16,7 @@
 #define MVCF_RBG			4
 #define MVCF_H264			5
 #define MVCF_MJPEG			6
+#define MVCF_RGB			7
 
 #define MVC_MIN_WIDTH                  32
 #define MVC_MAX_WIDTH                  7680
