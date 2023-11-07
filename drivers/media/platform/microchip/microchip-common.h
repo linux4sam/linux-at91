@@ -15,6 +15,19 @@
 #define MVC_PAD_SINK			0
 #define MVC_PAD_SOURCE			1
 
+/* User defined v4l2 control */
+#define MCHP_CID_RED_GAIN		(V4L2_CID_USER_BASE | 0x1001)
+#define MCHP_CID_GREEN_GAIN		(V4L2_CID_USER_BASE | 0x1002)
+#define MCHP_CID_BLUE_GAIN		(V4L2_CID_USER_BASE | 0x1003)
+#define MCHP_CID_Q_FACTOR		(V4L2_CID_USER_BASE | 0x1004)
+#define MCHP_CID_OSD_X_POS		(V4L2_CID_USER_BASE | 0x1005)
+#define MCHP_CID_OSD_Y_POS		(V4L2_CID_USER_BASE | 0x1006)
+#define MCHP_CID_OSD_ENABLE		(V4L2_CID_USER_BASE | 0x1007)
+#define MCHP_CID_OSD_COLOR		(V4L2_CID_USER_BASE | 0x1008)
+#define MCHP_CID_P_COUNT		(V4L2_CID_USER_BASE | 0x1009)
+#define MCHP_CID_COMPRESSION_RATIO	(V4L2_CID_USER_BASE | 0x100A)
+#define MCHP_CID_OSD_NUM		(V4L2_CID_USER_BASE | 0x100B)
+
 /**
  * struct mvc_device - Microchip Video Capture device structure
  * @subdev: V4L2 subdevice
