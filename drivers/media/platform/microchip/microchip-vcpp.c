@@ -77,6 +77,13 @@
 
 #define MCHP_VCPP_MAX_FRAMES			32
 
+/* The compression ratio is calculated for every 60 frames */
+#define MCHP_VCPP_CR_MAX_FRAMES_RESET_COUNT	60
+#define MCHP_VCPP_CR_MAX_FRAMES_INIT		50
+#define MCHP_VCPP_CR_MAX_ARRAY			6
+
+#define MCHP_VCPP_NUM_CTRLS			1
+
 /* Minimum wait time for camera to stabilize */
 #define MCHP_VCPP_DELAYED_CAM_M_SEC		100
 
@@ -113,6 +120,18 @@ struct mchp_vcpp_cam_buffer {
 };
 
 /**
+ * struct mchp_vcpp_compression_ratio - for compression calculation
+ * @frame_size:		accumulated frames size
+ * @frame_size_index:	accumulated present frames size index
+ * @frame_count:	present frame count
+ */
+struct mchp_vcpp_compression_ratio {
+	u32 frame_size[MCHP_VCPP_CR_MAX_ARRAY];
+	u32 frame_size_index;
+	u32 frame_count;
+};
+
+/**
  * struct mchp_vcpp_fpga - V4L2 device context
  * @base:		pointer to control register
  * @pdev:		platform device
@@ -132,6 +151,8 @@ struct mchp_vcpp_cam_buffer {
  * @notifier:		V4L2 asynchronous subdevs notifier
  * @mdev:		media device
  * @vid_cap_pad:	media pad for the video device entity
+ * @h264_ratio		struct mchp_vcpp_compression
+ * @ctrl_handler:	control handler structure
  * @state:		state of buffers
  * @irq:		external IRQ for new frame
  * @sequence:		frame sequence counter
@@ -156,6 +177,9 @@ struct mchp_vcpp_fpga {
 	struct v4l2_async_notifier notifier;
 	struct media_device mdev;
 	struct media_pad vid_cap_pad;
+	struct mchp_vcpp_compression_ratio h264_ratio;
+	struct v4l2_ctrl_handler ctrl_handler;
+	struct v4l2_ctrl *compression_ratio_ctrl;
 	enum mchp_vcpp_state state;
 	int irq;
 	int sequence;
@@ -259,6 +283,19 @@ static void mchp_vcpp_buffer_done(struct mchp_vcpp_fpga *mchp_vcpp,
 	mchp_vcpp->active = NULL;
 }
 
+/*
+ * Compression ratio is the percentage of compressed image over the actual image.
+ * The YUV420 requires 3 bytes per 2 pixels, or 1.5 bytes per pixel, because
+ * groups of pixels share a single color value.
+ * The compression ratio can be calculated as:
+ * (width * height * accumulated-frame-count * bytes-per-pixel) / accumulated-frame-size
+ */
+static u32 compression_ratio_calc(u32 hres, u32 vres, u32 accumulated_frame_size)
+{
+	return ((hres * vres * MCHP_VCPP_CR_MAX_FRAMES_RESET_COUNT * 3) /
+		(accumulated_frame_size)) / 2;
+}
+
 static irqreturn_t mchp_vcpp_irq_ext(int irq, void *dev_id)
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = dev_id;
@@ -292,6 +329,11 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 	struct mchp_vcpp_fpga *mchp_vcpp = dev_id;
 	struct mchp_vcpp_buffer *buf;
 	struct v4l2_pix_format *pix = &mchp_vcpp->format.fmt.pix;
+	struct mchp_vcpp_compression_ratio *h264_ratio = &mchp_vcpp->h264_ratio;
+	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev *subdev;
+	int ret, buf_size, i;
+	int *frame_size_index = &h264_ratio->frame_size_index;
 
 	spin_lock_irq(&mchp_vcpp->qlock);
 
@@ -310,8 +352,47 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 
 	spin_unlock_irq(&mchp_vcpp->qlock);
 
-	mchp_vcpp_buffer_done(mchp_vcpp, buf,
-			      pix->width * pix->height * mchp_vcpp->fmtinfo->bpp, 0);
+	if (mchp_vcpp->fmtinfo->fourcc == V4L2_PIX_FMT_H264) {
+		buf_size = readl_relaxed(mchp_vcpp->base + MCHP_VCPP_FRAME_SIZE_FIFO_DATA_RD);
+		mchp_vcpp_buffer_done(mchp_vcpp, buf, buf_size, 0);
+		h264_ratio->frame_count++;
+		h264_ratio->frame_size[*frame_size_index] += buf_size;
+
+		if (h264_ratio->frame_count % 10 == 0)
+			(*frame_size_index)++;
+
+		if (*frame_size_index == MCHP_VCPP_CR_MAX_ARRAY)
+			*frame_size_index = 0;
+
+		if (h264_ratio->frame_count == MCHP_VCPP_CR_MAX_FRAMES_RESET_COUNT) {
+			u32 accumulated_frame_size = 0, compression_ratio, hres, vres;
+
+			for (i = 0; i < MCHP_VCPP_CR_MAX_ARRAY; i++)
+				accumulated_frame_size += h264_ratio->frame_size[i];
+
+			subdev = mchp_vcpp_remote_subdev(&mchp_vcpp->vid_cap_pad, &fmt.pad);
+			if (!subdev)
+				return -EPIPE;
+
+			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+			ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &fmt);
+			if (ret < 0)
+				return ret == -ENOIOCTLCMD ? -EINVAL : ret;
+
+			hres = fmt.format.width;
+			vres = fmt.format.height;
+
+			compression_ratio = compression_ratio_calc(hres, vres,
+								   accumulated_frame_size);
+			__v4l2_ctrl_s_ctrl(mchp_vcpp->compression_ratio_ctrl, compression_ratio);
+
+			h264_ratio->frame_count = MCHP_VCPP_CR_MAX_FRAMES_INIT;
+			h264_ratio->frame_size[*frame_size_index] = 0;
+		}
+	} else {
+		mchp_vcpp_buffer_done(mchp_vcpp, buf,
+				      pix->width * pix->height * mchp_vcpp->fmtinfo->bpp, 0);
+	}
 
 	spin_lock_irq(&mchp_vcpp->qlock);
 
@@ -701,6 +782,40 @@ static int mchp_vcpp_g_input(struct file *file, void *priv, unsigned int *index)
 
 	return 0;
 }
+
+static int mchp_vcpp_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mchp_vcpp_fpga *mchp_vcpp;
+
+	mchp_vcpp = container_of(ctrl->handler,
+				 struct mchp_vcpp_fpga, ctrl_handler);
+
+	switch (ctrl->id) {
+	case MCHP_CID_COMPRESSION_RATIO:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops mchp_vcpp_ctrl_ops = {
+	.s_ctrl = mchp_vcpp_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config mchp_vcpp_ctrls[] = {
+	{
+		.ops	= &mchp_vcpp_ctrl_ops,
+		.id	= MCHP_CID_COMPRESSION_RATIO,
+		.type	= V4L2_CTRL_TYPE_INTEGER,
+		.name	= "compression ratio",
+		.min	= 0,
+		.max	= 200,
+		.def	= 30,
+		.step	= 1,
+	},
+};
 
 static const struct v4l2_ioctl_ops mchp_vcpp_ioctl_ops = {
 	.vidioc_querycap = mchp_vcpp_querycap,
@@ -1109,6 +1224,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	struct vb2_queue *vb2_q;
 	struct resource *res;
 	struct video_device *vdev;
+	struct v4l2_ctrl_handler *ctrl_hdlr;
 	int num_clks = ARRAY_SIZE(mchp_vcpp_clks);
 	int ret;
 
@@ -1163,6 +1279,20 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	ret = v4l2_device_register(&pdev->dev, &mchp_vcpp->v4l2_dev);
 	if (ret)
 		return ret;
+
+	ctrl_hdlr = &mchp_vcpp->ctrl_handler;
+
+	v4l2_ctrl_handler_init(ctrl_hdlr, MCHP_VCPP_NUM_CTRLS);
+
+	mchp_vcpp->compression_ratio_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+								 &mchp_vcpp_ctrls[0],
+								 NULL);
+	if (ctrl_hdlr->error) {
+		ret = ctrl_hdlr->error;
+		goto v4l2_unregister;
+	}
+
+	mchp_vcpp->v4l2_dev.ctrl_handler = ctrl_hdlr;
 
 	INIT_LIST_HEAD(&mchp_vcpp->buf_list);
 	spin_lock_init(&mchp_vcpp->qlock);
