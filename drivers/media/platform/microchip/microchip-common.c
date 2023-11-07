@@ -17,11 +17,17 @@
 #include <dt-bindings/media/microchip-common.h>
 
 static const struct mvideo_format mvideo_formats[] = {
+	{ MVCF_YUV_420, 8, NULL, MEDIA_BUS_FMT_UYVY8_2X8, 1,
+		V4L2_PIX_FMT_NV12, 2, 1, 1, 2 },
+	{ MVCF_H264, 8, NULL, MEDIA_BUS_FMT_H264_1X8, 1,
+		V4L2_PIX_FMT_H264, 1, 1, 1, 1 },
 	{ MVCF_YUV_422, 8, NULL, MEDIA_BUS_FMT_UYVY8_1X16, 2,
 		V4L2_PIX_FMT_YUYV, 1, 1, 1, 1 },
 	{ MVCF_YUV_444, 8, NULL, MEDIA_BUS_FMT_VUY8_1X24, 3,
 		V4L2_PIX_FMT_YUV444, 1, 1, 1, 1 },
 	{ MVCF_RBG, 8, NULL, MEDIA_BUS_FMT_RBG888_1X24, 3,
+		V4L2_PIX_FMT_RGB24, 1, 1, 1, 1 },
+	{ MVCF_RGB, 8, NULL, MEDIA_BUS_FMT_RGB888_1X24, 3,
 		V4L2_PIX_FMT_RGB24, 1, 1, 1, 1 },
 	{ MVCF_MJPEG, 8, NULL, MEDIA_BUS_FMT_JPEG_1X8, 3,
 		V4L2_PIX_FMT_MJPEG, 1, 1, 1, 1 },
