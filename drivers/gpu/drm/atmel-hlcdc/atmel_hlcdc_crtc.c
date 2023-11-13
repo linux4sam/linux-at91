@@ -109,26 +109,6 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 			return;
 	}
 
-	vm.vfront_porch = adj->crtc_vsync_start - adj->crtc_vdisplay;
-	vm.vback_porch = adj->crtc_vtotal - adj->crtc_vsync_end;
-	vm.vsync_len = adj->crtc_vsync_end - adj->crtc_vsync_start;
-	vm.hfront_porch = adj->crtc_hsync_start - adj->crtc_hdisplay;
-	vm.hback_porch = adj->crtc_htotal - adj->crtc_hsync_end;
-	vm.hsync_len = adj->crtc_hsync_end - adj->crtc_hsync_start;
-
-	regmap_write(regmap, ATMEL_HLCDC_CFG(1),
-		     (vm.hsync_len - 1) | ((vm.vsync_len - 1) << 16));
-
-	regmap_write(regmap, ATMEL_HLCDC_CFG(2),
-		     (vm.vfront_porch - 1) | (vm.vback_porch << 16));
-
-	regmap_write(regmap, ATMEL_HLCDC_CFG(3),
-		     (vm.hfront_porch - 1) | ((vm.hback_porch - 1) << 16));
-
-	regmap_write(regmap, ATMEL_HLCDC_CFG(4),
-		     (adj->crtc_hdisplay - 1) |
-		     ((adj->crtc_vdisplay - 1) << 16));
-
 	if (crtc->dc->hlcdc->lvds_pll_clk) {
 		cfg |= ATMEL_XLCDC_CLKBYP;
 		mask |= ATMEL_XLCDC_CLKBYP;
@@ -179,6 +159,26 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 		cfg |= ATMEL_HLCDC_CLKPOL;
 
 	regmap_update_bits(regmap, ATMEL_HLCDC_CFG(0), mask, cfg);
+
+	vm.vfront_porch = adj->crtc_vsync_start - adj->crtc_vdisplay;
+	vm.vback_porch = adj->crtc_vtotal - adj->crtc_vsync_end;
+	vm.vsync_len = adj->crtc_vsync_end - adj->crtc_vsync_start;
+	vm.hfront_porch = adj->crtc_hsync_start - adj->crtc_hdisplay;
+	vm.hback_porch = adj->crtc_htotal - adj->crtc_hsync_end;
+	vm.hsync_len = adj->crtc_hsync_end - adj->crtc_hsync_start;
+
+	regmap_write(regmap, ATMEL_HLCDC_CFG(1),
+		     (vm.hsync_len - 1) | ((vm.vsync_len - 1) << 16));
+
+	regmap_write(regmap, ATMEL_HLCDC_CFG(2),
+		     (vm.vfront_porch - 1) | (vm.vback_porch << 16));
+
+	regmap_write(regmap, ATMEL_HLCDC_CFG(3),
+		     (vm.hfront_porch - 1) | ((vm.hback_porch - 1) << 16));
+
+	regmap_write(regmap, ATMEL_HLCDC_CFG(4),
+		     (adj->crtc_hdisplay - 1) |
+		     ((adj->crtc_vdisplay - 1) << 16));
 
 	state = drm_crtc_state_to_atmel_hlcdc_crtc_state(c->state);
 	cfg = state->output_mode << 8;
