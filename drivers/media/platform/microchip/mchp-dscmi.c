@@ -256,6 +256,7 @@ struct mchp_dscmi_format {
  * @drop_count:		total frame drop counter
  * @horizontal_pos:	overlay horizontal position
  * @vertical_pos:	overlay vertical position
+ * @has_hw_osd_enable:	osd enable feture status
  */
 struct mchp_dscmi_fpga {
 	void __iomem *base;
