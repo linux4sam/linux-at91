@@ -82,6 +82,7 @@ int mvc_enum_frame_size(struct v4l2_subdev *subdev,
 			struct v4l2_subdev_frame_size_enum *fse);
 
 int mvc_init_resources(struct mvc_device *mvc);
+void mvc_cleanup_resources(struct mvc_device *mvc);
 
 #endif /* __MICROCHIP_COMMAN_H__ */
 
