@@ -785,17 +785,8 @@ static int mchp_vcpp_g_input(struct file *file, void *priv, unsigned int *index)
 
 static int mchp_vcpp_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct mchp_vcpp_fpga *mchp_vcpp;
-
-	mchp_vcpp = container_of(ctrl->handler,
-				 struct mchp_vcpp_fpga, ctrl_handler);
-
-	switch (ctrl->id) {
-	case MCHP_CID_COMPRESSION_RATIO:
-		break;
-	default:
+	if (ctrl->id != MCHP_CID_COMPRESSION_RATIO)
 		return -EINVAL;
-	}
 
 	return 0;
 }
