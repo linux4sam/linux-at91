@@ -118,6 +118,7 @@ static int atmel_hlcdc_probe(struct platform_device *pdev)
 	hlcdc->sys_clk = devm_clk_get(dev, "sys_clk");
 	if (IS_ERR(hlcdc->sys_clk)) {
 		dev_dbg(dev, "failed to get sys_clk\n");
+               hlcdc->sys_clk = NULL;
 		hlcdc->lvds_pll_clk = devm_clk_get(dev, "lvds_pll_clk");
 		if (IS_ERR(hlcdc->lvds_pll_clk)) {
 			dev_err(dev, "failed to get GCK and LVDS_PLL\n");
