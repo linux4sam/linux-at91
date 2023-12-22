@@ -208,6 +208,7 @@ static int mchp_lvds_probe(struct platform_device *pdev)
 
 static const struct of_device_id mchp_lvds_dt_ids[] = {
 	{ .compatible = "microchip,sam9x75-lvds" },
+	{ .compatible = "microchip,sama7d65-lvds" },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mchp_lvds_dt_ids);
