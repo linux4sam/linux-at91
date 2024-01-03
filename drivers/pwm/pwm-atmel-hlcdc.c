@@ -74,7 +74,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		/* Errata: cannot use slow clk on some IP revisions */
 		if ((atmel->errata && atmel->errata->slow_clk_erratum) ||
 		    clk_period_ns > state->period) {
-			new_clk = hlcdc->sys_clk;
+			new_clk = hlcdc->periph_clk;
 			clk_freq = clk_get_rate(new_clk);
 			if (!clk_freq)
 				return -EINVAL;
@@ -112,7 +112,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			clk_disable_unprepare(atmel->cur_clk);
 			atmel->cur_clk = new_clk;
 
-			if (new_clk == hlcdc->sys_clk)
+			if (new_clk == hlcdc->periph_clk)
 				gencfg = ATMEL_HLCDC_CLKPWMSEL;
 
 			ret = regmap_update_bits(hlcdc->regmap,
