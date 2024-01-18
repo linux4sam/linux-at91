@@ -82,6 +82,21 @@ const struct mvideo_format *mvc_get_format_by_code(unsigned int code)
 }
 EXPORT_SYMBOL_GPL(mvc_get_format_by_code);
 
+const struct mvideo_format *mvc_get_format_by_vf_code(unsigned int vf_code)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(mvideo_formats); ++i) {
+		const struct mvideo_format *format = &mvideo_formats[i];
+
+		if (format->vf_code == vf_code)
+			return format;
+	}
+
+	return ERR_PTR(-EINVAL);
+}
+EXPORT_SYMBOL_GPL(mvc_get_format_by_vf_code);
+
 const struct mvideo_format *mvc_get_format_by_fourcc(u32 fourcc)
 {
 	unsigned int i;

@@ -70,6 +70,7 @@ struct mvideo_format {
 };
 
 const struct mvideo_format *mvc_get_format_by_code(unsigned int code);
+const struct mvideo_format *mvc_get_format_by_vf_code(unsigned int vf_code);
 const struct mvideo_format *mvc_get_format_by_fourcc(u32 fourcc);
 const struct mvideo_format *mvc_of_get_format(struct device_node *node);
 void mvc_set_format_size(struct v4l2_mbus_framefmt *format,
