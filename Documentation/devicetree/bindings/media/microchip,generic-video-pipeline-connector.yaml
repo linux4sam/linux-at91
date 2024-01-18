@@ -1,0 +1,215 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/microchip,generic-video-pipeline-connector.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Generic Video Pipeline Connector (GVPC)
+
+maintainers:
+  - Shravan Chippa <shravan.chippa@microchip.com>
+
+description: |
+  The Microchip generic video pipeline connector is used for the FPGA
+  logic to convert the video format and stream the data through
+  AXI streaming or negative interface for the image processing.
+
+properties:
+  compatible:
+    const: microchip,generic-video-pipeline-connector
+
+  reg:
+    maxItems: 1
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      "#address-cells":
+        const: 1
+
+      "#size-cells":
+        const: 0
+
+      port@0:
+        type: object
+        description: Input/sink port node to receive the video data.
+
+        properties:
+          reg:
+            description: Input/sink port number.
+            const: 0
+
+          microchip,video-format:
+            description: Output/source video format. Possible values are as below.
+              0 - MVCF_MONO_SENSOR
+              1 - MVCF_YUV_444
+              2 - MVCF_YUV_422
+              3 - MVCF_YUV_420
+              4 - MVCF_RBG
+              5 - MVCF_H264
+              6 - MVCF_MJPEG
+              7 - MVCF_RGB
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 1, 2, 3, 4, 5, 6, 7]
+
+          microchip,cfa-pattern:
+            description: Output/source video pattern.
+            $ref: /schemas/types.yaml#/definitions/string
+            enum:
+              - mono
+              - rggb
+              - bggr
+              - gbrg
+              - grbg
+            default: mono
+
+          microchip,video-width:
+            description: Output/source video axi stream width.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [8, 10, 12, 16, 20, 32]
+
+          endpoint:
+            type: object
+
+            properties:
+              remote-endpoint: true
+
+            required:
+              - remote-endpoint
+
+            additionalProperties: false
+
+        required:
+          - reg
+          - endpoint
+          - microchip,video-format
+          - microchip,video-width
+        allOf:
+          - if:
+              properties:
+                microchip,video-format:
+                  contains:
+                    const: 0
+            then:
+              required:
+                - microchip,cfa-pattern
+
+        additionalProperties: false
+
+    patternProperties:
+      "port@1":
+        type: object
+        description: Output/source port node to transmit the video data.
+        properties:
+          reg:
+            description: Output/source port number.
+
+          microchip,video-format:
+            description:
+              Output/source video format.
+              Possible values are as below -
+              0 - MVCF_MONO_SENSOR
+              1 - MVCF_YUV_444
+              2 - MVCF_YUV_422
+              3 - MVCF_YUV_420
+              4 - MVCF_RBG
+              5 - MVCF_H264
+              6 - MVCF_MJPEG
+              7 - MVCF_RGB
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 1, 2, 3, 4, 5, 6, 7]
+
+          microchip,cfa-pattern:
+            description: Output/source video pattern.
+            $ref: /schemas/types.yaml#/definitions/string
+            enum:
+              - mono
+              - rggb
+              - bggr
+              - gbrg
+              - grbg
+            default: mono
+
+          microchip,video-width:
+            description: Output/source video axi stream width.
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [8, 10, 12, 16, 20, 32]
+
+          endpoint:
+            type: object
+
+            properties:
+              remote-endpoint: true
+
+            required:
+              - remote-endpoint
+
+            additionalProperties: false
+
+        required:
+          - reg
+          - endpoint
+          - microchip,video-format
+          - microchip,video-width
+        allOf:
+          - if:
+              properties:
+                microchip,video-format:
+                  contains:
+                    const: 0
+            then:
+              required:
+                - microchip,cfa-pattern
+
+        additionalProperties: false
+
+    required:
+      - "#address-cells"
+      - "#size-cells"
+      - port@0
+      - port@1
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/media/microchip-common.h>
+
+    mgvpc_0: gvpc-video-0@50020000 {
+        compatible = "microchip,generic-video-pipeline-connector";
+        reg = <0x50020000 0x10000>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                /* Sink port */
+                reg = <0>;
+                microchip,video-format = <MVCF_MONO_SENSOR>;
+                microchip,cfa-pattern = "rggb";
+                microchip,video-width = <8>;
+                gvpc_0_in: endpoint {
+                    remote-endpoint = <&mipi_csi2_0_out>;
+                };
+            };
+            port@1 {
+                /* Source port */
+                reg = <1>;
+                microchip,video-format = <MVCF_YUV_420>;
+                microchip,video-width = <8>;
+                gvpc_0_out: endpoint {
+                    remote-endpoint = <&h264_in>;
+                };
+            };
+        };
+    };
+...
