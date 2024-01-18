@@ -105,16 +105,16 @@ const struct mvideo_format *mvc_of_get_format(struct device_node *node)
 	u32 width;
 	int ret;
 
-	ret = of_property_read_u32(node, "video-format", &vf_code);
+	ret = of_property_read_u32(node, "microchip,video-format", &vf_code);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	ret = of_property_read_u32(node, "video-width", &width);
+	ret = of_property_read_u32(node, "microchip,video-width", &width);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
 	if (vf_code == MVCF_MONO_SENSOR)
-		of_property_read_string(node, "cfa-pattern", &pattern);
+		of_property_read_string(node, "microchip,cfa-pattern", &pattern);
 
 	for (i = 0; i < ARRAY_SIZE(mvideo_formats); ++i) {
 		const struct mvideo_format *format = &mvideo_formats[i];
