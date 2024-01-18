@@ -105,3 +105,12 @@ config VIDEO_MICROCHIP_VIDEO_CAPTURE
 	help
 	  Microchip Video Capture Driver Support For FPGA Soft IP.
 
+config VIDEO_MICROCHIP_YUV2H264
+	tristate "Microchip Video H264 Encoder Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Video H264 Encoder Driver Support.
+
