@@ -11,6 +11,6 @@ obj-$(CONFIG_VIDEO_MCHP_DSCMI) += mchp-dscmi.o
 obj-$(CONFIG_VIDEO_MICROCHIP_COMMON) += microchip-common.o
 obj-$(CONFIG_VIDEO_MICROCHIP_GVPC) += microchip-gvpc.o
 obj-$(CONFIG_VIDEO_MICROCHIP_MIPI_CSI2) += microchip-mipi-csi2rx.o
+obj-$(CONFIG_VIDEO_MICROCHIP_RGB_SCALER) += microchip-rgb-scaler.o
 obj-$(CONFIG_VIDEO_MICROCHIP_VIDEO_CAPTURE) += microchip-vcpp.o
 obj-$(CONFIG_VIDEO_MICROCHIP_YUV2H264) += microchip-yuv2h264.o
-
