@@ -27,6 +27,7 @@
 #define MCHP_CID_P_COUNT		(V4L2_CID_USER_BASE | 0x1009)
 #define MCHP_CID_COMPRESSION_RATIO	(V4L2_CID_USER_BASE | 0x100A)
 #define MCHP_CID_OSD_NUM		(V4L2_CID_USER_BASE | 0x100B)
+#define MCHP_CID_RGB_SUM		(V4L2_CID_USER_BASE | 0x100C)
 
 /**
  * struct mvc_device - Microchip Video Capture device structure
