@@ -104,6 +104,15 @@ config VIDEO_MICROCHIP_MIPI_CSI2
 	help
 	  Microchip MIPI CSI2 FPGA Soft IP Driver Support.
 
+config VIDEO_MICROCHIP_OSD
+        tristate "Microchip Video On Screen Display"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+        help
+          Driver for the Microchip Video OSD (On Screen Display)
+
 config VIDEO_MICROCHIP_RGB_SCALER
         tristate "Microchip Video RGB Scaler"
 	depends on VIDEO_DEV && OF
