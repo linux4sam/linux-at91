@@ -303,7 +303,7 @@ static irqreturn_t dw_mipi_csi_irq1(int irq, void *dev_id)
 
 static int dw_async_bound(struct v4l2_async_notifier *notifier,
 			  struct v4l2_subdev *subdev,
-			  struct v4l2_async_subdev *asd)
+			  struct v4l2_async_connection *asc)
 {
 	struct dw_csi *dw = container_of(notifier,
 					struct dw_csi, notifier);
@@ -314,7 +314,7 @@ static int dw_async_bound(struct v4l2_async_notifier *notifier,
 	dw->input_sd = subdev;
 
 	pad = media_entity_get_fwnode_pad(&subdev->entity,
-					  asd->match.fwnode,
+					  asc->match.fwnode,
 					  MEDIA_PAD_FL_SOURCE);
 	if (pad < 0) {
 		dev_err(dw->dev, "Failed to find pad for %s\n",
@@ -351,7 +351,7 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 	struct fwnode_handle *input_fwnode, *output_fwnode;
 	struct v4l2_fwnode_endpoint ep = { .bus_type = V4L2_MBUS_CSI2_DPHY };
 	struct v4l2_fwnode_endpoint ep2 = { };
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asc;
 	int ret = 0;
 
 	if (of_property_read_u32(of_node, "snps,output-type",
@@ -394,12 +394,12 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 			 "missing output node at %pOF\n", of_node);
 	}
 
-	v4l2_async_nf_init(&dev->notifier);
-	asd = v4l2_async_nf_add_fwnode_remote(&dev->notifier, input_fwnode,
-					      struct v4l2_async_subdev);
+	v4l2_async_subdev_nf_init(&dev->notifier, &dev->sd);
+	asc = v4l2_async_nf_add_fwnode_remote(&dev->notifier, input_fwnode,
+					      struct v4l2_async_connection);
 
-	if (IS_ERR(asd)) {
-		ret = PTR_ERR(asd);
+	if (IS_ERR(asc)) {
+		ret = PTR_ERR(asc);
 		goto err;
 	}
 
@@ -410,7 +410,7 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 
 	dev->notifier.ops = &csi2host_async_ops;
 
-	ret = v4l2_async_subdev_nf_register(&dev->sd, &dev->notifier);
+	ret = v4l2_async_nf_register(&dev->notifier);
 
 	if (ret) {
 		dev_err(&pdev->dev, "fail to register async notifier.\n");
