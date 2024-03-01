@@ -297,7 +297,7 @@ struct mchp_dscmi_fpga {
 
 struct mchp_dscmi_subdev_entity {
 	struct v4l2_subdev *subdev;
-	struct v4l2_async_subdev *async_subdev;
+	struct v4l2_async_connection *asc;
 	struct device_node *epn;
 	struct v4l2_async_notifier notifier;
 	struct list_head list;
@@ -1273,7 +1273,7 @@ static int mchp_dscmi_formats_init(struct mchp_dscmi_fpga *mchp_dscmi)
 
 static int mchp_dscmi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 					 struct v4l2_subdev *subdev,
-					 struct v4l2_async_subdev *async_subdev)
+					 struct v4l2_async_connection *asc)
 {
 	struct mchp_dscmi_subdev_entity *subdev_entity =
 		container_of(notifier, struct mchp_dscmi_subdev_entity, notifier);
@@ -1285,7 +1285,7 @@ static int mchp_dscmi_graph_notify_bound(struct v4l2_async_notifier *notifier,
 
 static void mchp_dscmi_graph_notify_unbind(struct v4l2_async_notifier *notifier,
 					   struct v4l2_subdev *subdev,
-					   struct v4l2_async_subdev *async_subdev)
+					   struct v4l2_async_connection *asc)
 {
 	struct mchp_dscmi_fpga *mchp_dscmi = container_of(notifier->v4l2_dev,
 					     struct mchp_dscmi_fpga, v4l2_dev);
@@ -1675,25 +1675,25 @@ static int mchp_dscmi_probe(struct platform_device *pdev)
 	}
 
 	list_for_each_entry(subdev_entity, &mchp_dscmi->subdev_entities, list) {
-		struct v4l2_async_subdev *async_subdev;
+		struct v4l2_async_connection *asc;
 
-		v4l2_async_nf_init(&subdev_entity->notifier);
+		v4l2_async_nf_init(&subdev_entity->notifier, &mchp_dscmi->v4l2_dev);
 
-		async_subdev = v4l2_async_nf_add_fwnode_remote(&subdev_entity->notifier,
+		asc = v4l2_async_nf_add_fwnode_remote(&subdev_entity->notifier,
 							       of_fwnode_handle(subdev_entity
 							       ->epn),
-							       struct v4l2_async_subdev);
+							       struct v4l2_async_connection);
 		of_node_put(subdev_entity->epn);
 		subdev_entity->epn = NULL;
 
-		if (IS_ERR(async_subdev)) {
-			ret = PTR_ERR(async_subdev);
+		if (IS_ERR(asc)) {
+			ret = PTR_ERR(asc);
 			goto cleanup_subdev;
 		}
 
 		subdev_entity->notifier.ops = &mchp_dscmi_v4l2_async_ops;
 
-		ret = v4l2_async_nf_register(&mchp_dscmi->v4l2_dev, &subdev_entity->notifier);
+		ret = v4l2_async_nf_register(&subdev_entity->notifier);
 		if (ret) {
 			dev_err_probe(&pdev->dev, ret,
 				      "Fail to register async notifier\n");
