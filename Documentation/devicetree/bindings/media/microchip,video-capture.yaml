@@ -54,7 +54,7 @@ required:
 
 additionalProperties: false
 
-example:
+examples:
   - |
     video_cap0: video-cap@50020000 {
         compatible = "microchip,video-dma-rtl-v0";
