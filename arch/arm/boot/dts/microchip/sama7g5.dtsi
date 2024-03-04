@@ -695,6 +695,11 @@
 			status = "disabled";
 		};
 
+		sfr: sfr@e1624000 {
+			compatible = "microchip,sama7g5-sfr", "syscon";
+			reg = <0xe1624000 0x4000>;
+		};
+
 		eic: interrupt-controller@e1628000 {
 			compatible = "microchip,sama7g5-eic";
 			reg = <0xe1628000 0xec>;
