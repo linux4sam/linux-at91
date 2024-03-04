@@ -892,7 +892,6 @@
 	mmc-ddr-1_8v;
 	cap-mmc-highspeed;
 	cap-mmc-hw-reset;
-	mmc-hs200-1_8v;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vldo1>;
 	pinctrl-names = "default";
