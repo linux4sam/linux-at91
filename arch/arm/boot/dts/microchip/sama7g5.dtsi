@@ -210,7 +210,7 @@
 		compatible = "mmio-sram";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0x100000 0x20000>;
+		reg = <0x100000 0x3400>;
 		ranges;
 	};
 
