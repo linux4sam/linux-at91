@@ -17,9 +17,9 @@ description:
 
 properties:
   compatible:
-    oneOf:
-      - const: microchip,fpga-dscmi
-      - const: microchip,fpga-dscmi-rtl-v2306  # Compatible hardware to enable/disable OSD feature
+    enum:
+      - microchip,fpga-dscmi
+      - microchip,fpga-dscmi-rtl-v2306  # Compatible hardware to enable/disable OSD feature
 
   reg:
     maxItems: 1
