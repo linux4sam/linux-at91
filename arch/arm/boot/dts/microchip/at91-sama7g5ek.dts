@@ -889,7 +889,10 @@
 &sdmmc0 {
 	bus-width = <8>;
 	non-removable;
-	sdhci-caps-mask = <0x0 0x00200000>;
+	mmc-ddr-1_8v;
+	cap-mmc-highspeed;
+	cap-mmc-hw-reset;
+	mmc-hs200-1_8v;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vldo1>;
 	pinctrl-names = "default";
@@ -899,8 +902,6 @@
 
 &sdmmc1 {
 	bus-width = <4>;
-	no-1-8-v;
-	sdhci-caps-mask = <0x0 0x00200000>;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vdd_3v3>;
 	pinctrl-names = "default";
@@ -911,7 +912,6 @@
 &sdmmc2 {
 	bus-width = <4>;
 	no-1-8-v;
-	sdhci-caps-mask = <0x0 0x00200000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc2_default>;
 };
