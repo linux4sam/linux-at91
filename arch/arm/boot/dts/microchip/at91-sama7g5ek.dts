@@ -828,6 +828,21 @@
 		pinmux = <PIN_PB1__SPDIF_TX>;
 		bias-disable;
 	};
+
+	pinctrl_usb_default: usb_default {
+		pinmux = <PIN_PC6__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_usba_vbus: usba_vbus {
+		pinmux = <PIN_PD11__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_usbb_vbus: usbb_vbus {
+		pinmux = <PIN_PC12__GPIO>;
+		bias-disable;
+	};
 };
 
 &pwm {
@@ -908,6 +923,53 @@
 };
 
 &trng {
+	status = "okay";
+};
+
+&usb0 {
+	atmel,vbus-gpio = <&pioA PIN_PD11 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usba_vbus>;
+	phys = <&usb_phy0>;
+	phy-names = "usb";
+	status = "okay";
+};
+
+&usb1 {
+	atmel,vbus-gpio = <&pioA PIN_PC12 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbb_vbus>;
+	phys = <&usb_phy1>;
+	phy-names = "usb";
+	status = "okay";
+};
+
+&usb2 {
+	num-ports = <3>;
+	atmel,vbus-gpio = <0
+			   0
+			   &pioA PIN_PC6 GPIO_ACTIVE_HIGH
+			  >;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb_default>;
+	phys = <&usb_phy2>;
+	phy-names = "usb";
+	status = "okay";
+};
+
+&usb3 {
+	status = "okay";
+};
+
+&usb_phy0 {
+	status = "okay";
+};
+
+&usb_phy1 {
+	status = "okay";
+};
+
+&usb_phy2 {
 	status = "okay";
 };
 
