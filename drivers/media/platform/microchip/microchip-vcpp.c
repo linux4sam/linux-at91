@@ -186,7 +186,7 @@ struct mchp_vcpp_fpga {
 };
 
 struct mchp_vcpp_graph_entity {
-	struct v4l2_async_subdev asd;
+	struct v4l2_async_connection asc;
 	struct media_entity *entity;
 	struct v4l2_subdev *subdev;
 };
@@ -197,9 +197,9 @@ static const struct clk_bulk_data mchp_vcpp_clks[] = {
 };
 
 static inline struct mchp_vcpp_graph_entity *
-to_mchp_vcpp_entity(struct v4l2_async_subdev *asd)
+to_mchp_vcpp_entity(struct v4l2_async_connection *asc)
 {
-	return container_of(asd, struct mchp_vcpp_graph_entity, asd);
+	return container_of(asc, struct mchp_vcpp_graph_entity, asc);
 }
 
 static struct mchp_vcpp_graph_entity *
@@ -207,12 +207,19 @@ mchp_vcpp_graph_find_entity(struct mchp_vcpp_fpga *mchp_vcpp,
 			    const struct fwnode_handle *fwnode)
 {
 	struct mchp_vcpp_graph_entity *entity;
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asc;
+	struct list_head *lists[] = {
+		&mchp_vcpp->notifier.done_list,
+		&mchp_vcpp->notifier.waiting_list
+	};
+	unsigned int i;
 
-	list_for_each_entry(asd, &mchp_vcpp->notifier.asd_list, asd_list) {
-		entity = to_mchp_vcpp_entity(asd);
-		if (entity->asd.match.fwnode == fwnode)
-			return entity;
+	for (i = 0; i < ARRAY_SIZE(lists); i++) {
+		list_for_each_entry(asc, lists[i], asc_entry) {
+			entity = to_mchp_vcpp_entity(asc);
+			if (entity->asc.match.fwnode == fwnode)
+				return entity;
+		}
 	}
 
 	return NULL;
@@ -846,38 +853,14 @@ static const struct v4l2_file_operations mchp_vcpp_fops = {
 
 static int mchp_vcpp_graph_notify_bound(struct v4l2_async_notifier *notifier,
 					struct v4l2_subdev *subdev,
-					struct v4l2_async_subdev *async_subdev)
+					struct v4l2_async_connection *asc)
 {
-	struct mchp_vcpp_fpga *mchp_vcpp = container_of(notifier,
-							struct mchp_vcpp_fpga, notifier);
-	struct mchp_vcpp_graph_entity *entity;
-	struct v4l2_async_subdev *asd;
+	struct mchp_vcpp_graph_entity *entity = to_mchp_vcpp_entity(asc);
 
-	/*
-	 * Locate the entity corresponding to the bound subdev and store the
-	 * subdev pointer.
-	 */
-	list_for_each_entry(asd, &mchp_vcpp->notifier.asd_list, asd_list) {
-		entity = to_mchp_vcpp_entity(asd);
+	entity->entity = &subdev->entity;
+	entity->subdev = subdev;
 
-		if (entity->asd.match.fwnode != subdev->fwnode)
-			continue;
-
-		if (entity->subdev) {
-			dev_err(mchp_vcpp->dev, "duplicate subdev for node %p\n",
-				entity->asd.match.fwnode);
-			return -EINVAL;
-		}
-
-		dev_dbg(mchp_vcpp->dev, "subdev %s bound\n", subdev->name);
-		entity->entity = &subdev->entity;
-		entity->subdev = subdev;
-		return 0;
-	}
-
-	dev_err(mchp_vcpp->dev, "no entity for subdev %s\n", subdev->name);
-
-	return -EINVAL;
+	return 0;
 }
 
 static int mchp_vcpp_graph_build_one(struct mchp_vcpp_fpga *mchp_vcpp,
@@ -896,7 +879,7 @@ static int mchp_vcpp_graph_build_one(struct mchp_vcpp_fpga *mchp_vcpp,
 	dev_dbg(mchp_vcpp->dev, "creating links for entity %s\n", local->name);
 
 	while (1) {
-		ep_fw_handle = fwnode_graph_get_next_endpoint(entity->asd.match.fwnode,
+		ep_fw_handle = fwnode_graph_get_next_endpoint(entity->asc.match.fwnode,
 							      ep_fw_handle);
 		if (!ep_fw_handle)
 			break;
@@ -1049,13 +1032,13 @@ static int mchp_vcpp_graph_notify_complete(struct v4l2_async_notifier *notifier)
 							  struct mchp_vcpp_fpga,
 							  v4l2_dev);
 	struct mchp_vcpp_graph_entity *entity;
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asc;
 	int ret;
 
 	dev_info(mchp_vcpp->dev, "notify complete, all subdevices registered\n");
 
-	list_for_each_entry(asd, &mchp_vcpp->notifier.asd_list, asd_list) {
-		entity = to_mchp_vcpp_entity(asd);
+	list_for_each_entry(asc, &mchp_vcpp->notifier.done_list, asc_entry) {
+		entity = to_mchp_vcpp_entity(asc);
 		ret = mchp_vcpp_graph_build_one(mchp_vcpp, entity);
 		if (ret < 0)
 			return ret;
@@ -1155,7 +1138,7 @@ err_notifier_cleanup:
 static int mchp_vcpp_graph_parse(struct mchp_vcpp_fpga *mchp_vcpp)
 {
 	struct mchp_vcpp_graph_entity *entity;
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asc;
 	int ret;
 
 	ret = mchp_vcpp_graph_parse_one(mchp_vcpp, of_fwnode_handle(mchp_vcpp->dev->of_node));
@@ -1164,9 +1147,9 @@ static int mchp_vcpp_graph_parse(struct mchp_vcpp_fpga *mchp_vcpp)
 		return 0;
 	}
 
-	list_for_each_entry(asd, &mchp_vcpp->notifier.asd_list, asd_list) {
-		entity = to_mchp_vcpp_entity(asd);
-		ret = mchp_vcpp_graph_parse_one(mchp_vcpp, entity->asd.match.fwnode);
+	list_for_each_entry(asc, &mchp_vcpp->notifier.waiting_list, asc_entry) {
+		entity = to_mchp_vcpp_entity(asc);
+		ret = mchp_vcpp_graph_parse_one(mchp_vcpp, entity->asc.match.fwnode);
 		if (ret < 0) {
 			v4l2_async_nf_cleanup(&mchp_vcpp->notifier);
 			break;
@@ -1187,14 +1170,14 @@ static int mchp_vcpp_graph_init(struct mchp_vcpp_fpga *mchp_vcpp)
 		goto err_graph_cleanup;
 	}
 
-	if (list_empty(&mchp_vcpp->notifier.asd_list)) {
+	if (list_empty(&mchp_vcpp->notifier.waiting_list)) {
 		dev_err(mchp_vcpp->dev, "no subdev found in graph\n");
 		goto err_graph_cleanup;
 	}
 
 	mchp_vcpp->notifier.ops = &mchp_vcpp_v4l2_async_ops;
 
-	ret = v4l2_async_nf_register(&mchp_vcpp->v4l2_dev, &mchp_vcpp->notifier);
+	ret = v4l2_async_nf_register(&mchp_vcpp->notifier);
 	if (ret < 0) {
 		dev_err(mchp_vcpp->dev, "Failed to register notifier\n");
 		goto err_graph_cleanup;
@@ -1345,7 +1328,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 		goto v4l2_unregister;
 	}
 
-	v4l2_async_nf_init(&mchp_vcpp->notifier);
+	v4l2_async_nf_init(&mchp_vcpp->notifier, &mchp_vcpp->v4l2_dev);
 
 	ret = mchp_vcpp_graph_init(mchp_vcpp);
 	if (ret < 0) {
