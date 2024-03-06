@@ -56,7 +56,7 @@ additionalProperties: false
 
 examples:
   - |
-    video_cap0: video-cap@50020000 {
+    video-cap@50020000 {
         compatible = "microchip,video-dma-rtl-v0";
         reg = <0x50020000 0x10000>;
         interrupt-parent = <&plic>;
@@ -66,7 +66,7 @@ examples:
         status = "okay";
 
         ports {
-          #address-cells = <1>
+          #address-cells = <1>;
           #size-cells = <0>;
             port@1 {
                 /* Sink port */
