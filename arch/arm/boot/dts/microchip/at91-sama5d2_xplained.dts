@@ -311,7 +311,7 @@
 						active-semi,input-voltage-threshold-microvolt = <6600>;
 						active-semi,precondition-timeout = <40>;
 						active-semi,total-timeout = <3>;
-						status = "okay";
+						status = "disabled";
 					};
 				};
 			};
