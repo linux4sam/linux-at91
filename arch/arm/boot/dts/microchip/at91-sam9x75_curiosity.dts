@@ -108,6 +108,10 @@
 	};
 };
 
+&ehci0 {
+	status = "okay";
+};
+
 &flx6 {
 	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
 	status = "okay";
@@ -281,6 +285,16 @@
 	clock-frequency = <24000000>;
 };
 
+&ohci0 {
+	num-ports = <3>;
+	atmel,vbus-gpio = <0
+			   &pioC 27 GPIO_ACTIVE_HIGH
+			   &pioC 31 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb_default>;
+	status = "okay";
+};
+
 &pinctrl {
 	classd {
 		pinctrl_classd_default: classd-default {
@@ -378,6 +392,13 @@
 		};
 	};
 
+	ohci0 {
+		pinctrl_usb_default: usb-default {
+			atmel,pins = <AT91_PIOC 27 AT91_PERIPH_GPIO AT91_PINCTRL_NONE
+				      AT91_PIOC 31 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>;
+		};
+	};
+
 	sdmmc0 {
 		pinctrl_sdmmc0_default: sdmmc0-default {
 			atmel,pins =
@@ -387,6 +408,12 @@
 				<AT91_PIOA 3 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)>,	/* PA3 DAT1 periph A with pullup */
 				<AT91_PIOA 4 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)>,	/* PA4 DAT2 periph A with pullup */
 				<AT91_PIOA 5 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)>;	/* PA5 DAT3 periph A with pullup */
+		};
+	};
+
+	usb0 {
+		pinctrl_usba_vbus: usba-vbus {
+			atmel,pins = <AT91_PIOC 8 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>;
 		};
 	};
 }; /* pinctrl */
@@ -430,6 +457,13 @@
 };
 
 &trng {
+	status = "okay";
+};
+
+&usb0 {
+	atmel,vbus-gpio = <&pioC 8 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usba_vbus>;
 	status = "okay";
 };
 
