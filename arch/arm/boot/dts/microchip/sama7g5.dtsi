@@ -1063,8 +1063,10 @@
 			reg = <0xe2804000 0x1000>;
 			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&pmc PMC_TYPE_PERIPHERAL 52>, <&pmc PMC_TYPE_PERIPHERAL 52>;
-			clock-names = "pclk", "hclk";
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 52>, <&pmc PMC_TYPE_PERIPHERAL 52>, <&pmc PMC_TYPE_GCK 54>;
+			clock-names = "pclk", "hclk", "tsu_clk";
+			assigned-clocks = <&pmc PMC_TYPE_GCK 54>;
+			assigned-clock-rates = <200000000>;
 			status = "disabled";
 		};
 
