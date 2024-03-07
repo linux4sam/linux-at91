@@ -1053,8 +1053,8 @@
 				     <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 51>, <&pmc PMC_TYPE_PERIPHERAL 51>, <&pmc PMC_TYPE_GCK 51>, <&pmc PMC_TYPE_GCK 53>;
 			clock-names = "pclk", "hclk", "tx_clk", "tsu_clk";
-			assigned-clocks = <&pmc PMC_TYPE_GCK 51>;
-			assigned-clock-rates = <125000000>;
+			assigned-clocks = <&pmc PMC_TYPE_GCK 51>, <&pmc PMC_TYPE_GCK 53>;
+			assigned-clock-rates = <125000000>, <200000000>;
 			status = "disabled";
 		};
 
