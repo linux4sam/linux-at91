@@ -1181,6 +1181,7 @@
 		pmecc: ecc-engine@ffffe000 {
 			compatible = "microchip,sam9x7-pmecc";
 			reg = <0xffffe000 0x300>, <0xffffe600 0x100>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 48>;
 		};
 
 		mpddrc: mpddrc@ffffe800 {
