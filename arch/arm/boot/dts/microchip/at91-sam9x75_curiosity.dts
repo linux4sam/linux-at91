@@ -278,7 +278,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2s_default>;
 	#sound-dai-cells = <0>;
-	status = "okay";
+	status = "disabled";
 };
 
 &main_xtal {
