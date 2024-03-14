@@ -331,6 +331,18 @@
 		};
 	};
 
+	qspi {
+		pinctrl_qspi: pinctrl-qspi {
+			atmel,pins =
+				<AT91_PIOB 19 AT91_PERIPH_A AT91_PINCTRL_SLEWRATE_DIS
+				 AT91_PIOB 20 AT91_PERIPH_A AT91_PINCTRL_SLEWRATE_DIS
+				 AT91_PIOB 21 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 22 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 23 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 24 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)>;
+		};
+	};
+
 	flexcom {
 		pinctrl_flx6_default: flx6-default {
 			atmel,pins =
@@ -429,6 +441,53 @@
 
 &rtt {
 	atmel,rtt-rtc-time-reg = <&gpbr 0x0>;
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi>;
+	status = "okay";
+
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		m25p,fast-read;
+
+		at91bootstrap@0 {
+			label = "qspi: at91bootstrap";
+			reg = <0x0 0x40000>;
+		};
+
+		bootloader@40000 {
+			label = "qspi: bootloader";
+			reg = <0x40000 0xc0000>;
+		};
+
+		bootloaderenvred@100000 {
+			label = "qspi: bootloader env redundant";
+			reg = <0x100000 0x40000>;
+		};
+
+		bootloaderenv@140000 {
+			label = "qspi: bootloader env";
+			reg = <0x140000 0x40000>;
+		};
+
+		dtb@180000 {
+			label = "qspi: device tree";
+			reg = <0x180000 0x80000>;
+		};
+
+		kernel@200000 {
+			label = "qspi: kernel";
+			reg = <0x200000 0x600000>;
+		};
+	};
 };
 
 &sdmmc0 {
