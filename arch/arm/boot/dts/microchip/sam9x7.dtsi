@@ -1179,7 +1179,7 @@
 		};
 
 		pmecc: ecc-engine@ffffe000 {
-			compatible = "microchip,sam9x7-pmecc", "atmel,at91sam9g45-pmecc";
+			compatible = "microchip,sam9x7-pmecc";
 			reg = <0xffffe000 0x300>, <0xffffe600 0x100>;
 		};
 
