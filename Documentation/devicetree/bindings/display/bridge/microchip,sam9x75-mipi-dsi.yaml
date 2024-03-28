@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/microchip,sam9x75-mipi-dsi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip SAM9X75 MIPI DSI Controller
+
+maintainers:
+  - Manikandan Muralidharan <manikandan.m@microchip.com>
+
+description:
+  Microchip specific extensions or wrapper to the Synopsys Designware MIPI DSI.
+  The MIPI Display Serial Interface (DSI) Host Controller implements all
+  protocol functions defined in the MIPI DSI Specification. The DSI Host
+  provides an interface between the LCD Controller (LCDC) and the MIPI D-PHY,
+  allowing communication with a DSI-compliant display.
+
+allOf:
+  - $ref: /schemas/display/dsi-controller.yaml#
+
+properties:
+  compatible:
+    const: microchip,sam9x75-mipi-dsi
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description:
+      MIPI DSI must have two clocks to function correctly.Peripheral clock
+      'pclk' for the hardware block functionality and Generic clock 'refclk' to
+      drive the D-PHY PLL block.
+    minItems: 2
+
+  clock-names:
+    items:
+      - const: pclk
+      - const: refclk
+
+  microchip,sfr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      phandle to Special Function Register (SFR) node.To enable the DSI/CSI
+      selection bit in SFR's ISS Configuration Register.
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        unevaluatedProperties: false
+        description:
+          DSI Input port node, connected to the LCDC RGB output port.
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+            unevaluatedProperties: false
+            properties:
+              remote-endpoint: true
+
+      port@1:
+        $ref: /schemas/graph.yaml#/$defs/port-base
+        unevaluatedProperties: false
+        description:
+          DSI Output port node, connected to a panel or a bridge input port.
+
+        properties:
+          endpoint:
+            $ref: /schemas/media/video-interfaces.yaml#
+            unevaluatedProperties: false
+            properties:
+              remote-endpoint: true
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - ports
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/at91.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi: dsi@f8054000 {
+         compatible = "microchip,sam9x75-mipi-dsi";
+         reg = <0xf8054000 0x200>;
+         clocks = <&pmc PMC_TYPE_PERIPHERAL 54>, <&pmc PMC_TYPE_GCK 55>;
+         clock-names = "pclk", "refclk";
+         microchip,sfr = <&sfr>;
+
+         #address-cells = <1>;
+         #size-cells = <0>;
+
+         ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                port@0 {
+                        reg = <0>;
+                        dsi_in: endpoint {
+                            remote-endpoint = <&hlcdc_panel_output>;
+                        };
+                };
+
+                port@1 {
+                        reg = <1>;
+                        dsi_out: endpoint {
+                            remote-endpoint = <&mipi_in_panel>;
+                        };
+                };
+         };
+
+         panel@0 {
+              compatible = "hannstar,hsd060bhw4", "himax,hx8394";
+              reg = <0>;
+              vcc-supply = <&mic23150_reg>;
+              iovcc-supply = <&mic23150_reg>;
+              reset-gpios = <&pioC 24 GPIO_ACTIVE_LOW>;
+              backlight = <&backlight>;
+
+              port {
+                   mipi_in_panel: endpoint {
+                        remote-endpoint = <&dsi_out>;
+                   };
+              };
+         };
+    };
+
+...
