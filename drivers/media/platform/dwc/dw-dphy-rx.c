@@ -66,20 +66,21 @@ u8 dw_dphy_setup_config(struct dw_dphy_rx *dphy)
 {
 #if IS_ENABLED(CONFIG_DWC_MIPI_TC_DPHY_GEN3)
 	int ret;
+	struct gpio_desc *config_gpio;
 
 	if (dphy->max_lanes == CTRL_4_LANES) {
 		dev_vdbg(&dphy->phy->dev, "CONFIG 4L\n");
 		return CTRL_4_LANES;
 	}
 	if (IS_ENABLED(CONFIG_OF)) {
-		ret = gpio_request(dphy->config_8l, "config");
-		if (ret < 0) {
+		config_gpio = devm_gpiod_get(&dphy->phy->dev, "config",
+					     GPIOD_IN);
+		if (IS_ERR(config_gpio)) {
 			dev_vdbg(&dphy->phy->dev,
-				 "could not acquire config (err=%d)\n", ret);
-			return ret;
+				 "8L config parse err, default 4L");
+			return CTRL_4_LANES;
 		}
-		ret = gpio_get_value(dphy->config_8l);
-		gpio_free(dphy->config_8l);
+		ret = gpiod_get_value(config_gpio);
 	} else {
 		ret = dphy->config_8l;
 	}

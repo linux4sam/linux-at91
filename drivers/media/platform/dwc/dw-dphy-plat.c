@@ -27,11 +27,14 @@ static struct phy_provider *phy_provider;
 static u8 get_config_8l(struct device *dev, struct dw_dphy_rx *dphy)
 {
 	if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
-		dphy->config_8l = of_get_gpio(dev->of_node, 0);
-		if (!gpio_is_valid(dphy->config_8l)) {
-			dev_warn(dev,
-				 "failed to parse 8l config, default is 0\n");
-			dphy->config_8l = 0;
+		struct gpio_desc *conf;
+
+		conf = devm_fwnode_gpiod_get_index(dev, dev->fwnode, "config",
+						   0, GPIOD_IN,
+						   fwnode_get_name(dev->fwnode));
+		if (IS_ERR(conf)) {
+			dev_warn(dev, "8L config parse err, default is 4L\n");
+			dphy->config_8l = CTRL_4_LANES;
 		}
 	} else {
 		struct dw_phy_pdata *pdata = dev->platform_data;
