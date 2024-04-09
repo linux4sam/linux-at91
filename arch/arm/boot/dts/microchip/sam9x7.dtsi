@@ -1221,6 +1221,22 @@
 			};
 		};
 
+		adc: adc@f804c000 {
+			compatible = "microchip,sam9x7-adc", "atmel,sama5d2-adc";
+			reg = <0xf804c000 0x100>;
+			interrupts = <19 IRQ_TYPE_LEVEL_HIGH 7>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 19>;
+			clock-names = "adc_clk";
+			dmas = <&dma0 (AT91_XDMAC_DT_MEM_IF(0) | AT91_XDMAC_DT_PER_IF(1) | AT91_XDMAC_DT_PERID(40))>;
+			dma-names = "rx";
+			atmel,min-sample-rate-hz = <200000>;
+			atmel,max-sample-rate-hz = <20000000>;
+			atmel,startup-time-ms = <4>;
+			atmel,trigger-edge-type = <IRQ_TYPE_EDGE_RISING>;
+			#io-channel-cells = <1>;
+			status = "disabled";
+		};
+
 		sfr: sfr@f8050000 {
 			compatible = "microchip,sam9x60-sfr", "syscon";
 			reg = <0xf8050000 0x400>;
