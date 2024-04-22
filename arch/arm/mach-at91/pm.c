@@ -1426,6 +1426,13 @@ unmap_unused_nodes:
 	return;
 }
 
+/**
+ * struct pmc_info - AT91 PMC register description structure
+ * @uhp_udp_mask: USB clock mask in System Clock Register (SCER, SCDR, SCSR)
+ * @mckr: Main CPU clock register offset
+ * @version: Version of PMC controller
+ * @mcks: Number of Main System Bus Clocks (MCK/MCKx)
+ */
 struct pmc_info {
 	unsigned long uhp_udp_mask;
 	unsigned long mckr;
