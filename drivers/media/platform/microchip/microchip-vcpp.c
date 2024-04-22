@@ -111,16 +111,6 @@ struct mchp_vcpp_buffer {
 };
 
 /**
- * struct mchp_vcpp_cam_buffer - camera dma buffers and size
- * @paddr:	camera stream base address
- * @size:	size of buffer
- */
-struct mchp_vcpp_cam_buffer {
-	dma_addr_t paddr;
-	size_t size;
-};
-
-/**
  * struct mchp_vcpp_compression_ratio - for compression calculation
  * @frame_size:		accumulated frames size
  * @frame_size_index:	accumulated present frames size index
@@ -174,7 +164,6 @@ struct mchp_vcpp_fpga {
 	spinlock_t qlock;
 	struct list_head buf_list;
 	struct list_head subdev_entities;
-	struct mchp_vcpp_cam_buffer cambuf;
 	struct v4l2_async_notifier notifier;
 	struct media_device mdev;
 	struct media_pad vid_cap_pad;
