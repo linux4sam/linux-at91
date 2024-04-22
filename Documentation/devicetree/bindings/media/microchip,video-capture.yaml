@@ -35,6 +35,10 @@ properties:
       - const: axi
       - const: video
 
+  memory-region:
+    description: Reserved memory for v4l2 buffers (optional)
+    maxItems: 1
+
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
 
