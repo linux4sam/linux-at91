@@ -19,6 +19,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/of_address.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/videodev2.h>
@@ -1335,6 +1336,10 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 		dev_err(mchp_vcpp->dev, "mchp dscmi graph init failed %d\n", ret);
 		goto v4l2_unregister;
 	}
+
+	ret = of_reserved_mem_device_init(&pdev->dev);
+	if (ret)
+		dev_dbg(&pdev->dev, "of_reserved_mem_device_init: %d\n", ret);
 
 	platform_set_drvdata(pdev, mchp_vcpp);
 
