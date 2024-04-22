@@ -76,7 +76,7 @@
 #define MCHP_VCPP_FRAME_START			0x1
 #define MCHP_VCPP_FRAME_STOP			0x0
 
-#define MCHP_VCPP_MAX_FRAMES			32
+#define MCHP_VCPP_MAX_FRAMES			8
 
 /* The compression ratio is calculated for every 60 frames */
 #define MCHP_VCPP_CR_MAX_FRAMES_RESET_COUNT	60
