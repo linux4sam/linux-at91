@@ -1341,6 +1341,12 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	if (ret)
 		dev_dbg(&pdev->dev, "of_reserved_mem_device_init: %d\n", ret);
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_err(&pdev->dev, "dma_set_mask_and_coherent: %d\n", ret);
+		goto v4l2_unregister;
+	}
+
 	platform_set_drvdata(pdev, mchp_vcpp);
 
 	video_set_drvdata(vdev, mchp_vcpp);
