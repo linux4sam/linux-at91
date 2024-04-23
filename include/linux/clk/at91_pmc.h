@@ -222,6 +222,11 @@
 
 #define AT91_PMC_FSPR		0x74		/* Fast Startup Polarity Reg */
 
+#define AT91_PMC_WCR		0x74		/* Wake-up Control Register [SAMA7] */
+#define		AT91_PMC_WCR_EN		BIT(16)		/* Wake-up Control Enable */
+#define		AT91_PMC_WCR_POL	BIT(17)		/* Wake-up Control Input Polarity */
+#define		AT91_PMC_WCR_CMD	BIT(24)		/* Command (read=0, write=1) */
+
 #define AT91_PMC_FS_INPUT_MASK  0x7ff
 
 #define AT91_PMC_PLLICPR	0x80			/* PLL Charge Pump Current Register */
