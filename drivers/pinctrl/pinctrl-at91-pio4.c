@@ -12,11 +12,13 @@
 #include <linux/gpio/driver.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/clk/at91_pmc.h>
 
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinconf.h>
@@ -128,6 +130,7 @@ struct atmel_pin {
  */
 struct atmel_pioctrl {
 	void __iomem		*reg_base;
+	void __iomem		*pmc;
 	struct clk		*clk;
 	unsigned int		nbanks;
 	struct pinctrl_dev	*pinctrl_dev;
@@ -1031,6 +1034,10 @@ static int __maybe_unused atmel_pctrl_suspend(struct device *dev)
 			atmel_pioctrl->pm_suspend_backup[i].cfgr[j] =
 				atmel_gpio_read(atmel_pioctrl, i,
 						ATMEL_PIO_CFGR);
+			if (atmel_pioctrl->pm_wakeup_sources[i] & BIT(j) && atmel_pioctrl->pmc)
+				writel_relaxed((j + i * ATMEL_PIO_NPINS_PER_BANK) | AT91_PMC_WCR_CMD |
+						AT91_PMC_WCR_EN, atmel_pioctrl->pmc + AT91_PMC_WCR);
+
 		}
 	}
 
@@ -1052,6 +1059,11 @@ static int __maybe_unused atmel_pctrl_resume(struct device *dev)
 					 ATMEL_PIO_MSKR, BIT(j));
 			atmel_gpio_write(atmel_pioctrl, i, ATMEL_PIO_CFGR,
 					 atmel_pioctrl->pm_suspend_backup[i].cfgr[j]);
+
+			if (atmel_pioctrl->pm_wakeup_sources[i] & BIT(j) && atmel_pioctrl->pmc)
+				writel_relaxed((j + i * ATMEL_PIO_NPINS_PER_BANK) | AT91_PMC_WCR_CMD |
+						~AT91_PMC_WCR_EN, atmel_pioctrl->pmc + AT91_PMC_WCR);
+
 		}
 	}
 
@@ -1089,6 +1101,12 @@ static const struct of_device_id atmel_pctrl_of_match[] = {
 	}
 };
 
+static const struct of_device_id atmel_pmc_of_match[] __refconst = {
+	{ .compatible = "microchip,sama7d65-pmc",},
+	{ .compatible = "microchip,sama7g5-pmc",},
+	{ /* sentinel */ }
+};
+
 /*
  * This lock class allows to tell lockdep that parent IRQ and children IRQ do
  * not share the same class so it does not raise false positive
@@ -1099,6 +1117,7 @@ static struct lock_class_key atmel_request_key;
 static int atmel_pinctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *pmc_np;
 	struct pinctrl_pin_desc	*pin_desc;
 	const char **group_names;
 	int i, ret;
@@ -1188,6 +1207,10 @@ static int atmel_pinctrl_probe(struct platform_device *pdev)
 
 		dev_dbg(dev, "pin_id=%u, bank=%u, line=%u", i, bank, line);
 	}
+
+	pmc_np = of_find_matching_node(NULL, atmel_pmc_of_match);
+	atmel_pioctrl->pmc = of_iomap(pmc_np, 0);
+	of_node_put(pmc_np);
 
 	atmel_pioctrl->gpio_chip = &atmel_gpio_chip;
 	atmel_pioctrl->gpio_chip->ngpio = atmel_pioctrl->npins;
