@@ -86,6 +86,7 @@
 struct dw_mipi_dsi_mchp_chip_data {
 	unsigned int max_data_lanes;
 	struct dw_mipi_dsi_phy_ops *phy_ops;
+	bool has_sfr;
 };
 
 struct dw_mipi_dsi_mchp {
@@ -473,21 +474,23 @@ static int dw_mipi_dsi_mchp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	sfr = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "microchip,sfr");
-	if (IS_ERR_OR_NULL(sfr)) {
-		ret = PTR_ERR(sfr);
-		dev_err(dsi->dev, "Failed to get handle on Special Function Register: %d\n",
-			ret);
-		goto err_dsi_probe;
-	}
-	/* Select DSI in SFR's ISS Configuration Register */
-	ret = regmap_write(sfr, SFR_ISS_CFG, ISS_CFG_DSI_MODE);
-	if (ret) {
-		dev_err(dsi->dev, "Failed to enable DSI in SFR ISS configuration register: %d\n",
-			ret);
-		goto err_dsi_probe;
-	}
+	if (cdata->has_sfr) {
+		sfr = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "microchip,sfr");
+		if (IS_ERR_OR_NULL(sfr)) {
+			ret = PTR_ERR(sfr);
+			dev_err(dsi->dev, "Failed to get handle on Special Function Register: %d\n",
+				ret);
+			goto err_dsi_probe;
+		}
 
+		/* Select DSI in SFR's ISS Configuration Register */
+		ret = regmap_write(sfr, SFR_ISS_CFG, ISS_CFG_DSI_MODE);
+		if (ret) {
+			dev_err(dsi->dev, "Failed to enable DSI in SFR ISS configuration register: %d\n",
+				ret);
+			goto err_dsi_probe;
+		}
+	}
 	dsi->pdata.base = dsi->base;
 	dsi->pdata.max_data_lanes = cdata->max_data_lanes;
 	dsi->pdata.phy_ops = cdata->phy_ops;
@@ -523,12 +526,23 @@ static int dw_mipi_dsi_mchp_remove(struct platform_device *pdev)
 static const struct dw_mipi_dsi_mchp_chip_data sam9x75_chip_data = {
 	.max_data_lanes = 4,
 	.phy_ops = &dw_mipi_dsi_mchp_phy_ops,
+	.has_sfr = true,
+};
+
+static const struct dw_mipi_dsi_mchp_chip_data sama7d65_chip_data = {
+	.max_data_lanes = 4,
+	.phy_ops = &dw_mipi_dsi_mchp_phy_ops,
+	.has_sfr = false,
 };
 
 static const struct of_device_id dw_mipi_dsi_mchp_dt_ids[] = {
 	{
 	 .compatible	= "microchip,sam9x75-mipi-dsi",
 	 .data		= &sam9x75_chip_data,
+	},
+	{
+	 .compatible    = "microchip,sama7d65-mipi-dsi",
+	 .data		= &sama7d65_chip_data,
 	},
 	{ /* sentinel */ }
 };
