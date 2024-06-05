@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/genalloc.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -33,6 +34,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sram.h>
 
 #include <dt-bindings/iio/adc/at91-sama5d2_adc.h>
 
@@ -445,6 +447,12 @@ static const struct at91_adc_reg_layout sama7g5_layout = {
 #define at91_adc_writel(st, reg, val)					\
 	writel_relaxed(val, (st)->base + (st)->soc_info.platform->layout->reg)
 
+struct at91_adc_state;
+static int at91_adc_temp_sensor_init(struct at91_adc_state *st,
+				     struct device *dev);
+static int at91_sama7d65_adc_temp_sensor_init(struct at91_adc_state *st,
+					      struct device *dev);
+
 /**
  * struct at91_adc_platform - at91-sama5d2 platform information struct
  * @layout:		pointer to the reg layout struct
@@ -464,6 +472,8 @@ static const struct at91_adc_reg_layout sama7g5_layout = {
  * @chan_realbits:	realbits for registered channels
  * @temp_chan:		temperature channel index
  * @temp_sensor:	temperature sensor supported
+ * @temp_init:		callback function to initialize the temperature sensor
+ * 			with its calibration data
  */
 struct at91_adc_platform {
 	const struct at91_adc_reg_layout	*layout;
@@ -481,6 +491,7 @@ struct at91_adc_platform {
 	unsigned int				chan_realbits;
 	unsigned int				temp_chan;
 	bool					temp_sensor;
+	int (*temp_init)(struct at91_adc_state *st, struct device *dev);
 };
 
 /**
@@ -508,6 +519,20 @@ enum at91_adc_ts_clb_idx {
 	AT91_ADC_TS_CLB_IDX_P4 = 5,
 	AT91_ADC_TS_CLB_IDX_P6 = 7,
 	AT91_ADC_TS_CLB_IDX_MAX = 19,
+};
+
+/**
+ * enum at91_sama7d65_adc_ts_clb_idx - calibration indexes in NVMEM buffer
+ * @AT91_SAMA7D65_ADC_TS_CLB_IDX_P1: index for FT1_TEMP equivalent to P1 * (10 ^ 6)
+ * @AT91_SAMA7D65_ADC_TS_CLB_IDX_P4: index for FT1_VPAT equivalent to P4
+ * @AT91_SAMA7D65_ADC_TS_CLB_IDX_P6: index for FT2_VBG equivalent to P6
+ * @AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX: max index for temperature calibration packet in OTP
+ */
+enum at91_sama7d65_adc_ts_clb_idx {
+	AT91_SAMA7D65_ADC_TS_CLB_IDX_P1 = 2,
+	AT91_SAMA7D65_ADC_TS_CLB_IDX_P4 = 1,
+	AT91_SAMA7D65_ADC_TS_CLB_IDX_P6 = 4,
+	AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX = 10,
 };
 
 /* Temperature sensor calibration - Vtemp voltage sensitivity to temperature. */
@@ -698,6 +723,62 @@ static const struct iio_chan_spec at91_sama7g5_adc_channels[] = {
 	AT91_SAMA5D2_CHAN_TEMP(AT91_SAMA7G5_ADC_TEMP_CHANNEL, "temp", 0xdc),
 };
 
+static const struct iio_chan_spec at91_sama7d65_adc_channels[] = {
+	AT91_SAMA7G5_CHAN_SINGLE(0, 0, 0x60),
+	AT91_SAMA7G5_CHAN_SINGLE(1, 1, 0x64),
+	AT91_SAMA7G5_CHAN_SINGLE(2, 2, 0x68),
+	AT91_SAMA7G5_CHAN_SINGLE(3, 3, 0x6c),
+	AT91_SAMA7G5_CHAN_SINGLE(4, 4, 0x70),
+	AT91_SAMA7G5_CHAN_SINGLE(5, 5, 0x74),
+	AT91_SAMA7G5_CHAN_SINGLE(6, 6, 0x78),
+	AT91_SAMA7G5_CHAN_SINGLE(7, 7, 0x7c),
+	AT91_SAMA7G5_CHAN_SINGLE(8, 8, 0x80),
+	AT91_SAMA7G5_CHAN_SINGLE(9, 9, 0x84),
+	AT91_SAMA7G5_CHAN_SINGLE(10, 10, 0x88),
+	AT91_SAMA7G5_CHAN_SINGLE(11, 11, 0x8c),
+	AT91_SAMA7G5_CHAN_SINGLE(12, 12, 0x90),
+	AT91_SAMA7G5_CHAN_SINGLE(13, 13, 0x94),
+	AT91_SAMA7G5_CHAN_SINGLE(14, 14, 0x98),
+	AT91_SAMA7G5_CHAN_SINGLE(15, 15, 0x9c),
+	/*
+	 * This is commented due to a driver limitation. The driver currently
+	 * does not support repetitive scan index. This is the case only for
+	 * sama7d65 as it has more than 15 single channels
+	 */
+#if 0
+	AT91_SAMA7G5_CHAN_SINGLE(16, 16, 0xa0),
+	AT91_SAMA7G5_CHAN_SINGLE(17, 17, 0xa4),
+	AT91_SAMA7G5_CHAN_SINGLE(18, 18, 0xa8),
+	AT91_SAMA7G5_CHAN_SINGLE(19, 19, 0xac),
+	AT91_SAMA7G5_CHAN_SINGLE(20, 20, 0xb0),
+	AT91_SAMA7G5_CHAN_SINGLE(21, 21, 0xb4),
+	AT91_SAMA7G5_CHAN_SINGLE(22, 22, 0xb8),
+	AT91_SAMA7G5_CHAN_SINGLE(23, 23, 0xbc),
+	AT91_SAMA7G5_CHAN_SINGLE(24, 24, 0xc0),
+	AT91_SAMA7G5_CHAN_SINGLE(25, 25, 0xc4),
+	AT91_SAMA7G5_CHAN_SINGLE(26, 26, 0xc8),
+	AT91_SAMA7G5_CHAN_SINGLE(27, 27, 0xcc),
+	AT91_SAMA7G5_CHAN_SINGLE(28, 28, 0xd0),
+	AT91_SAMA7G5_CHAN_SINGLE(29, 29, 0xd4),
+#endif
+	AT91_SAMA7G5_CHAN_DIFF(16, 0, 1, 0x60),
+	AT91_SAMA7G5_CHAN_DIFF(17, 2, 3, 0x68),
+	AT91_SAMA7G5_CHAN_DIFF(18, 4, 5, 0x70),
+	AT91_SAMA7G5_CHAN_DIFF(19, 6, 7, 0x78),
+	AT91_SAMA7G5_CHAN_DIFF(20, 8, 9, 0x80),
+	AT91_SAMA7G5_CHAN_DIFF(21, 10, 11, 0x88),
+	AT91_SAMA7G5_CHAN_DIFF(22, 12, 13, 0x90),
+	AT91_SAMA7G5_CHAN_DIFF(23, 14, 15, 0x98),
+	AT91_SAMA7G5_CHAN_DIFF(24, 16, 17, 0xa0),
+	AT91_SAMA7G5_CHAN_DIFF(25, 18, 19, 0xa8),
+	AT91_SAMA7G5_CHAN_DIFF(26, 20, 21, 0xb0),
+	AT91_SAMA7G5_CHAN_DIFF(27, 22, 23, 0xb8),
+	AT91_SAMA7G5_CHAN_DIFF(28, 24, 25, 0xc0),
+	AT91_SAMA7G5_CHAN_DIFF(29, 26, 27, 0xc8),
+	AT91_SAMA7G5_CHAN_DIFF(30, 28, 29, 0xd0),
+	AT91_SAMA5D2_CHAN_TEMP(AT91_SAMA7G5_ADC_TEMP_CHANNEL, "temp", 0xdc),
+};
+
 static const struct at91_adc_platform sama5d2_platform = {
 	.layout = &sama5d2_layout,
 	.adc_channels = &at91_sama5d2_adc_channels,
@@ -721,6 +802,7 @@ static const struct at91_adc_platform sama5d2_platform = {
 	.oversampling_avail = { 1, 4, 16, },
 	.oversampling_avail_no = 3,
 	.chan_realbits = 14,
+	.temp_init = at91_adc_temp_sensor_init,
 };
 
 static const struct at91_adc_platform sama7g5_platform = {
@@ -745,6 +827,39 @@ static const struct at91_adc_platform sama7g5_platform = {
 	.chan_realbits = 16,
 	.temp_sensor = true,
 	.temp_chan = AT91_SAMA7G5_ADC_TEMP_CHANNEL,
+	.temp_init = at91_adc_temp_sensor_init,
+};
+
+static const struct at91_adc_platform sama7d65_platform = {
+	.layout = &sama7g5_layout,
+	.adc_channels = &at91_sama7d65_adc_channels,
+#define AT91_SAMA7D65_SINGLE_CHAN_CNT	30
+#define AT91_SAMA7D65_DIFF_CHAN_CNT	15
+#define AT91_SAMA7D65_TEMP_CHAN_CNT	1
+	.nr_channels = AT91_SAMA7D65_SINGLE_CHAN_CNT +
+		       AT91_SAMA7D65_DIFF_CHAN_CNT +
+		       AT91_SAMA7D65_TEMP_CHAN_CNT,
+#define AT91_SAMA7D65_MAX_CHAN_IDX	(AT91_SAMA7D65_SINGLE_CHAN_CNT + \
+					AT91_SAMA7D65_DIFF_CHAN_CNT + \
+					AT91_SAMA7D65_TEMP_CHAN_CNT)
+	.max_channels = ARRAY_SIZE(at91_sama7d65_adc_channels),
+	.max_index = AT91_SAMA7D65_MAX_CHAN_IDX,
+#define AT91_SAMA7G5_HW_TRIG_CNT	3
+	.hw_trig_cnt = AT91_SAMA7G5_HW_TRIG_CNT,
+	.osr_mask = GENMASK(18, 16),
+	.oversampling_avail = { 1, 4, 16, 64, 256, },
+	.oversampling_avail_no = 5,
+	.chan_realbits = 16,
+	.temp_sensor = true,
+	.temp_chan = AT91_SAMA7G5_ADC_TEMP_CHANNEL,
+	/*
+	 * The calibration data has a TAG to recognize the packet
+	 * The tag has a constant value "ACST" with the ASCII
+	 * equivalent 0x41435354. This is used to validate the
+	 * calibration data.
+	 */
+#define AT91_SAMA7D65_TEMP_CALIB_TAG	0x41435354
+	.temp_init = at91_sama7d65_adc_temp_sensor_init,
 };
 
 static int at91_adc_chan_xlate(struct iio_dev *indio_dev, int chan)
@@ -2293,6 +2408,96 @@ free_buf:
 	return ret;
 }
 
+static int at91_sama7d65_adc_temp_sensor_init(struct at91_adc_state *st,
+					      struct device *dev)
+{
+	struct at91_adc_temp_sensor_clb *clb = &st->soc_info.temp_sensor_clb;
+	struct device_node *np = dev->of_node;
+	struct gen_pool *sram_ts_clb_pool_code = NULL;
+	unsigned long sram_ts_clb_virt_addr = 0;
+	struct nvmem_cell *temp_calib;
+	u32 *buf = NULL;
+	size_t len;
+	int ret = 0;
+
+	if (!st->soc_info.platform->temp_sensor)
+		return 0;
+
+	if (device_property_read_bool(dev, "microchip,calib-on-sram")) {
+		/* Get the calibration data from the OTP copy on SRAM0. */
+		sram_ts_clb_pool_code = of_gen_pool_get(np, "sram", 0);
+		if (!sram_ts_clb_pool_code) {
+			dev_err(dev, "Failed to get temp calib data from SRAM!\n");
+			return -ENODEV;
+		}
+
+		sram_ts_clb_virt_addr = gen_pool_alloc(sram_ts_clb_pool_code,
+						       AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX
+						       * sizeof(u32));
+		if (!sram_ts_clb_virt_addr) {
+			dev_err(dev, "Failed to read calibration data from SRAM\n");
+			return -ENOMEM;
+		}
+
+		buf = kzalloc((AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX * sizeof(u32)),
+			      GFP_KERNEL);
+		if (IS_ERR(buf)) {
+			dev_err(dev, "Cannot allocate memory for Calibration data!\n");
+			return PTR_ERR(buf);
+		}
+
+		memcpy(buf, (void *)sram_ts_clb_virt_addr,
+		       (AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX * sizeof(u32)));
+
+		if (buf[0] != AT91_SAMA7D65_TEMP_CALIB_TAG) {
+			dev_err(dev, "Invalid calibration data!\n");
+			ret = -EINVAL;
+			goto free_buf;
+		}
+	} else {
+		/* Get the calibration data from NVMEM. */
+		temp_calib = devm_nvmem_cell_get(dev, "temperature_calib");
+		if (IS_ERR(temp_calib)) {
+			ret = PTR_ERR(temp_calib);
+			if (ret != -ENOENT)
+				dev_err(dev, "Failed to get temperature_calib cell!\n");
+			return ret;
+		}
+
+		buf = nvmem_cell_read(temp_calib, &len);
+		if (IS_ERR(buf)) {
+			dev_err(dev, "Failed to read calibration data!\n");
+			return PTR_ERR(buf);
+		}
+
+		if (len < AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX * sizeof(u32)) {
+			dev_err(dev, "Invalid calibration data!\n");
+			ret = -EINVAL;
+			goto free_buf;
+		}
+	}
+
+	/* Store calibration data for later use. */
+	clb->p1 = buf[AT91_SAMA7D65_ADC_TS_CLB_IDX_P1];
+	clb->p4 = buf[AT91_SAMA7D65_ADC_TS_CLB_IDX_P4];
+	clb->p6 = buf[AT91_SAMA7D65_ADC_TS_CLB_IDX_P6];
+
+	/*
+	 * We prepare here the conversion to milli from micro to avoid
+	 * doing it on hotpath.
+	 */
+	clb->p1 = clb->p1 / 1000;
+
+free_buf:
+	if (sram_ts_clb_virt_addr) {
+		gen_pool_free(sram_ts_clb_pool_code,
+			      sram_ts_clb_virt_addr,
+			      AT91_SAMA7D65_ADC_TS_CLB_IDX_MAX * sizeof(u32));
+	}
+	kfree(buf);
+	return ret;
+}
+
 static int at91_adc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2311,7 +2516,7 @@ static int at91_adc_probe(struct platform_device *pdev)
 
 	st->soc_info.platform = device_get_match_data(dev);
 
-	ret = at91_adc_temp_sensor_init(st, &pdev->dev);
+	ret = st->soc_info.platform->temp_init(st, &pdev->dev);
 	/* Don't register temperature channel if initialization failed. */
 	if (ret)
 		num_channels = st->soc_info.platform->max_channels - 1;
@@ -2605,6 +2810,9 @@ static const struct of_device_id at91_adc_dt_match[] = {
 	}, {
 		.compatible = "microchip,sama7g5-adc",
 		.data = (const void *)&sama7g5_platform,
+	}, {
+		.compatible = "microchip,sama7d65-adc",
+		.data = (const void *)&sama7d65_platform,
 	}, {
 		/* sentinel */
 	}
