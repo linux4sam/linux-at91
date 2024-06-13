@@ -232,7 +232,9 @@ mchp_vcpp_remote_subdev(struct media_pad *local, u32 *pad)
 
 static int mchp_vcpp_verify_format(struct mchp_vcpp_fpga *mchp_vcpp)
 {
-	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev_format fmt= {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 	struct v4l2_subdev *subdev;
 	int ret;
 
@@ -240,7 +242,6 @@ static int mchp_vcpp_verify_format(struct mchp_vcpp_fpga *mchp_vcpp)
 	if (!subdev)
 		return -EPIPE;
 
-	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &fmt);
 	if (ret < 0)
 		return ret == -ENOIOCTLCMD ? -EINVAL : ret;
@@ -327,7 +328,9 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 	struct mchp_vcpp_buffer *buf;
 	struct v4l2_pix_format *pix = &mchp_vcpp->format.fmt.pix;
 	struct mchp_vcpp_compression_ratio *h264_ratio = &mchp_vcpp->h264_ratio;
-	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev_format fmt = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 	struct v4l2_subdev *subdev;
 	int ret, buf_size, i;
 	int *frame_size_index = &h264_ratio->frame_size_index;
@@ -371,7 +374,6 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 			if (!subdev)
 				return -EPIPE;
 
-			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &fmt);
 			if (ret < 0)
 				return ret == -ENOIOCTLCMD ? -EINVAL : ret;
@@ -645,7 +647,9 @@ static void __mchp_vcpp_try_format(struct mchp_vcpp_fpga *mchp_vcpp,
 				   const struct mvideo_format **fmtinfo)
 {
 	const struct mvideo_format *info;
-	struct v4l2_subdev_format v4l_fmt;
+	struct v4l2_subdev_format v4l_fmt = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 	struct v4l2_subdev *subdev;
 	unsigned int ret;
 
@@ -653,7 +657,6 @@ static void __mchp_vcpp_try_format(struct mchp_vcpp_fpga *mchp_vcpp,
 	if (!subdev)
 		return;
 
-	v4l_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &v4l_fmt);
 	if (ret < 0)
 		return;
@@ -725,7 +728,9 @@ static int mchp_vcpp_enum_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = video_drvdata(file);
 	struct v4l2_subdev *subdev;
-	struct v4l2_subdev_format v4l_fmt;
+	struct v4l2_subdev_format v4l_fmt = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 	const struct mvideo_format *mvideo_fmt;
 	int ret;
 
@@ -734,7 +739,6 @@ static int mchp_vcpp_enum_fmt_vid_cap(struct file *file, void *priv,
 	if (!subdev)
 		return -EPIPE;
 
-	v4l_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &v4l_fmt);
 	if (ret < 0)
 		return ret == -ENOIOCTLCMD ? -EINVAL : ret;
