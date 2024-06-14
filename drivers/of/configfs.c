@@ -274,8 +274,6 @@ static int __init of_cfs_init(void)
 {
 	int ret;
 
-	pr_info("%s\n", __func__);
-
 	config_group_init(&of_cfs_subsys.su_group);
 	config_group_init_type_name(&of_cfs_overlay_group, "overlays",
 				    &overlays_type);
@@ -287,7 +285,7 @@ static int __init of_cfs_init(void)
 		pr_err("%s: failed to register subsys\n", __func__);
 		goto out;
 	}
-	pr_info("%s: OK\n", __func__);
+	pr_debug("%s: OK\n", __func__);
 out:
 	return ret;
 }
