@@ -11,10 +11,14 @@ maintainers:
 
 properties:
   compatible:
-    items:
-      - enum:
-          - microchip,mpfs-gpio
-          - microchip,coregpio-rtl-v3
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-gpio
+          - const: microchip,mpfs-gpio
+      - items:
+          - enum:
+              - microchip,mpfs-gpio
+              - microchip,coregpio-rtl-v3
 
   reg:
     maxItems: 1
