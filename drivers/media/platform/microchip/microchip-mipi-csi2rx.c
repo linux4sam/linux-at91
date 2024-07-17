@@ -129,7 +129,6 @@ static const u32 mipi_csi2dt_mbus_lut[][2] = {
  * @default_format: Default V4L2 format
  * @events: counter for events
  * @dev: Platform structure
- * @rsubdev: Remote subdev connected to sink pad
  * @clks: array of clocks
  * @iomem: Base address of subsystem
  * @max_num_lanes: Maximum number of lanes present
@@ -146,7 +145,6 @@ struct mipi_csi2rx_state {
 	struct v4l2_mbus_framefmt format[2];
 	struct v4l2_mbus_framefmt default_format[2];
 	struct device *dev;
-	struct v4l2_subdev *rsubdev;
 	struct clk_bulk_data *clks;
 	void __iomem *iomem;
 	u32 max_num_lanes;
@@ -310,17 +308,6 @@ static int mipi_csi2rx_log_status(struct v4l2_subdev *sd)
 	return 0;
 }
 
-static struct v4l2_subdev *mipi_csi2rx_get_remote_subdev(struct media_pad *local)
-{
-	struct media_pad *remote;
-
-	remote = media_pad_remote_pad_first(local);
-	if (!remote || !is_media_entity_v4l2_subdev(remote->entity))
-		return NULL;
-
-	return media_entity_to_v4l2_subdev(remote->entity);
-}
-
 static int mipi_csi2rx_start_stream(struct mipi_csi2rx_state *state)
 {
 	int ret = 0;
@@ -339,26 +326,11 @@ static int mipi_csi2rx_start_stream(struct mipi_csi2rx_state *state)
 
 	state->streaming = true;
 
-	state->rsubdev =
-		mipi_csi2rx_get_remote_subdev(&state->pads[MVC_PAD_SINK]);
-
-	ret = v4l2_subdev_call(state->rsubdev, video, s_stream, 1);
-	if (ret) {
-		mipi_csi2rx_clr(state, MIPI_CSI_GLOBAL_INTERRUPT,
-				MIPI_CSI_GLOBAL_IRQ_EN);
-		mipi_csi2rx_clr(state, MIPI_CSI_INTERRUPT_EN,
-				MIPI_CSI_INTERRUPT_EN_MASK);
-		mipi_csi2rx_clr(state, MIPI_CSI_CTRL, MIPI_CSI_CTRL_START);
-		state->streaming = false;
-	}
-
 	return ret;
 }
 
 static void mipi_csi2rx_stop_stream(struct mipi_csi2rx_state *state)
 {
-	v4l2_subdev_call(state->rsubdev, video, s_stream, 0);
-
 	mipi_csi2rx_clr(state, MIPI_CSI_GLOBAL_INTERRUPT, MIPI_CSI_GLOBAL_IRQ_EN);
 	mipi_csi2rx_clr(state, MIPI_CSI_INTERRUPT_EN, MIPI_CSI_INTERRUPT_EN_MASK);
 	mipi_csi2rx_clr(state, MIPI_CSI_CTRL, MIPI_CSI_CTRL_START);
