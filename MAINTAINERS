@@ -8241,6 +8241,7 @@ X:	drivers/gpu/drm/exynos/
 X:	drivers/gpu/drm/i915/
 X:	drivers/gpu/drm/kmb/
 X:	drivers/gpu/drm/mediatek/
+X:	drivers/gpu/drm/microchip/
 X:	drivers/gpu/drm/msm/
 X:	drivers/gpu/drm/nova/
 X:	drivers/gpu/drm/radeon/
@@ -8401,6 +8402,15 @@ F:	drivers/gpu/drm/mediatek/
 F:	drivers/phy/mediatek/phy-mtk-dp.c
 F:	drivers/phy/mediatek/phy-mtk-hdmi*
 F:	drivers/phy/mediatek/phy-mtk-mipi*
+
+DRM DRIVERS FOR MICROCHIP
+M:	Cyrille Pitchen <cyrille.pitchen@microchip.com>
+L:	dri-devel@lists.freedesktop.org
+S:	Supported
+T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
+F:	Documentation/devicetree/bindings/gpu/microchip,sam9x60-gfx2d.yaml
+F:	drivers/gpu/drm/microchip/
+F:	include/uapi/drm/microchip_drm.h
 
 DRM DRIVERS FOR NVIDIA TEGRA
 M:	Thierry Reding <thierry.reding@gmail.com>

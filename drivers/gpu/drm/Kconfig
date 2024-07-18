@@ -398,6 +398,8 @@ source "drivers/gpu/drm/imagination/Kconfig"
 
 source "drivers/gpu/drm/tyr/Kconfig"
 
+source "drivers/gpu/drm/microchip/Kconfig"
+
 config DRM_HYPERV
 	tristate "DRM Support for Hyper-V synthetic video device"
 	depends on DRM && PCI && HYPERV_VMBUS

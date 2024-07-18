@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config DRM_MICROCHIP_GFX2D
+	tristate "DRM support for Microchip GFX2D GPU"
+	depends on DRM && OF && COMMON_CLK && ARM
+	help
+	  Choose this option if you have a Microchip SoC with a GFX2D GPU
+	  (i.e. SAM9X60 or SAM9X7 families). The GFX2D supports basic 2D
+	  graphics instructions, each working on a single rectangle defined
+	  by its width and height plus the coordinates of its top-left
+	  corner in each of the surface (behind a DRM GEM object) involved
+	  in the graphics instructions. There are four types of graphics
+	  instructions:
+	  - FILL: the rectangle is filled in the target surface with a
+	  uniform color.
+	  - COPY: the rectangle is copied from a single source surface into
+	  the target surface.
+	  - BLEND: the rectangle in the target surface is the result of a
+	  blending from rectangles of the same size in two source surfaces.
+	  - ROP: the rectangle in the target surface is the result of a
+	  raster operation on two (ROP2), three (ROP3), or four (ROP4)
+	  source surfaces, depending on the selected raster mode.
