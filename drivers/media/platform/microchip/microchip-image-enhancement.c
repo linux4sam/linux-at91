@@ -72,6 +72,9 @@ struct mchp_image_enhancement {
 
 	int contrast;
 	int brightness;
+	int r_gain;
+	int b_gain;
+	int g_gain;
 };
 
 static inline struct mchp_image_enhancement *
@@ -117,15 +120,20 @@ mchp_image_enhancement_set(struct mchp_image_enhancement *image_enhancement,
 static int mchp_image_enhancement_s_stream(struct v4l2_subdev *subdev, int enable)
 {
 	struct mchp_image_enhancement *image_enhancement = to_image_enhancement(subdev);
-
-	mchp_image_enhancement_set(image_enhancement, MCHP_IMAGE_ENHANCEMENT_CTRL,
-				   MCHP_IMAGE_ENHANCEMENT_CTRL_RESET);
+	int ret;
 
 	if (!enable) {
 		mchp_image_enhancement_clr(image_enhancement, MCHP_IMAGE_ENHANCEMENT_CTRL,
 					   MCHP_IMAGE_ENHANCEMENT_CTRL_START);
 		return 0;
 	}
+
+	mchp_image_enhancement_set(image_enhancement, MCHP_IMAGE_ENHANCEMENT_CTRL,
+				   MCHP_IMAGE_ENHANCEMENT_CTRL_RESET);
+
+	ret = __v4l2_ctrl_handler_setup(&image_enhancement->ctrl_handler);
+	if (ret)
+		return ret;
 
 	mchp_image_enhancement_set(image_enhancement, MCHP_IMAGE_ENHANCEMENT_CTRL,
 				   MCHP_IMAGE_ENHANCEMENT_CTRL_START);
@@ -248,54 +256,60 @@ static inline int contrast_scale_cal(int contrast)
 	return ((325 * (contrast + 128) / (387 - contrast)) >> 5u);
 }
 
+static void mchp_image_enhancement_update_ctrls(struct mchp_image_enhancement *image_enhancement)
+{
+	u32 contrast_scale, second_constraint, r_gain_val, g_gain_val, b_gain_val;
+
+	contrast_scale = contrast_scale_cal(image_enhancement->contrast);
+	second_constraint = second_constraint_cal(image_enhancement->brightness,
+						  contrast_scale);
+	r_gain_val = ((image_enhancement->r_gain * contrast_scale) / 10);
+	g_gain_val = ((image_enhancement->g_gain * contrast_scale) / 10);
+	b_gain_val = ((image_enhancement->b_gain * contrast_scale) / 10);
+
+	mchp_image_enhancement_reg_write(image_enhancement,
+					 MCHP_IMAGE_ENHANCEMENT_R_CONSTRAINT,
+					 r_gain_val);
+
+	mchp_image_enhancement_reg_write(image_enhancement,
+					 MCHP_IMAGE_ENHANCEMENT_G_CONSTRAINT,
+					 g_gain_val);
+
+	mchp_image_enhancement_reg_write(image_enhancement,
+					 MCHP_IMAGE_ENHANCEMENT_B_CONSTRAINT,
+					 b_gain_val);
+
+	mchp_image_enhancement_reg_write(image_enhancement,
+					 MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT,
+					 second_constraint);
+}
+
 static int mchp_image_enhancement_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mchp_image_enhancement *image_enhancement =
 		container_of(ctrl->handler, struct mchp_image_enhancement,
 			     ctrl_handler);
-	u32 contrast_scale, second_constraint, r_gain, g_gain, b_gain;
 
 	switch (ctrl->id) {
 	case V4L2_CID_BRIGHTNESS:
 		image_enhancement->brightness = ctrl->val;
-		contrast_scale = contrast_scale_cal(image_enhancement->contrast);
-		second_constraint = second_constraint_cal(ctrl->val,
-							  contrast_scale);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT,
-						 second_constraint);
+		mchp_image_enhancement_update_ctrls(image_enhancement);
 		break;
 	case V4L2_CID_CONTRAST:
 		image_enhancement->contrast = ctrl->val;
-		contrast_scale = contrast_scale_cal(ctrl->val);
-		second_constraint = second_constraint_cal(image_enhancement->brightness,
-							  contrast_scale);
-
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT,
-						 second_constraint);
-
+		mchp_image_enhancement_update_ctrls(image_enhancement);
 		break;
 	case MCHP_CID_RED_GAIN:
-		contrast_scale = contrast_scale_cal(image_enhancement->contrast);
-		r_gain = ((ctrl->val * contrast_scale) / 10);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_R_CONSTRAINT,
-						 r_gain);
+		image_enhancement->r_gain = ctrl->val;
+		mchp_image_enhancement_update_ctrls(image_enhancement);
 		break;
 	case MCHP_CID_GREEN_GAIN:
-		contrast_scale = contrast_scale_cal(image_enhancement->contrast);
-		g_gain = ((ctrl->val * contrast_scale) / 10);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_G_CONSTRAINT,
-						 g_gain);
+		image_enhancement->g_gain = ctrl->val;
+		mchp_image_enhancement_update_ctrls(image_enhancement);
 		break;
 	case MCHP_CID_BLUE_GAIN:
-		contrast_scale = contrast_scale_cal(image_enhancement->contrast);
-		b_gain = ((ctrl->val * contrast_scale) / 10);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_B_CONSTRAINT,
-						 b_gain);
+		image_enhancement->b_gain = ctrl->val;
+		mchp_image_enhancement_update_ctrls(image_enhancement);
 		break;
 	case MCHP_CID_RGB_SUM:
 		ctrl->val = mchp_image_enhancement_reg_read(image_enhancement,
