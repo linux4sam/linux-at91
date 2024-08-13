@@ -10,6 +10,7 @@
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/dma-map-ops.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -788,6 +789,17 @@ static int mchp_vcpp_g_input(struct file *file, void *priv, unsigned int *index)
 	return 0;
 }
 
+static int mchp_vb2_ioctl_reqbufs(struct file *file, void *priv,
+				  struct v4l2_requestbuffers *p)
+{
+	struct mchp_vcpp_fpga *mchp_vcpp = video_drvdata(file);
+
+	if (!dev_is_dma_coherent(mchp_vcpp->dev))
+		p->flags |= V4L2_MEMORY_FLAG_NON_COHERENT;
+
+	return vb2_ioctl_reqbufs(file, priv, p);
+}
+
 static int mchp_vcpp_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	if (ctrl->id != MCHP_CID_COMPRESSION_RATIO)
@@ -824,7 +836,7 @@ static const struct v4l2_ioctl_ops mchp_vcpp_ioctl_ops = {
 	.vidioc_g_input = mchp_vcpp_g_input,
 	.vidioc_s_input = mchp_vcpp_s_input,
 
-	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_reqbufs = mchp_vb2_ioctl_reqbufs,
 	.vidioc_create_bufs = vb2_ioctl_create_bufs,
 	.vidioc_querybuf = vb2_ioctl_querybuf,
 	.vidioc_qbuf = vb2_ioctl_qbuf,
@@ -1315,7 +1327,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	vb2_q->buf_struct_size = sizeof(struct mchp_vcpp_buffer);
 	vb2_q->ops = &mchp_vcpp_qops;
 	vb2_q->mem_ops = &vb2_dma_contig_memops;
-	vb2_q->gfp_flags = GFP_DMA32;
+	vb2_q->allow_cache_hints = 1;
 	vb2_q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	vb2_q->min_buffers_needed = 2;
 	vb2_q->lock = &mchp_vcpp->lock;
