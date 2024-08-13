@@ -247,6 +247,9 @@ static int mchp_rgb_scaler_set_format(struct v4l2_subdev *subdev,
 
 	fmt->format = *format;
 
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+		return 0;
+
 	if (fmt->pad == MVC_PAD_SINK) {
 		/* Set the crop rectangle to the full frame */
 		crop = __mchp_rgb_scaler_get_crop(rgb_scaler, sd_state, fmt->which);
