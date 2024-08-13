@@ -9,6 +9,7 @@
 
 #include <linux/clk.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -52,6 +53,7 @@
  * @subdev: The v4l2 subdev structure
  * @iomem: Base address of subsystem
  * @pads: media pads
+ * @mutex : mutex lock for hardware reg access
  * @formats: active V4L2 media bus formats at the sink and source pads
  * @default_formats: default V4L2 media bus formats
  * @vip_formats: format information corresponding to the pads active formats
@@ -64,6 +66,7 @@ struct mchp_image_enhancement {
 
 	struct media_pad pads[2];
 
+	struct mutex lock;
 	struct v4l2_mbus_framefmt formats[2];
 	struct v4l2_mbus_framefmt default_formats[2];
 	const struct mvideo_format *vip_formats[2];
@@ -267,6 +270,8 @@ static void mchp_image_enhancement_update_ctrls(struct mchp_image_enhancement *i
 	g_gain_val = ((image_enhancement->g_gain * contrast_scale) / 10);
 	b_gain_val = ((image_enhancement->b_gain * contrast_scale) / 10);
 
+	mutex_lock(&image_enhancement->lock);
+
 	mchp_image_enhancement_reg_write(image_enhancement,
 					 MCHP_IMAGE_ENHANCEMENT_R_CONSTRAINT,
 					 r_gain_val);
@@ -282,6 +287,7 @@ static void mchp_image_enhancement_update_ctrls(struct mchp_image_enhancement *i
 	mchp_image_enhancement_reg_write(image_enhancement,
 					 MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT,
 					 second_constraint);
+	mutex_unlock(&image_enhancement->lock);
 }
 
 static int mchp_image_enhancement_s_ctrl(struct v4l2_ctrl *ctrl)
@@ -475,6 +481,8 @@ static int mchp_image_enhancement_probe(struct platform_device *pdev)
 	image_enhancement->iomem = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(image_enhancement->iomem))
 		return PTR_ERR(image_enhancement->iomem);
+
+	mutex_init(&image_enhancement->lock);
 
 	/* Initialize V4L2 subdevice and media entity */
 	subdev = &image_enhancement->subdev;
