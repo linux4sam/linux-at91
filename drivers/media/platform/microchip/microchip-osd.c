@@ -227,6 +227,23 @@ static int mchp_osd_close(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+/*
+ * The compression ratio is calculated by the vDMA driver, but overlaid by
+ * the OSD FPGA logic. It is displayed on the streaming video, with the
+ * 4 least significant bits of MCHP_OSD_NUM containing the units, bits 4 to 7
+ * containing the tens etc to be displayed.
+ */
+
+static void mchp_dscmi_osd_text(struct mchp_osd_device *osd,
+				u32 compression_ratio)
+{
+	u32 compression_ratio_osd = ((compression_ratio % 10) |
+				    ((compression_ratio / 10 % 10) << 4) |
+				    ((compression_ratio / 100) << 8));
+
+	mchp_osd_reg_write(osd, MCHP_OSD_NUM, compression_ratio_osd);
+}
+
 static int mchp_osd_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mchp_osd_device *osd =
@@ -255,7 +272,7 @@ static int mchp_osd_s_ctrl(struct v4l2_ctrl *ctrl)
 		mchp_osd_reg_write(osd, MCHP_OSD_COLOR, ctrl->val);
 		break;
 	case MCHP_CID_OSD_NUM:
-		mchp_osd_reg_write(osd, MCHP_OSD_NUM, ctrl->val);
+		mchp_dscmi_osd_text(osd, ctrl->val);
 		break;
 	}
 
