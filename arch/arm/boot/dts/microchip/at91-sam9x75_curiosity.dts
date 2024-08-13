@@ -441,6 +441,18 @@
 		};
 	};
 
+	sdmmc1 {
+		pinctrl_sdmmc1_default: sdmmc1-default {
+			atmel,pins =
+				<AT91_PIOA 11 AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)
+				 AT91_PIOA 10 AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)
+				 AT91_PIOA 9  AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)
+				 AT91_PIOA 6  AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)
+				 AT91_PIOA 7  AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)
+				 AT91_PIOA 8  AT91_PERIPH_B (AT91_PINCTRL_DRIVE_STRENGTH_HI | AT91_PINCTRL_SLEWRATE_ENA)>;
+		};
+	};
+
 	usb0 {
 		pinctrl_usba_vbus: usba-vbus {
 			atmel,pins = <AT91_PIOC 8 AT91_PERIPH_GPIO AT91_PINCTRL_NONE>;
@@ -515,6 +527,14 @@
 	cd-gpios = <&pioA 23 GPIO_ACTIVE_LOW>;
 	disable-wp;
 	status = "okay";
+};
+
+&sdmmc1 {
+	bus-width = <4>;
+	mmc-ddr-3_3v;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdmmc1_default>;
+	status = "disabled";
 };
 
 &slow_xtal {
