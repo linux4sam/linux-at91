@@ -127,6 +127,8 @@ static int mchp_rgb_scaler_s_stream(struct v4l2_subdev *subdev, int enable)
 		return 0;
 	}
 
+	mchp_rgb_scaler_set(rgb_scaler, MCHP_RGB_SCALER_CTRL, MCHP_RGB_SCALER_CTRL_RESET);
+
 	mchp_set_scale_factor(rgb_scaler);
 
 	mchp_rgb_scaler_set(rgb_scaler, MCHP_RGB_SCALER_CTRL, MCHP_RGB_SCALER_CTRL_START);
