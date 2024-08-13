@@ -29,7 +29,7 @@
 #define MCHP_IMAGE_ENHANCEMENT_R_CONSTRAINT		0x08
 #define MCHP_IMAGE_ENHANCEMENT_G_CONSTRAINT		0x0C
 #define MCHP_IMAGE_ENHANCEMENT_B_CONSTRAINT		0x10
-#define MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT		0x14
+#define MCHP_IMAGE_ENHANCEMENT_SECOND_CONSTRAINT	0x14
 #define MCHP_IMAGE_ENHANCEMENT_RGB_SUM			0x18
 
 #define MCHP_IMAGE_ENHANCEMENT_GAIN_CTL_DEFAULT		112
@@ -37,9 +37,8 @@
 #define MCHP_IMAGE_ENHANCEMENT_CTL_MIN			0
 #define MCHP_IMAGE_ENHANCEMENT_CTL_MAX			255
 #define MCHP_IMAGE_ENHANCEMENT_CTL_STEP			1
-#define MCHP_IMAGE_ENHANCEMENT_Q_FACTOR_CTL_MAX		52
 
-#define MCHP_IMAGE_ENHANCEMENT_NUM_CTRLS		7
+#define MCHP_IMAGE_ENHANCEMENT_NUM_CTRLS		6
 
 #define MCHP_IMAGE_ENHANCEMENT_DEF_FORMAT		MVCF_RGB
 
@@ -298,19 +297,6 @@ static int mchp_image_enhancement_s_ctrl(struct v4l2_ctrl *ctrl)
 						 MCHP_IMAGE_ENHANCEMENT_B_CONSTRAINT,
 						 b_gain);
 		break;
-	case V4L2_CID_GAIN:
-		contrast_scale = contrast_scale_cal(image_enhancement->contrast);
-		r_gain = ((ctrl->val * contrast_scale) / 10);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_R_CONSTRAINT,
-						 r_gain);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_G_CONSTRAINT,
-						 r_gain);
-		mchp_image_enhancement_reg_write(image_enhancement,
-						 MCHP_IMAGE_ENHANCEMENT_B_CONSTRAINT,
-						 r_gain);
-		break;
 	case MCHP_CID_RGB_SUM:
 		ctrl->val = mchp_image_enhancement_reg_read(image_enhancement,
 							    MCHP_IMAGE_ENHANCEMENT_RGB_SUM);
@@ -409,11 +395,6 @@ static int mchp_image_enhancement_init_controls(struct mchp_image_enhancement *i
 			  V4L2_CID_CONTRAST, MCHP_IMAGE_ENHANCEMENT_CTL_MIN,
 			  MCHP_IMAGE_ENHANCEMENT_CTL_MAX, MCHP_IMAGE_ENHANCEMENT_CTL_STEP,
 			  MCHP_IMAGE_ENHANCEMENT_CTL_MAX / 2);
-
-	v4l2_ctrl_new_std(ctrl_hdlr, &mchp_image_enhancement_ctrl_ops,
-			  V4L2_CID_GAIN, MCHP_IMAGE_ENHANCEMENT_CTL_MIN,
-			  MCHP_IMAGE_ENHANCEMENT_CTL_MAX, MCHP_IMAGE_ENHANCEMENT_CTL_STEP,
-			  MCHP_IMAGE_ENHANCEMENT_GAIN_CTL_DEFAULT);
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_image_enhancement_ctrls[0], NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mchp_image_enhancement_ctrls[1], NULL);
