@@ -10,6 +10,7 @@
 #include <linux/device.h>
 #include <linux/fixp-arith.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -49,6 +50,7 @@
  * @subdev: The v4l2 subdev structure
  * @iomem: Base address of subsystem
  * @pads: media pads
+ * @mutex : mutex lock for hardware reg access
  * @formats: V4L2 media bus formats at the sink and source pads
  * @default_formats: default V4L2 media bus formats
  * @vip_formats: Microchi Video IP format
@@ -61,6 +63,7 @@ struct mchp_rgb_scaler_device {
 
 	struct media_pad pads[2];
 
+	struct mutex lock;
 	struct v4l2_mbus_framefmt formats[2];
 	struct v4l2_mbus_framefmt default_formats[2];
 	const struct mvideo_format *vip_formats[2];
@@ -110,12 +113,16 @@ static void mchp_set_scale_factor(struct mchp_rgb_scaler_device *rgb_scaler)
 	scale_factor_h = (((in_width - 1) * 1024) / out_width);
 	scale_factor_v = (((in_height - 1) * 1024) / out_height);
 
+	mutex_lock(&rgb_scaler->lock);
+
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_INPUT_HRES, in_width);
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_INPUT_VRES, in_height);
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_OUTPUT_HRES, out_width);
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_OUTPUT_VRES, out_height);
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_FACTOR_H, scale_factor_h);
 	mchp_rgb_scaler_write(rgb_scaler, MCHP_RGB_SCALER_FACTOR_V, scale_factor_v);
+
+	mutex_unlock(&rgb_scaler->lock);
 }
 
 static int mchp_rgb_scaler_s_stream(struct v4l2_subdev *subdev, int enable)
@@ -417,6 +424,7 @@ static int mchp_rgb_scaler_probe(struct platform_device *pdev)
 	if (IS_ERR(rgb_scaler->iomem))
 		return PTR_ERR(rgb_scaler->iomem);
 
+	mutex_init(&rgb_scaler->lock);
 	mchp_rgb_scaler_set(rgb_scaler, MCHP_RGB_SCALER_CTRL, MCHP_RGB_SCALER_CTRL_RESET);
 
 	/* Initialize V4L2 subdevice and media entity */
