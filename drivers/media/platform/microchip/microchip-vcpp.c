@@ -1081,7 +1081,7 @@ static void mchp_vcpp_set_default_format(struct mchp_vcpp_fpga *mchp_vcpp)
 
 	pix = &mchp_vcpp->format.fmt.pix;
 	pix->pixelformat = mchp_vcpp->fmtinfo->fourcc;
-	pix->colorspace = V4L2_COLORSPACE_RAW;
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
 	pix->field = V4L2_FIELD_NONE;
 	pix->width = MCHP_VCPP_DEF_WIDTH;
 	pix->height = MCHP_VCPP_DEF_HEIGHT;
