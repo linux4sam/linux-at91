@@ -72,7 +72,8 @@
 #define MCHP_VCPP_BUFF_ADDR_FIFO_DATA		0x1C
 #define MCHP_VCPP_BUFF_ADDR_FIFO_RDATA_COUNT	0x20
 #define MCHP_VCPP_FRAME_SIZE_FIFO_DATA_RD	0x24
-#define MCHP_VCPP_FRAME_SIZE_FIFO_WDATA_COUNT	0x28
+#define MCHP_VCPP_MEDIA_PIPE_START		0x28
+#define MCHP_VCPP_MEDIA_PIPE_START_0		BIT(0)
 
 #define MCHP_VCPP_FRAME_START			0x1
 #define MCHP_VCPP_FRAME_STOP			0x0
@@ -560,6 +561,7 @@ static int mchp_vcpp_start_streaming(struct vb2_queue *vq, unsigned int count)
 		return ret;
 	}
 
+	writel_relaxed(MCHP_VCPP_MEDIA_PIPE_START_0, mchp_vcpp->base + MCHP_VCPP_MEDIA_PIPE_START);
 	writel_relaxed(MCHP_VCPP_GLBL_INT_EN_BIT, mchp_vcpp->base + MCHP_VCPP_GLBL_INT_EN);
 	writel_relaxed(MCHP_VCPP_INT_EN_EOF, mchp_vcpp->base + MCHP_VCPP_INT_EN);
 
