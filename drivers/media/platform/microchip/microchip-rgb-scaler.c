@@ -263,8 +263,6 @@ static int mchp_rgb_scaler_set_format(struct v4l2_subdev *subdev,
 		crop->height = fmt->format.height;
 		rgb_scaler->formats[MVC_PAD_SOURCE].width = crop->width;
 		rgb_scaler->formats[MVC_PAD_SOURCE].height = crop->height;
-
-		mchp_set_scale_factor(rgb_scaler);
 	}
 
 	return 0;
