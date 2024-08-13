@@ -354,7 +354,9 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 
 	if (mchp_vcpp->fmtinfo->fourcc == V4L2_PIX_FMT_H264) {
 		buf_size = readl_relaxed(mchp_vcpp->base + MCHP_VCPP_FRAME_SIZE_FIFO_DATA_RD);
+		spin_lock_irq(&mchp_vcpp->qlock);
 		mchp_vcpp_buffer_done(mchp_vcpp, buf, buf_size, 0);
+		spin_unlock_irq(&mchp_vcpp->qlock);
 		h264_ratio->frame_count++;
 		h264_ratio->frame_size[*frame_size_index] += buf_size;
 
@@ -389,8 +391,10 @@ static irqreturn_t mchp_vcpp_irq_thread_fn(int irq, void *dev_id)
 			h264_ratio->frame_size[*frame_size_index] = 0;
 		}
 	} else {
+		spin_lock_irq(&mchp_vcpp->qlock);
 		mchp_vcpp_buffer_done(mchp_vcpp, buf,
 				      pix->width * pix->height * mchp_vcpp->fmtinfo->bpp, 0);
+		spin_unlock_irq(&mchp_vcpp->qlock);
 	}
 
 	spin_lock_irq(&mchp_vcpp->qlock);
