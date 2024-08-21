@@ -18,9 +18,23 @@
 #include "generic.h"
 #include "sam_secure.h"
 
+#define SAM_SIP_SMC_VAL(func) ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, \
+		ARM_SMCCC_SMC_32, ARM_SMCCC_OWNER_SIP, (func))
+
+#define SAM_SMC_SIP_PL310_ENABLE 0x1
+
 static void sama5_l2c310_write_sec(unsigned long val, unsigned reg)
 {
 	/* OP-TEE configures the L2 cache and does not allow modifying it yet */
+#ifdef CONFIG_HAVE_ARM_SMCCC
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(SAM_SIP_SMC_VAL(SAM_SMC_SIP_PL310_ENABLE), val, reg, 0, 0,
+		      0, 0, 0, &res);
+
+	if (res.a0 != 0)
+		pr_err("Failed to write l2c310 0x%x: 0x%lx\n", reg, res.a0);
+#endif
 }
 
 static void __init sama5_secure_cache_init(void)
