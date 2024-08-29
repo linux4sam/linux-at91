@@ -120,6 +120,17 @@
 	status = "okay";
 };
 
+&flx1 {
+	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_USART>;
+	status = "okay";
+
+	uart1: serial@200 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_flx1_usart_default>;
+		status = "okay";
+	};
+};
+
 &flx6 {
 	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
 	status = "okay";
@@ -372,6 +383,12 @@
 			atmel,pins =
 				<AT91_PIOC 0 AT91_PERIPH_C AT91_PINCTRL_PULL_UP>,
 				<AT91_PIOC 1 AT91_PERIPH_C AT91_PINCTRL_PULL_UP>;
+		};
+
+		pinctrl_flx1_usart_default: flx1-usart-default {
+			atmel,pins =
+				<AT91_PIOA 28 AT91_PERIPH_A AT91_PINCTRL_NONE
+				 AT91_PIOA 29 AT91_PERIPH_A AT91_PINCTRL_NONE>;
 		};
 	};
 
