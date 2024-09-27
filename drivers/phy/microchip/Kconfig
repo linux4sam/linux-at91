@@ -11,6 +11,12 @@ config PHY_MICROCHIP_SAMA7_USB
 	help
 		Enable this to support SAMA7 USB 2.0 PHY
 
+config PHY_MICROCHIP_SAMA7_UTMI_CLK
+	bool
+	depends on PHY_MICROCHIP_SAMA7_USB
+	default n if OPTEE
+	default y
+
 config PHY_SPARX5_SERDES
 	tristate "Microchip Sparx5 SerDes PHY driver"
 	select GENERIC_PHY
