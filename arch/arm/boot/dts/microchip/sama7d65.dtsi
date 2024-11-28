@@ -516,8 +516,9 @@
 			atmel,trigger-edge-type = <IRQ_TYPE_EDGE_RISING>;
 			atmel,startup-time-ms = <4>;
 			#io-channel-cells = <1>;
+			nvmem-cells = <&temperature_calib>;
+			nvmem-cell-names = "temperature_calib";
 			sram = <&temp_calib_sram>;
-			microchip,calib-on-sram;
 			status = "disabled";
 		};
 
@@ -1128,6 +1129,10 @@
 			reg = <0xe8c00000 0x100>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			temperature_calib: calib@41435354 {
+				reg = <0x41435354 0x2c>;	/* Temp calib data packet TAG */
+			};
 		};
 
 		gic: interrupt-controller@e8c11000 {
