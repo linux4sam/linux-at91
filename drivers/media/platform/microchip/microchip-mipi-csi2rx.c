@@ -135,6 +135,7 @@ static const u32 mipi_csi2dt_mbus_lut[][2] = {
  * @datatype: Data type filter
  * @lock: mutex for accessing this structure
  * @pads: media pads
+ * @event_logs_enable : enable/disable event logs
  * @streaming: Flag for storing streaming state
  * @csi_fixed_out_raw8: If out put format is fixed to raw8
  *
@@ -153,6 +154,7 @@ struct mipi_csi2rx_state {
 	/* used to protect access to this struct */
 	struct mutex lock;
 	struct media_pad pads[MIPI_CSI_MEDIA_PADS];
+	bool event_logs_enable;
 	bool streaming;
 	bool csi_fixed_out_raw8;
 };
@@ -318,8 +320,10 @@ static int mipi_csi2rx_start_stream(struct mipi_csi2rx_state *state)
 		return ret;
 	}
 
-	mipi_csi2rx_set(state, MIPI_CSI_GLOBAL_INTERRUPT,
-			MIPI_CSI_GLOBAL_IRQ_EN);
+	if (state->event_logs_enable)
+		mipi_csi2rx_set(state, MIPI_CSI_GLOBAL_INTERRUPT,
+				MIPI_CSI_GLOBAL_IRQ_EN);
+
 	mipi_csi2rx_set(state, MIPI_CSI_INTERRUPT_EN,
 			MIPI_CSI_INTERRUPT_EN_MASK);
 	mipi_csi2rx_set(state, MIPI_CSI_CTRL, MIPI_CSI_CTRL_START);
@@ -621,6 +625,42 @@ static int mipi_csi2rx_parse_of(struct mipi_csi2rx_state *csi2rx)
 	return 0;
 }
 
+static ssize_t mipi_csi2rx_event_logs_enable_store(struct device *dev,
+						   struct device_attribute *attr,
+						   const char *buff, size_t count)
+{
+	struct mipi_csi2rx_state *csi2rx = dev_get_drvdata(dev);
+	int ret;
+
+	ret = kstrtobool(buff, &csi2rx->event_logs_enable);
+	if (ret)
+		return ret;
+
+	mutex_lock(&csi2rx->lock);
+
+	if (csi2rx->event_logs_enable)
+		mipi_csi2rx_set(csi2rx, MIPI_CSI_GLOBAL_INTERRUPT,
+				MIPI_CSI_GLOBAL_IRQ_EN);
+	else
+		mipi_csi2rx_clr(csi2rx, MIPI_CSI_GLOBAL_INTERRUPT,
+				MIPI_CSI_GLOBAL_IRQ_EN);
+
+	mutex_unlock(&csi2rx->lock);
+
+	return count;
+}
+
+static ssize_t mipi_csi2rx_event_logs_enable_show(struct device *dev,
+						  struct device_attribute *attr,
+						  char *buf)
+{
+	struct mipi_csi2rx_state *csi2rx = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", csi2rx->event_logs_enable);
+}
+
+static DEVICE_ATTR_RW(mipi_csi2rx_event_logs_enable);
+
 static int mipi_csi2rx_probe(struct platform_device *pdev)
 {
 	struct v4l2_subdev *subdev;
@@ -705,6 +745,13 @@ static int mipi_csi2rx_probe(struct platform_device *pdev)
 		goto error;
 
 	platform_set_drvdata(pdev, csi2rx);
+
+	csi2rx->event_logs_enable = 0;
+	ret = device_create_file(dev, &dev_attr_mipi_csi2rx_event_logs_enable);
+	if (ret < 0) {
+		dev_err(dev, "failed to create device attr file\n");
+		goto error;
+	}
 
 	ret = v4l2_async_register_subdev(subdev);
 	if (ret < 0) {
