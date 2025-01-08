@@ -769,17 +769,22 @@ static const struct snd_soc_component_driver mchp_spdiftx_component = {
 	.legacy_dai_naming	= 1,
 };
 
-static const struct mchp_spdiftx_soc mchp_spdiftx_soc_data = {
+static const struct mchp_spdiftx_soc mchp_sama7d65_spdiftx_soc_data = {
 	.direct_path_avail = 1,
+};
+
+static const struct mchp_spdiftx_soc mchp_sama7g54_spdiftx_soc_data = {
+	.direct_path_avail = 0,
 };
 
 static const struct of_device_id mchp_spdiftx_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-spdiftx",
+		.data = &mchp_sama7g54_spdiftx_soc_data,
 	},
 	{
 		.compatible = "microchip,sama7d65-spdiftx",
-		.data = &mchp_spdiftx_soc_data,
+		.data = &mchp_sama7d65_spdiftx_soc_data,
 	},
 
 	{ /* sentinel */ }
@@ -927,10 +932,10 @@ static int mchp_spdiftx_probe(struct platform_device *pdev)
 
 	/*Check if we have direct path disabled*/
 	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
-	if (!np && dev->soc->direct_path_avail) {
+	if (!np && dev->soc->direct_path_avail)
 		dev->direct_path = true;
+	else
 		of_node_put(np);
-	}
 
 	return 0;
 
