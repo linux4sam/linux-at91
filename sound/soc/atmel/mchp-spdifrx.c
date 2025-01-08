@@ -1091,9 +1091,14 @@ static const struct mchp_spdifrx_soc mchp_sama7d65_spdifrx_soc_data = {
 	.direct_path_avail = 1,
 };
 
+static const struct mchp_spdifrx_soc mchp_sama7g54_spdifrx_soc_data = {
+	.direct_path_avail = 0,
+};
+
 static const struct of_device_id mchp_spdifrx_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-spdifrx",
+		.data = &mchp_sama7g54_spdifrx_soc_data,
 	},
 	{
 		.compatible = "microchip,sama7d65-spdifrx",
@@ -1242,10 +1247,10 @@ static int mchp_spdifrx_probe(struct platform_device *pdev)
 
 	/*Check if we have direct path disabled*/
 	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
-	if (!np && dev->soc->direct_path_avail) {
+	if (!np && dev->soc->direct_path_avail)
 		dev->direct_path = true;
+	else
 		of_node_put(np);
-	}
 
 	regmap_read(regmap, SPDIFRX_VERSION, &vers);
 	dev_info(&pdev->dev, "hw version: %#lx\n", vers & SPDIFRX_VERSION_MASK);
