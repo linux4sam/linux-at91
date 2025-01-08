@@ -1146,10 +1146,11 @@ static int mchp_i2s_mcc_probe(struct platform_device *pdev)
 
 	/*Check if we have direct path disabled*/
 	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
-	if (!np && dev->soc->direct_path_avail) {
+	if (!np && dev->soc->direct_path_avail)
 		dev->direct_path = true;
+	else
 		of_node_put(np);
-	}
+
 	/* Get IP version. */
 	regmap_read(dev->regmap, MCHP_I2SMCC_VERSION, &version);
 	dev_info(&pdev->dev, "hw version: %#lx\n",
