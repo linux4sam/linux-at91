@@ -17,6 +17,7 @@ struct at91_soc {
 	u32 exid_match;
 	const char *name;
 	const char *family;
+	const struct attribute_group *soc_attr_group;
 };
 
 #define AT91_SOC(__cidr, __cidr_mask, __version_mask, __exid,	\
@@ -28,6 +29,7 @@ struct at91_soc {
 		.exid_match = (__exid),				\
 		.name = (__name),				\
 		.family = (__family),				\
+		.soc_attr_group = &at91_soc_attr_group		\
 	}
 
 struct soc_device * __init

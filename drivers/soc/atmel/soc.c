@@ -27,6 +27,29 @@
 #define AT91_CIDR_MATCH_MASK		GENMASK(30, 5)
 #define AT91_CIDR_MASK_SAMA7		GENMASK(27, 5)
 
+static ssize_t exid_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	u32 *exid = dev_get_drvdata(dev);
+
+	return sysfs_emit(buf, "0x%08x\n", *exid);
+}
+static DEVICE_ATTR_RO(exid);
+
+static struct attribute *at91_soc_attr[] = {
+	&dev_attr_exid.attr,
+	NULL,
+};
+
+const struct attribute_group at91_soc_attr_group = {
+	.attrs = at91_soc_attr,
+};
+
+static void at91_soc_release(struct device *dev)
+{
+	kfree(dev_get_drvdata(dev));
+}
+
 static const struct at91_soc socs[] __initconst = {
 #ifdef CONFIG_SOC_AT91RM9200
 	AT91_SOC(AT91RM9200_CIDR_MATCH, AT91_CIDR_MATCH_MASK,
@@ -334,17 +357,20 @@ struct soc_device * __init at91_soc_init(const struct at91_soc *socs)
 	struct soc_device_attribute *soc_dev_attr;
 	const struct at91_soc *soc;
 	struct soc_device *soc_dev;
-	u32 cidr, exid;
+	u32 cidr, *exid;
 	int ret;
 
+	exid = kmalloc(sizeof(*exid), GFP_KERNEL);
+	if (!exid)
+		return NULL;
 	/*
 	 * With SAMA5D2 and later SoCs, CIDR and EXID registers are no more
 	 * in the dbgu device but in the chipid device whose purpose is only
 	 * to expose these two registers.
 	 */
-	ret = at91_get_cidr_exid_from_dbgu(&cidr, &exid);
+	ret = at91_get_cidr_exid_from_dbgu(&cidr, exid);
 	if (ret)
-		ret = at91_get_cidr_exid_from_chipid(&cidr, &exid);
+		ret = at91_get_cidr_exid_from_chipid(&cidr, exid);
 	if (ret) {
 		if (ret == -ENODEV)
 			pr_warn("Could not find identification node");
@@ -355,7 +381,7 @@ struct soc_device * __init at91_soc_init(const struct at91_soc *socs)
 		if (soc->cidr_match != (cidr & soc->cidr_mask))
 			continue;
 
-		if (!(cidr & AT91_CIDR_EXT) || soc->exid_match == exid)
+		if (!(cidr & AT91_CIDR_EXT) || soc->exid_match == *exid)
 			break;
 	}
 
@@ -372,13 +398,18 @@ struct soc_device * __init at91_soc_init(const struct at91_soc *socs)
 	soc_dev_attr->soc_id = soc->name;
 	soc_dev_attr->revision = kasprintf(GFP_KERNEL, "%X",
 					   AT91_CIDR_VERSION(cidr, soc->version_mask));
+	soc_dev_attr->custom_attr_group = soc->soc_attr_group;
 	soc_dev = soc_device_register(soc_dev_attr);
 	if (IS_ERR(soc_dev)) {
 		kfree(soc_dev_attr->revision);
 		kfree(soc_dev_attr);
+		kfree(exid);
 		pr_warn("Could not register SoC device\n");
 		return NULL;
 	}
+
+	soc_device_to_device(soc_dev)->release = at91_soc_release;
+	dev_set_drvdata(soc_device_to_device(soc_dev), exid);
 
 	if (soc->family)
 		pr_info("Detected SoC family: %s\n", soc->family);
