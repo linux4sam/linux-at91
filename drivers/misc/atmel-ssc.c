@@ -99,7 +99,7 @@ static struct atmel_ssc_platform_data at91sam9g45_config = {
 static struct atmel_ssc_platform_data microchip_sama7d65_config = {
 	.use_dma = 1,
 	.has_fslen_ext = 1,
-	.direct_path = 1,
+	.direct_path = true,
 };
 
 static const struct platform_device_id atmel_ssc_devtypes[] = {
@@ -264,7 +264,7 @@ static int ssc_probe(struct platform_device *pdev)
 	if (ssc->pdata->direct_path) {
 		np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
 		if (np) {
-			ssc->pdata->direct_path = 0;
+			ssc->pdata->direct_path = false;
 			of_node_put(np);
 		}
 	}
