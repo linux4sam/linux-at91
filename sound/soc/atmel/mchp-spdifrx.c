@@ -295,7 +295,7 @@ struct mchp_spdifrx_mixer_control {
  * @direct_path_avail: specify if ASRC direct path is available
  */
 struct mchp_spdifrx_soc {
-	unsigned int direct_path_avail;
+	bool direct_path_avail;
 };
 
 /**
@@ -1088,11 +1088,11 @@ static const struct snd_soc_component_driver mchp_spdifrx_component = {
 };
 
 static const struct mchp_spdifrx_soc mchp_sama7d65_spdifrx_soc_data = {
-	.direct_path_avail = 1,
+	.direct_path_avail = true,
 };
 
 static const struct mchp_spdifrx_soc mchp_sama7g54_spdifrx_soc_data = {
-	.direct_path_avail = 0,
+	.direct_path_avail = false,
 };
 
 static const struct of_device_id mchp_spdifrx_dt_ids[] = {
