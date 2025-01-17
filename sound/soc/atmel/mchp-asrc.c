@@ -425,7 +425,7 @@ struct mchp_asrc_dev {
 	int					trig_count;
 	int					thr_opmode;
 	int					rhr_opmode;
-	int					direct_path;
+	bool					direct_path;
 };
 
 static inline int mchp_asrc_period_to_burst(int period_size, int sample_size)
@@ -1043,7 +1043,6 @@ static int mchp_asrc_hw_params(struct snd_pcm_substream *substream,
 	bool is_playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	u32 ratio;
 	unsigned int channels = params ? params_channels(params) : 0;
-	unsigned int dsps_req = (channels + 1) / 2;
 	u32 ch_conf = 0;
 	u32 ch_conf_mask = 0;
 	u32 dapselr_mask = 0;
@@ -2204,7 +2203,7 @@ static void mchp_asrc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(priv->pclk);
 }
 
-static const int sama7d65_asrc_direct_path = 1;
+static const bool sama7d65_asrc_direct_path = true;
 
 static const struct of_device_id mchp_asrc_dt_ids[] = {
 	{
