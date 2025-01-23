@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/microchip,coretse-rtl-v3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip CoreTSE triple speed MAC Ethernet
+
+description: |
+  The CoreTSE Native IP is an Ethernet Media Access Controller (MAC) IP,
+  with a Gigabit Media Independent Interface (G/MII) or Serial Gigabit
+  Media Independent Interface (SGMII) Ten Bit Interface (TBI) to support
+  1000BASE-T and 1000BASE-X, along with a triple speed MAC core, supporting
+  data rates up to 1Gbps.
+
+  Management configuration is done through the AXI4LITE interface, while payload is
+  sent and received through means of an CoreAXI4ProtoConv DMA IP.
+
+maintainers:
+  - Praveen Kumar Vattipalli <praveen.kumar@micorchip.com>
+
+
+allOf:
+  - $ref: /schemas/net/ethernet-controller.yaml#
+
+properties:
+  compatible:
+    enum:
+      - microchip,coretse-rtl-v3
+
+  reg:
+    description:
+      Address and length of the IO space.
+    maxItems: 1
+
+  interrupts:
+    items:
+      - description: Tx DMA interrupt
+      - description: Rx DMA interrupt
+
+  interrupt-names:
+    items:
+      - const: mm2s_pcdma
+      - const: s2mm_pcdma
+
+  phy-mode:
+    enum:
+      - sgmii
+
+  clocks:
+    items:
+      - description: Clock for AXI register slave interface.
+      - description: AXI4-Stream CoreAXI4ProtoConv clock.
+
+  clock-names:
+    items:
+      - const: pclk
+      - const: pcdma
+
+  pcdma-connected:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: Phandle of CoreAXI4ProtoConv DMA controller which contains
+      the resources used by this device. The DMA-related resources
+      from that device (DMA registers and DMA TX/RX interrupts) are used.
+
+  pcs-handle:
+    description: Phandle to the PCS/PMA PHY in SGMII mode,
+      where "pcs-handle" should be used to point to the PCS/PMA PHY,
+      and "phy-handle" should point to an external PHY if exists.
+    maxItems: 1
+
+  microchip,core1588-ptp-handle:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      Phandle to indicate the microchip core1588 PTP device node to
+      read PTP clock index(/dev/ptp0 etc). This property is for CoreTSE.
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+patternProperties:
+  "^ethernet-phy@[0-9a-f]$":
+    type: object
+    $ref: ethernet-phy.yaml#
+    unevaluatedProperties: false
+
+required:
+  - compatible
+  - interrupts
+  - interrupt-names
+  - reg
+  - pcs-handle
+  - clocks
+  - clock-names
+  - pcdma-connected
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    ethernet@40001000 {
+      compatible = "microchip,coretse-rtl-v3";
+      reg = <0x40001000 0x1000>;
+      interrupts = <128>, <130>;
+      interrupt-parent = <&plic>;
+      pcdma-connected = <&pcdma>;
+      interrupt-names = "mm2s_pcdma", "s2mm_pcdma";
+      clock-names = "pclk", "pcdma";
+      clocks = <&clkcfg 30>, <&clkcfg 27>;
+      status = "okay";
+      phy-mode = "sgmii";
+      pcs-handle = <&phy2>;
+    };
