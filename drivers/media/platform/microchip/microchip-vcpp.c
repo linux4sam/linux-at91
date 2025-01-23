@@ -90,6 +90,9 @@
 /* Minimum wait time for camera to stabilize */
 #define MCHP_VCPP_DELAYED_CAM_M_SEC		100
 
+#define MCHP_VCPP_POLL_TIMEOUT_U_SEC		500000
+#define MCHP_VCPP_POLL_SLEEP_U_SEC		10000
+
 enum mchp_vcpp_state {
 	VCPP_STOPPED = 0,
 	VCPP_WAIT_FOR_BUFFER,
@@ -607,9 +610,27 @@ err_free_buffers:
 	return ret;
 }
 
+static void mchp_vcpp_wait_dma_transaction_complete(struct mchp_vcpp_fpga *mchp_vcpp)
+{
+	unsigned long sleep_us = MCHP_VCPP_POLL_SLEEP_U_SEC;
+	u64 timeout_us = MCHP_VCPP_POLL_TIMEOUT_U_SEC;
+
+	ktime_t timeout = ktime_add_us(ktime_get(), timeout_us);
+
+	while (mchp_vcpp->state != VCPP_WAIT_FOR_BUFFER) {
+		if (ktime_compare(ktime_get(), timeout) > 0)
+			break;
+
+		usleep_range((sleep_us >> 2) + 1, sleep_us);
+		cpu_relax();
+	}
+}
+
 static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = vb2_get_drv_priv(vq);
+
+	mchp_vcpp_wait_dma_transaction_complete(mchp_vcpp);
 
 	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 
