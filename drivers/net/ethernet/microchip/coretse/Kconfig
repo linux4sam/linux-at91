@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+
+config MICROCHIP_CORETSE
+	tristate "Microchip 10/100/1000 CoreTSE(Ethernet) support"
+	depends on HAS_IOMEM
+	select PHYLINK
+	help
+	  This driver supports the 10/100/1000 Ethernet from Microchip.
+
+	  To compile this driver as a module, choose M here. The module will be
+	  called mchp_coretse.
