@@ -152,6 +152,7 @@ struct mchp_vcpp_compression_ratio {
  * @state:		state of buffers
  * @irq:		external IRQ for new frame
  * @sequence:		frame sequence counter
+ * @dma_stop:		dma state stopping/ready to run
  */
 struct mchp_vcpp_fpga {
 	void __iomem *base;
@@ -178,6 +179,7 @@ struct mchp_vcpp_fpga {
 	enum mchp_vcpp_state state;
 	int irq;
 	int sequence;
+	bool dma_stop;
 };
 
 struct mchp_vcpp_graph_entity {
@@ -514,6 +516,9 @@ static void mchp_vcpp_buffer_queue(struct vb2_buffer *vb)
 	struct mchp_vcpp_buffer *buf =
 				container_of(vbuf, struct mchp_vcpp_buffer, vb);
 
+	if (mchp_vcpp->dma_stop)
+		return;
+
 	spin_lock_irq(&mchp_vcpp->qlock);
 	list_add_tail(&buf->list, &mchp_vcpp->buf_list);
 	if (mchp_vcpp->state == VCPP_WAIT_FOR_BUFFER) {
@@ -620,6 +625,8 @@ static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = vb2_get_drv_priv(vq);
 
+	mchp_vcpp->dma_stop = 1;
+
 	mchp_vcpp_wait_dma_transaction_complete(mchp_vcpp);
 
 	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
@@ -636,6 +643,8 @@ static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 	writel_relaxed(MCHP_VCPP_CORE_RESET, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 
 	mchp_vcpp_pipeline_set_stream(mchp_vcpp, false);
+
+	mchp_vcpp->dma_stop = 0;
 }
 
 static const struct vb2_ops mchp_vcpp_qops = {
@@ -1372,6 +1381,8 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "dma_set_mask_and_coherent: %d\n", ret);
 		goto video_unregister;
 	}
+
+	mchp_vcpp->dma_stop = 0;
 
 	platform_set_drvdata(pdev, mchp_vcpp);
 
