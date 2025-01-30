@@ -18,15 +18,26 @@
 #define MCHP_OTPC_CR_READ		BIT(6)
 #define MCHP_OTPC_MR			(0x4)
 #define MCHP_OTPC_MR_ADDR		GENMASK(31, 16)
+#define MCHP_OTPC_MR_EMUL		BIT(7)
 #define MCHP_OTPC_AR			(0x8)
 #define MCHP_OTPC_SR			(0xc)
 #define MCHP_OTPC_SR_READ		BIT(6)
 #define MCHP_OTPC_HR			(0x20)
 #define MCHP_OTPC_HR_SIZE		GENMASK(15, 8)
+#define MCHP_OTPC_HR_PACKET_TYPE	GENMASK(2, 0)
 #define MCHP_OTPC_DR			(0x24)
 
 #define MCHP_OTPC_NAME			"mchp-otpc"
 #define MCHP_OTPC_SIZE			(11 * 1024)
+
+enum packet_type {
+	PACKET_TYPE_REGULAR = 1,
+	PACKET_TYPE_KEY	= 2,
+	PACKET_TYPE_BOOT_CONFIG = 3,
+	PACKET_TYPE_SECURE_BOOT_CONFIG = 4,
+	PACKET_TYPE_HARDWARE_CONFIG = 5,
+	PACKET_TYPE_CUSTOM = 6,
+};
 
 /**
  * struct mchp_otpc - OTPC private data structure
@@ -43,6 +54,25 @@ struct mchp_otpc {
 };
 
 /**
+ * struct mchp_otpc_payload_info - OTP packet's payload information
+ *				retrieved from the packet's header
+ * @id: driver assigned packet ID
+ * @packet_offset: offset address of the packet to be written in the
+ *			register OTPC_MR.ADDR to access the packet
+ * @payload_length: length of the packet's payload
+ * @packet_type: type of the packet
+ * @packet_tag: TAG corresponding to the packet. Applicable for most
+ *		of the regular packets
+ */
+struct mchp_otpc_payload_info {
+	u32 id;
+	u32 packet_offset;
+	u32 payload_length;
+	u32 packet_type;
+	u32 packet_tag;
+};
+
+/**
  * struct mchp_otpc_packet - OTPC packet data structure
  * @list: list head
  * @id: packet ID
@@ -50,20 +80,16 @@ struct mchp_otpc {
  */
 struct mchp_otpc_packet {
 	struct list_head list;
-	u32 id;
-	u32 offset;
+	struct mchp_otpc_payload_info payload_info;
 };
 
-static struct mchp_otpc_packet *mchp_otpc_id_to_packet(struct mchp_otpc *otpc,
-						       u32 id)
+static struct mchp_otpc_packet *mchp_otpc_tag_to_packet(struct mchp_otpc *otpc,
+							u32 tag)
 {
 	struct mchp_otpc_packet *packet;
 
-	if (id >= otpc->npackets)
-		return NULL;
-
 	list_for_each_entry(packet, &otpc->packets, list) {
-		if (packet->id == id)
+		if (packet->payload_info.packet_tag == tag)
 			return packet;
 	}
 
@@ -140,8 +166,27 @@ static int mchp_otpc_prepare_read(struct mchp_otpc *otpc,
  * offset returned by hardware.
  *
  * For this, the read function will return the first requested bytes in the
- * packet. The user will have to be aware of the memory footprint before doing
- * the read request.
+ * packet. The user won't have to be aware of the memory footprint before doing
+ * the read request since it is abstracted and taken care by this driver.
+ *
+ * There is no way of knowing the Mapping of the OTP memory table in advance in
+ * this read function the offset requested is treated as the identifier string
+ * i.e., Packet TAG to acquire the payload with reliability. The packet Tag
+ * is the only way to recognize a packet without being aware of the flashed
+ * OTP memory map table.
+ */
+
+/**
+ * mchp_otpc_read() - Read the OTP packets and fill the buffer based on the TAG
+ * 		      of the packet treated as the offset.
+ * @priv: Pointer to device structure.
+ * @off: offset of the OTP packet to be read. In this case, the TAG of the
+ * 	 corresponding packet.
+ * @val: Pointer to data buffer
+ * @bytes: length of the buffer
+ *
+ * A value of zero will be returned on success, a negative errno will be
+ * returned in error cases.
  */
 static int mchp_otpc_read(void *priv, unsigned int off, void *val,
 			  size_t bytes)
@@ -154,30 +199,23 @@ static int mchp_otpc_read(void *priv, unsigned int off, void *val,
 	int ret, payload_size;
 
 	/*
-	 * We reach this point with off being multiple of stride = 4 to
-	 * be able to cross the subsystem. Inside the driver we use continuous
-	 * unsigned integer numbers for packet id, thus divide off by 4
-	 * before passing it to mchp_otpc_id_to_packet().
+	 * From this point the packet tag received as the offset has to be translated
+	 * into the actual packet. For this we traverse the table of contents stored
+	 * in a list "packet" and look for the tag.
 	 */
-	packet = mchp_otpc_id_to_packet(otpc, off / 4);
+
+	packet = mchp_otpc_tag_to_packet(otpc, off);
 	if (!packet)
 		return -EINVAL;
-	offset = packet->offset;
+	offset = packet->payload_info.packet_offset;
 
-	while (len < bytes) {
+	if (len < bytes) {
 		ret = mchp_otpc_prepare_read(otpc, offset);
 		if (ret)
 			return ret;
 
-		/* Read and save header content. */
-		*buf++ = readl_relaxed(otpc->base + MCHP_OTPC_HR);
-		len += sizeof(*buf);
-		offset++;
-		if (len >= bytes)
-			break;
-
 		/* Read and save payload content. */
-		payload_size = FIELD_GET(MCHP_OTPC_HR_SIZE, *(buf - 1));
+		payload_size = packet->payload_info.payload_length;
 		writel_relaxed(0UL, otpc->base + MCHP_OTPC_AR);
 		do {
 			*buf++ = readl_relaxed(otpc->base + MCHP_OTPC_DR);
@@ -186,6 +224,20 @@ static int mchp_otpc_read(void *priv, unsigned int off, void *val,
 			payload_size--;
 		} while (payload_size >= 0 && len < bytes);
 	}
+
+	return 0;
+}
+
+static int mchp_otpc_read_packet_tag(struct mchp_otpc *otpc, unsigned int offset, unsigned int *val)
+{
+	int ret;
+
+	ret = mchp_otpc_prepare_read(otpc, offset);
+	if (ret)
+		return ret;
+
+	writel_relaxed(0UL, otpc->base + MCHP_OTPC_AR);
+	*val = readl_relaxed(otpc->base + MCHP_OTPC_DR);
 
 	return 0;
 }
@@ -213,8 +265,15 @@ static int mchp_otpc_init_packets_list(struct mchp_otpc *otpc, u32 *size)
 		if (!packet)
 			return -ENOMEM;
 
-		packet->id = id++;
-		packet->offset = word_pos;
+		packet->payload_info.id = id++;
+		packet->payload_info.packet_offset = word_pos;
+		packet->payload_info.payload_length = payload_size;
+		packet->payload_info.packet_type = FIELD_GET(MCHP_OTPC_HR_PACKET_TYPE, word);
+
+		if (packet->payload_info.packet_type == PACKET_TYPE_REGULAR)
+			ret = mchp_otpc_read_packet_tag(otpc, packet->payload_info.packet_offset,
+							&packet->payload_info.packet_tag);
+
 		INIT_LIST_HEAD(&packet->list);
 		list_add_tail(&packet->list, &otpc->packets);
 
@@ -236,7 +295,7 @@ static struct nvmem_config mchp_nvmem_config = {
 	.type = NVMEM_TYPE_OTP,
 	.read_only = true,
 	.word_size = 4,
-	.stride = 4,
+	.stride = 1,
 	.reg_read = mchp_otpc_read,
 };
 
@@ -244,8 +303,9 @@ static int mchp_otpc_probe(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem;
 	struct mchp_otpc *otpc;
-	u32 size;
+	u32 size, tmp;
 	int ret;
+	bool emul_enable;
 
 	otpc = devm_kzalloc(&pdev->dev, sizeof(*otpc), GFP_KERNEL);
 	if (!otpc)
@@ -256,9 +316,21 @@ static int mchp_otpc_probe(struct platform_device *pdev)
 		return PTR_ERR(otpc->base);
 
 	otpc->dev = &pdev->dev;
+
+	tmp = readl_relaxed(otpc->base + MCHP_OTPC_MR);
+	emul_enable = tmp & MCHP_OTPC_MR_EMUL;
+	if (emul_enable)
+		dev_info(otpc->dev, "Emulation mode enabled\n");
+
 	ret = mchp_otpc_init_packets_list(otpc, &size);
 	if (ret)
 		return ret;
+
+	if (size == 0) {
+		dev_err(otpc->dev, "Cannot access OTP memory !\n");
+		if (!emul_enable)
+			dev_err(otpc->dev, "Boot packet not configured & Emulation mode not enabled !\n");
+	}
 
 	mchp_nvmem_config.dev = otpc->dev;
 	mchp_nvmem_config.add_legacy_fixed_of_cells = true;
