@@ -19,9 +19,11 @@ description:
 
 properties:
   compatible:
-    items:
-      - enum:
-          - microchip,mipi-csi2-rx-rtl-v0
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-mipi-csi2-rx
+          - const: microchip,mipi-csi2-rx-rtl-v0
+      - const: microchip,mipi-csi2-rx-rtl-v0
 
   reg:
     maxItems: 1
