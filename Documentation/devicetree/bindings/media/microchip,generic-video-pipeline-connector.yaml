@@ -16,7 +16,11 @@ description: |
 
 properties:
   compatible:
-    const: microchip,generic-video-pipeline-connector
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-generic-video-pipeline-connector
+          - const: microchip,generic-video-pipeline-connector
+      - const: microchip,generic-video-pipeline-connector
 
   reg:
     maxItems: 1
