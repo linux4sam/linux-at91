@@ -77,6 +77,15 @@ config VIDEO_MICROCHIP_COMMON
 	help
 	  Microchip common code base for FPAG Soft IP drivers.
 
+config VIDEO_MICROCHIP_DEMOSAIC
+	tristate "Microchip Bayer Interpolation Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Bayer Interpolation Driver Support.
+
 config VIDEO_MICROCHIP_GVPC
 	tristate "Microchip GVPC (Generic Video Pipeline Connector) Driver"
 	depends on VIDEO_DEV && OF
