@@ -17,8 +17,11 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - microchip,image-enhancement-rtl-v1
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-image-enhancement
+          - const: microchip,image-enhancement-rtl-v1
+      - const: microchip,image-enhancement-rtl-v1
 
   reg:
     maxItems: 1
