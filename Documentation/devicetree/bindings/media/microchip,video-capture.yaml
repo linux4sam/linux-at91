@@ -16,9 +16,12 @@ description:
 
 properties:
   compatible:
-    items:
-      - enum:
-          - microchip,video-dma-rtl-v0
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-video-dma
+          - const: microchip,video-dma-rtl-v0
+      - const: microchip,video-dma-rtl-v0
+
   reg:
     maxItems: 1
 
