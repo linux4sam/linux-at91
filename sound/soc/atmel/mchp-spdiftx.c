@@ -331,7 +331,7 @@ static int mchp_spdiftx_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct mchp_spdiftx_dev *dev = snd_soc_dai_get_drvdata(dai);
 	struct mchp_spdiftx_mixer_control *ctrl = &dev->control;
-	struct snd_soc_pcm_runtime *be = asoc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *be = snd_soc_substream_to_rtd(substream);
 	int ret;
 
 	/* do not start/stop while channel status or user data is updated */

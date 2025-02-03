@@ -652,7 +652,7 @@ static int mchp_pdmc_trigger(struct snd_pcm_substream *substream,
 {
 	struct mchp_pdmc *dd = snd_soc_dai_get_drvdata(dai);
 	struct snd_soc_component *cpu = dai->component;
-	struct snd_soc_pcm_runtime *be = asoc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *be = snd_soc_substream_to_rtd(substream);
 #ifdef DEBUG
 	u32 val;
 #endif
