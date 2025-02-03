@@ -1980,8 +1980,6 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 	struct mchp_asrc_dev *priv;
 	struct regmap *regmap;
 	void __iomem *base;
-	struct property *prop;
-	const __be32 *cur;
 	const void *data;
 	u32 pv;
 	u32 version;
@@ -2106,7 +2104,7 @@ static int mchp_asrc_probe(struct platform_device *pdev)
 #endif
 
 	count = 0;
-	of_property_for_each_u32(np, "microchip,direct-path-indexes", prop, cur, pv) {
+	of_property_for_each_u32(np, "microchip,direct-path-indexes", pv) {
 		struct mchp_asrc_be_trigger *trig_be = &priv->trig[count / 2];
 
 		if (pv > MCHP_ASRC_DP_IDX_MAX) {
