@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
 
+config CORE1588_HWTSTAMP
+	bool "Generate hardware packet timestamps"
+	depends on MICROCHIP_CORETSE
+	select PTP_1588_CLOCK
+	default n
+	help
+	  Generate hardware packet timestamps. This is to facilitate IEEE 1588.
+
 config MICROCHIP_CORETSE
 	tristate "Microchip 10/100/1000 CoreTSE(Ethernet) support"
 	depends on HAS_IOMEM

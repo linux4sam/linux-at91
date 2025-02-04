@@ -27,6 +27,7 @@
 #include <linux/of_device.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
+#include <linux/of_platform.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
@@ -78,6 +79,7 @@ static int coretse_mdio_wait_for_idle(struct coretse *tse, u32 flags)
  *  high performance and reliability required for TSN applications
  */
 static void coretse_pcs_get_state(struct phylink_pcs *pcs,
+				  unsigned int neg_mode,
 				  struct phylink_link_state *state)
 {
 	state->speed = SPEED_1000;
@@ -151,7 +153,6 @@ static void coretse_mac_link_up(struct phylink_config *config,
 }
 
 static const struct phylink_mac_ops coretse_phylink_ops = {
-	.validate = phylink_generic_validate,
 	.mac_select_pcs = coretse_mac_select_pcs,
 	.mac_config = coretse_mac_config,
 	.mac_link_down = coretse_mac_link_down,
@@ -182,6 +183,10 @@ static int mchp_coretse_rx_poll(struct napi_struct *napi, int quota)
 		dev->stats.rx_packets++;
 		dev->stats.rx_bytes += len;
 		skb->ip_summed = CHECKSUM_NONE;
+
+		/* core1588 ptp receive txstamp */
+		if (lp->timer && lp->timer->ptp_rxstamp)
+			lp->timer->ptp_rxstamp(lp->timer, skb);
 	} else {
 		dev->stats.rx_dropped++;
 	}
@@ -254,6 +259,10 @@ static irqreturn_t mchp_pcdma_tx_irq(int irq, void *dev_id)
 		writel_relaxed(PCDMA_INT_SRC_DONE_CLEAR, lp->s2mm_regs +
 			       MM2S_PCDMA_INT_SRC);
 		desc = 0;
+
+		/* core1588 ptp transmit txstamp */
+		if (lp->timer && lp->timer->ptp_txstamp)
+			lp->timer->ptp_txstamp(lp->timer, lp->rm9200_txq[desc].skb);
 
 		if (lp->rm9200_txq[desc].skb) {
 			dev_consume_skb_irq(lp->rm9200_txq[desc].skb);
@@ -567,6 +576,35 @@ static netdev_tx_t mchp_coretse_start_xmit(struct sk_buff *skb,
 	return NETDEV_TX_OK;
 }
 
+#ifdef CONFIG_CORE1588_HWTSTAMP
+static int mchp_core1588_get_ts_info(struct net_device *dev,
+				     struct kernel_ethtool_ts_info *info)
+{
+	struct coretse *bp = netdev_priv(dev);
+
+	ethtool_op_get_ts_info(dev, info);
+
+	info->so_timestamping =
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE |
+		SOF_TIMESTAMPING_TX_HARDWARE |
+		SOF_TIMESTAMPING_RX_HARDWARE |
+		SOF_TIMESTAMPING_RAW_HARDWARE;
+	info->tx_types =
+		(1 << HWTSTAMP_TX_ONESTEP_SYNC) |
+		(1 << HWTSTAMP_TX_OFF) |
+		(1 << HWTSTAMP_TX_ON);
+	info->rx_filters =
+		(1 << HWTSTAMP_FILTER_NONE) |
+		(1 << HWTSTAMP_FILTER_ALL);
+
+	info->phc_index = bp->timer->ptp_clock ? bp->timer->phc_index : -1;
+
+	return 0;
+}
+#endif
+
 static int mchp_coretse_change_mtu(struct net_device *dev, int new_mtu)
 {
 	if (netif_running(dev))
@@ -615,6 +653,25 @@ static int mchp_coretse_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	if (!netif_running(dev))
 		return -EINVAL;
 
+#ifdef CONFIG_CORE1588_HWTSTAMP
+	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		if (bp->timer  && bp->timer->set_hwtst)
+			return bp->timer->set_hwtst(bp->timer, rq, cmd);
+		else
+			return -EOPNOTSUPP;
+
+	case SIOCGHWTSTAMP:
+		if (bp->timer  && bp->timer->get_hwtst)
+			return bp->timer->get_hwtst(bp->timer, rq);
+		else
+			return -EOPNOTSUPP;
+
+	default:
+		return -EOPNOTSUPP;
+	}
+#endif
+
 	return phylink_mii_ioctl(bp->phylink, rq, cmd);
 }
 
@@ -630,6 +687,13 @@ static const struct net_device_ops mchp_coretse_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_eth_ioctl = mchp_coretse_ioctl,
 	.ndo_do_ioctl = mchp_coretse_ioctl,
+};
+
+static const struct ethtool_ops mchp_coretse_ethtool_ops = {
+#ifdef CONFIG_CORE1588_HWTSTAMP
+		.get_ts_info		= mchp_core1588_get_ts_info,
+#endif
+
 };
 
 static int mchp_coretse_mii_probe(struct net_device *dev)
@@ -807,6 +871,7 @@ static int mchp_coretse_hw_init(struct platform_device *pdev)
 	bp->queues[0].bp = bp;
 
 	dev->netdev_ops = &mchp_coretse_netdev_ops;
+	dev->ethtool_ops = &mchp_coretse_ethtool_ops;
 
 	ret = request_irq(bp->tx_irq, mchp_pcdma_tx_irq,
 			  IRQF_SHARED, dev->name, dev);
@@ -876,6 +941,25 @@ static int mchp_coretse_hw_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int mchp_core1588_ptp_init(struct coretse *bp)
+{
+	struct device_node *ptp_node = NULL;
+	struct platform_device *ptp_dev = NULL;
+
+	ptp_node = of_parse_phandle(bp->pdev->dev.of_node,
+				    "microchip,core1588-ptp-handle", 0);
+
+	if (ptp_node)
+		ptp_dev = of_find_device_by_node(ptp_node);
+
+	if (ptp_dev)
+		bp->timer = platform_get_drvdata(ptp_dev);
+	else
+		bp->timer = NULL;
+
+	return 0;
+}
+
 static int mchp_coretse_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -933,6 +1017,7 @@ static int mchp_coretse_probe(struct platform_device *pdev)
 	spin_lock_init(&bp->rx_lock);
 
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	mchp_core1588_ptp_init(bp);
 
 	platform_set_drvdata(pdev, dev);
 
@@ -1007,7 +1092,7 @@ err_disable_pclk:
 	return ret;
 }
 
-static int mchp_coretse_remove(struct platform_device *pdev)
+static void  mchp_coretse_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct coretse *bp = netdev_priv(ndev);
@@ -1029,8 +1114,6 @@ static int mchp_coretse_remove(struct platform_device *pdev)
 	clk_disable_unprepare(bp->dmaclk);
 
 	free_netdev(ndev);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_coretse_of_match[] = {

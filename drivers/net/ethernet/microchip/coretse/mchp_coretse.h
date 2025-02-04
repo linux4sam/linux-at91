@@ -18,6 +18,8 @@
 #include <linux/interrupt.h>
 #include <linux/phy/phy.h>
 
+#include "mchp_core1588_ptp.h"
+
 #define CORETSE_CONFIG1			0x00 /* MAC Configuration register 1 */
 #define CORETSE_CONFIG2			0x04 /* MAC Configuration register 2 */
 #define CORETSE_IFG			0x08 /* Inter Packet/Frame gaps	     */
@@ -344,6 +346,7 @@ struct coretse_queue {
  * @:phy_interface	Phy type to identify between GMII/SGMII/1000 Base-X
  * @struct coretse_tx_skb - data about an skb which is being transmitted
  * @:max_tx_length	mtu length
+ * @timer:	data structure to hold core1588 structure
  */
 struct coretse {
 	void __iomem		*regs;
@@ -377,5 +380,6 @@ struct coretse {
 
 	struct coretse_tx_skb	rm9200_txq[2];
 	unsigned int		max_tx_length;
+	struct mchp_core1588_timer *timer;
 };
 #endif /* _CORETSE_H */
