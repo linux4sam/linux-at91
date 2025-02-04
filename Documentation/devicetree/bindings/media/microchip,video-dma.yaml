@@ -38,6 +38,8 @@ properties:
       - const: axi
       - const: video
 
+  dma-noncoherent: true
+
   memory-region:
     description: Reserved memory for v4l2 buffers (optional)
     maxItems: 1
