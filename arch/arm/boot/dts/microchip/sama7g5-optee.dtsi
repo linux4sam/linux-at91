@@ -220,6 +220,10 @@
 	/delete-property/assigned-clock-rates;
 };
 
+&xisc {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_ISC_CLK>;
+};
+
 &pdmc0 {
 	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_PDMC0_CLK>, <&scmi0_clock AT91_SCMI_CLK_GCK_PDMC0_GCLK>;
 };
