@@ -391,6 +391,14 @@
 	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SPDIFTX_CLK>, <&scmi0_clock AT91_SCMI_CLK_GCK_SPDIFTX_GCLK>;
 };
 
+&i2s0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_I2S0_CLK>, <&scmi0_clock AT91_SCMI_CLK_GCK_I2S0_GCLK>;
+};
+
+&i2s1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_I2S1_CLK>, <&scmi0_clock AT91_SCMI_CLK_GCK_I2S1_GCLK>;
+};
+
 &utmi_clk {
 	clocks = <&scmi0_clock AT91_SCMI_CLK_CORE_UTMI>;
 };
