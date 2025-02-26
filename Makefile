@@ -2,7 +2,7 @@
 VERSION = 6
 PATCHLEVEL = 6
 SUBLEVEL = 64
-EXTRAVERSION = -linux4microchip+sama7d65-2025.02-rc4
+EXTRAVERSION = -linux4microchip+sama7d65-2025.02
 NAME = Pinguïn Aangedreven
 
 # *DOCUMENTATION*
