@@ -16,8 +16,11 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - microchip,rgb-scaler-rtl-v1
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-rgb-scaler
+          - const: microchip,rgb-scaler-rtl-v1
+      - const: microchip,rgb-scaler-rtl-v1
 
   reg:
     maxItems: 1

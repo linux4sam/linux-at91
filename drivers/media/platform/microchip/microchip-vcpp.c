@@ -90,6 +90,9 @@
 /* Minimum wait time for camera to stabilize */
 #define MCHP_VCPP_DELAYED_CAM_M_SEC		100
 
+#define MCHP_VCPP_POLL_TIMEOUT_U_SEC		500000
+#define MCHP_VCPP_POLL_SLEEP_U_SEC		10000
+
 enum mchp_vcpp_state {
 	VCPP_STOPPED = 0,
 	VCPP_WAIT_FOR_BUFFER,
@@ -149,6 +152,7 @@ struct mchp_vcpp_compression_ratio {
  * @state:		state of buffers
  * @irq:		external IRQ for new frame
  * @sequence:		frame sequence counter
+ * @dma_stop:		dma state stopping/ready to run
  */
 struct mchp_vcpp_fpga {
 	void __iomem *base;
@@ -175,6 +179,7 @@ struct mchp_vcpp_fpga {
 	enum mchp_vcpp_state state;
 	int irq;
 	int sequence;
+	bool dma_stop;
 };
 
 struct mchp_vcpp_graph_entity {
@@ -511,6 +516,9 @@ static void mchp_vcpp_buffer_queue(struct vb2_buffer *vb)
 	struct mchp_vcpp_buffer *buf =
 				container_of(vbuf, struct mchp_vcpp_buffer, vb);
 
+	if (mchp_vcpp->dma_stop)
+		return;
+
 	spin_lock_irq(&mchp_vcpp->qlock);
 	list_add_tail(&buf->list, &mchp_vcpp->buf_list);
 	if (mchp_vcpp->state == VCPP_WAIT_FOR_BUFFER) {
@@ -573,16 +581,6 @@ static int mchp_vcpp_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	mchp_vcpp->sequence = 0;
 
-	ret = request_threaded_irq(mchp_vcpp->irq, mchp_vcpp_irq_ext,
-				   mchp_vcpp_irq_thread_fn, IRQF_NO_SUSPEND,
-				   KBUILD_MODNAME, mchp_vcpp);
-
-	if (ret) {
-		dev_err(mchp_vcpp->dev, "request threaded irq failed %d\n",
-			ret);
-		goto err_free_buffers;
-	}
-
 	spin_lock_irq(&mchp_vcpp->qlock);
 
 	if (list_empty(&mchp_vcpp->buf_list)) {
@@ -607,13 +605,31 @@ err_free_buffers:
 	return ret;
 }
 
+static void mchp_vcpp_wait_dma_transaction_complete(struct mchp_vcpp_fpga *mchp_vcpp)
+{
+	unsigned long sleep_us = MCHP_VCPP_POLL_SLEEP_U_SEC;
+	u64 timeout_us = MCHP_VCPP_POLL_TIMEOUT_U_SEC;
+
+	ktime_t timeout = ktime_add_us(ktime_get(), timeout_us);
+
+	while (mchp_vcpp->state != VCPP_WAIT_FOR_BUFFER) {
+		if (ktime_compare(ktime_get(), timeout) > 0)
+			break;
+
+		usleep_range((sleep_us >> 2) + 1, sleep_us);
+		cpu_relax();
+	}
+}
+
 static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 {
 	struct mchp_vcpp_fpga *mchp_vcpp = vb2_get_drv_priv(vq);
 
-	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
+	mchp_vcpp->dma_stop = 1;
 
-	free_irq(mchp_vcpp->irq, mchp_vcpp);
+	mchp_vcpp_wait_dma_transaction_complete(mchp_vcpp);
+
+	writel_relaxed(MCHP_VCPP_FRAME_STOP, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 
 	spin_lock_irq(&mchp_vcpp->qlock);
 
@@ -627,6 +643,8 @@ static void mchp_vcpp_stop_streaming(struct vb2_queue *vq)
 	writel_relaxed(MCHP_VCPP_CORE_RESET, mchp_vcpp->base + MCHP_VCPP_CTRL_REG);
 
 	mchp_vcpp_pipeline_set_stream(mchp_vcpp, false);
+
+	mchp_vcpp->dma_stop = 0;
 }
 
 static const struct vb2_ops mchp_vcpp_qops = {
@@ -1236,9 +1254,15 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, mchp_vcpp->irq,
 				     "could not get irq\n");
 
-	ret = clk_bulk_get(&pdev->dev, num_clks, mchp_vcpp->clks);
+	ret = devm_request_threaded_irq(&pdev->dev, mchp_vcpp->irq, mchp_vcpp_irq_ext,
+					mchp_vcpp_irq_thread_fn, IRQF_NO_SUSPEND,
+					KBUILD_MODNAME, mchp_vcpp);
 	if (ret)
-		return ret;
+		return dev_err_probe(&pdev->dev, ret, "request threaded irq failed\n");
+
+	ret = devm_clk_bulk_get(&pdev->dev, num_clks, mchp_vcpp->clks);
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "clk get failed\n");
 
 	ret = clk_bulk_prepare_enable(num_clks, mchp_vcpp->clks);
 	if (ret)
@@ -1264,7 +1288,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 
 	ret = v4l2_device_register(&pdev->dev, &mchp_vcpp->v4l2_dev);
 	if (ret)
-		return ret;
+		goto err_clk_disable;
 
 	ctrl_hdlr = &mchp_vcpp->ctrl_handler;
 
@@ -1337,7 +1361,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	ret = vb2_queue_init(vb2_q);
 	if (ret) {
 		dev_err(mchp_vcpp->dev, "vb2 queue init failed %d\n", ret);
-		goto v4l2_unregister;
+		goto video_unregister;
 	}
 
 	v4l2_async_nf_init(&mchp_vcpp->notifier, &mchp_vcpp->v4l2_dev);
@@ -1345,7 +1369,7 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	ret = mchp_vcpp_graph_init(mchp_vcpp);
 	if (ret < 0) {
 		dev_err(mchp_vcpp->dev, "mchp dscmi graph init failed %d\n", ret);
-		goto v4l2_unregister;
+		goto video_unregister;
 	}
 
 	ret = of_reserved_mem_device_init(&pdev->dev);
@@ -1355,8 +1379,10 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret) {
 		dev_err(&pdev->dev, "dma_set_mask_and_coherent: %d\n", ret);
-		goto v4l2_unregister;
+		goto video_unregister;
 	}
+
+	mchp_vcpp->dma_stop = 0;
 
 	platform_set_drvdata(pdev, mchp_vcpp);
 
@@ -1364,9 +1390,13 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 
 	return 0;
 
+video_unregister:
+	video_unregister_device(&mchp_vcpp->vdev);
 v4l2_unregister:
 	mutex_destroy(&mchp_vcpp->lock);
 	v4l2_device_unregister(&mchp_vcpp->v4l2_dev);
+err_clk_disable:
+	clk_bulk_disable_unprepare(num_clks, mchp_vcpp->clks);
 err_clk_put:
 	clk_bulk_put(num_clks, mchp_vcpp->clks);
 
@@ -1384,6 +1414,7 @@ static int mchp_vcpp_remove(struct platform_device *pdev)
 	mutex_destroy(&mchp_vcpp->lock);
 	v4l2_async_nf_unregister(&mchp_vcpp->notifier);
 	v4l2_async_nf_cleanup(&mchp_vcpp->notifier);
+	video_unregister_device(&mchp_vcpp->vdev);
 	v4l2_device_unregister(&mchp_vcpp->v4l2_dev);
 	clk_bulk_disable_unprepare(num_clks, mchp_vcpp->clks);
 	clk_bulk_put(num_clks, mchp_vcpp->clks);

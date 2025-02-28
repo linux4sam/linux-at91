@@ -1,27 +1,26 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/media/microchip,image-enhancement.yaml#
+$id: http://devicetree.org/schemas/media/microchip,bayer-interpolation-rtl-v4.8.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Microchip Video Image Enhancement
+title: Microchip bayer interpolation
 
 maintainers:
   - Shravan Chippa <shravan.chippa@microchip.com>
 
 description: |
-  The Microchip video image enhancement IP is used to control
-  the contrast, brightness etc of the video image and stream
-  the video data through AXI streaming interface or native
-  interface for image  processing.
+  The Microchip video bayer interpolation IP is used to convert the video from
+  bayer to RGB video and stream the video data through AXI streaming
+  interface or native interface for the image processing.
 
 properties:
   compatible:
     oneOf:
       - items:
-          - const: microchip,pic64gx-image-enhancement
-          - const: microchip,image-enhancement-rtl-v1
-      - const: microchip,image-enhancement-rtl-v1
+          - const: microchip,pic64gx-bayer-interpolation
+          - const: microchip,bayer-interpolation-rtl-v4.8
+      - const: microchip,bayer-interpolation-rtl-v4.8
 
   reg:
     maxItems: 1
@@ -103,10 +102,9 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/media/microchip-common.h>
-    image-enhancement@50020000 {
-        compatible = "microchip,image-enhancement-rtl-v1";
-        reg = <0x50020000 0x10000>;
+    demosaic-0@50020000 {
+        compatible = "microchip,bayer-interpolation-rtl-v4.8";
+        reg = <0x60080000 0x10000>;
 
         ports {
             #address-cells = <1>;
@@ -115,15 +113,15 @@ examples:
             port@0 {
                 /* Sink port */
                 reg = <0>;
-                image_enhancement_0_in: endpoint {
-                    remote-endpoint = <&monotorgb_0_out>;
+                demosaic_0_in: endpoint {
+                    remote-endpoint = <&mipi_csi2_0_in>;
                 };
             };
             port@1 {
                 /* Source port */
                 reg = <1>;
-                image_enhancement_0_out: endpoint {
-                    remote-endpoint = <&rgb_scaler_0_in>;
+                demosaic_0_out: endpoint {
+                    remote-endpoint = <&image_enhancement_0_out>;
                 };
             };
         };
