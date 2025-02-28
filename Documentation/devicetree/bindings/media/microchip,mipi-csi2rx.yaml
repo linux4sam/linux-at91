@@ -84,6 +84,7 @@ properties:
                   1 2     - For 2 lanes enabled in IP.
                   1 2 3   - For 3 lanes enabled in IP.
                   1 2 3 4 - For 4 lanes enabled in IP.
+                minItems: 1
                 items:
                   - const: 1
                   - const: 2
