@@ -674,13 +674,13 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 			continue;
 		}
 
-		/* This is a BE with DP configured thus, don't use DMA for it. */
-		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
-			continue;
-
 		dpcm = dma_be_priv->dpcm;
 		be = dpcm->be;
 		dai = asoc_rtd_to_cpu(be, 0);
+
+		/* This is a BE with DP configured thus, don't use DMA for it. */
+		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
+			continue;
 
 		dev_dbg(dev, "%s() OUT BE DAI %s: rate=%u format=%#x width=%u channels=%u\n",
 			__func__, dai->name, params_rate(&be->dpcm[stream].hw_params),
@@ -740,13 +740,13 @@ static int mchp_asrc_dma_prepare(struct snd_soc_component *component,
 			continue;
 		}
 
-		/* This is a BE with DP configured thus, don't use DMA for it. */
-		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
-			continue;
-
 		dpcm = dma_be_priv->dpcm;
 		be = dpcm->be;
 		dai = asoc_rtd_to_cpu(be, 0);
+
+		/* This is a BE with DP configured thus, don't use DMA for it. */
+		if (mchp_asrc_direct_path && be->dai_link->no_pcm)
+			continue;
 
 		dev_dbg(dev, "%s() IN BE DAI %s: rate=%u format=%#x width=%u channels=%u\n",
 			__func__, dai->name,
