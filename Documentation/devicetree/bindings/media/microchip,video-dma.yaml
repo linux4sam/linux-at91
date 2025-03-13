@@ -44,6 +44,10 @@ properties:
     description: Reserved memory for v4l2 buffers (optional)
     maxItems: 1
 
+  reset-gpios:
+    maxItems: 1
+    description: CSI2 module MIPI training reset
+
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
 
