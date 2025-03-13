@@ -236,8 +236,9 @@ static inline void mchp_coreqspi_write_read_op(struct mchp_coreqspi *qspi)
 		while (readl_relaxed(qspi->regs + REG_STATUS) & STATUS_TXFIFOFULL)
 			;
 
-		data = *(u32 *)qspi->txbuf;
-		qspi->txbuf += 4;
+		data = qspi->txbuf ? *((u32 *)qspi->txbuf) : 0xaa;
+		if (qspi->txbuf)
+			qspi->txbuf += 4;
 		qspi->tx_len -= 4;
 		writel_relaxed(data, qspi->regs + REG_X4_TX_DATA);
 
@@ -289,7 +290,8 @@ static inline void mchp_coreqspi_write_read_op(struct mchp_coreqspi *qspi)
 	while (qspi->tx_len--) {
 		while (readl_relaxed(qspi->regs + REG_STATUS) & STATUS_TXFIFOFULL)
 			;
-		data = *qspi->txbuf++;
+		data = qspi->txbuf ? *qspi->txbuf : 0xaa;
+		qspi->txbuf++;
 		writel_relaxed(data, qspi->regs + REG_TX_DATA);
 	}
 
@@ -654,19 +656,17 @@ static int mchp_coreqspi_transfer_one(struct spi_controller *ctlr, struct spi_de
 {
 	struct mchp_coreqspi *qspi = spi_controller_get_devdata(ctlr);
 
-	if ((t->tx_buf) && (t->rx_buf)){
+	qspi->tx_len = t->len;
+
+	if (t->tx_buf)
 		qspi->txbuf = (u8 *)t->tx_buf;
-		qspi->rxbuf = (u8 *)t->rx_buf;
-		qspi->tx_len = t->len;
-		mchp_coreqspi_write_read_op(qspi);
-	} else if (t->tx_buf) {
-		qspi->txbuf = (u8 *)t->tx_buf;
-		qspi->tx_len = t->len;
+
+	if (!t->rx_buf) {
 		mchp_coreqspi_write_op(qspi);
 	} else {
 		qspi->rxbuf = (u8 *)t->rx_buf;
 		qspi->rx_len = t->len;
-		mchp_coreqspi_read_op(qspi);
+		mchp_coreqspi_write_read_op(qspi);
 	}
 
 	return 0;
