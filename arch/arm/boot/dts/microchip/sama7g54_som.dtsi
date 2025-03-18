@@ -1,0 +1,297 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ *  sama7g54_som.dtsi - Device Tree Include file for SAMA7G54 SOM family
+ *
+ *  Copyright (C) 2025 Microchip Technology, Inc. and its subsidiaries
+ *
+ *  Author: Romain Sioen <romain.sioen@microchip.com>
+ *
+ */
+
+#include "sama7g5-pinfunc.h"
+#include "sama7g5.dtsi"
+#include <dt-bindings/clock/at91.h>
+#include <dt-bindings/dma/at91.h>
+#include <dt-bindings/mfd/atmel-flexcom.h>
+#include <dt-bindings/pinctrl/at91.h>
+
+/ {
+	model = "Microchip SAMA7G54-SOM";
+	compatible = "microchip,sama7g5";
+
+	/* 512 M */
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0x60000000 0x20000000>;
+	};
+};
+
+&asrc {
+	status = "okay";
+};
+
+&cpu0 {
+	cpu-supply = <&vddcpu>;
+};
+
+&dma0 {
+	status = "okay";
+};
+
+&dma1 {
+	status = "okay";
+};
+
+&dma2 {
+	status = "okay";
+};
+
+&ebi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_nand_default &pinctrl_nand_rb>;
+	status = "okay";
+
+	nand_controller: nand-controller {
+		status = "okay";
+
+		nand@3 {
+			reg = <0x3 0x0 0x800000>;
+			atmel,rb = <0>;
+			nand-bus-width = <8>;
+			nand-ecc-mode = "hw";
+			nand-ecc-strength = <8>;
+			nand-ecc-step-size = <512>;
+			nand-on-flash-bbt;
+			label = "atmel_nand";
+		};
+	};
+};
+
+&flx10 {
+	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
+	status = "okay";
+};
+
+&i2c10 {
+	dmas = <0>, <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c10_default>;
+	i2c-analog-filter;
+	i2c-digital-filter;
+	i2c-digital-filter-width-ns = <35>;
+	status = "okay";
+
+	pmic@5b {
+		compatible = "microchip,mcp16502";
+		reg = <0x5b>;
+
+		regulators {
+			vdd_3v3: VDD_IO {
+				regulator-name = "VDD_IO";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddioddr: VDD_DDR {
+				regulator-name = "VDD_DDR";
+				regulator-min-microvolt = <1350000>;
+				regulator-max-microvolt = <1350000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1350000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1350000>;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcore: VDD_CORE {
+				regulator-name = "VDD_CORE";
+				regulator-min-microvolt = <1150000>;
+				regulator-max-microvolt = <1150000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1150000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcpu: VDD_OTHER {
+				regulator-name = "VDD_OTHER";
+				regulator-min-microvolt = <1150000>;
+				regulator-max-microvolt = <1250000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-ramp-delay = <3125>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1150000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vldo1: LDO1 {
+				regulator-name = "LDO1";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-suspend-microvolt = <1200000>;
+					regulator-on-in-suspend;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+				};
+			};
+
+			vldo2: LDO2 {
+				regulator-name = "LDO2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-suspend-microvolt = <1200000>;
+					regulator-on-in-suspend;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+				};
+			};
+		};
+	};
+};
+
+&main_xtal {
+	clock-frequency = <24000000>;
+};
+
+&pioA {
+	pinctrl_i2c10_default: i2c10-default {
+		pinmux = <PIN_PC30__FLEXCOM10_IO0>,
+			 <PIN_PC31__FLEXCOM10_IO1>;
+		bias-disable;
+	};
+
+	pinctrl_nand_default: nand-default {
+		pinmux = <PIN_PD9__D0>,
+			 <PIN_PD10__D1>,
+			 <PIN_PD11__D2>,
+			 <PIN_PC21__D3>,
+			 <PIN_PC22__D4>,
+			 <PIN_PC23__D5>,
+			 <PIN_PC24__D6>,
+			 <PIN_PD2__D7>,
+			 <PIN_PD4__NCS3_NANDCS>,
+			 <PIN_PD5__NWE_NWR0_NANDWE>,
+			 <PIN_PD6__NRD_NANDOE>,
+			 <PIN_PD7__A21_NANDALE>,
+			 <PIN_PD8__A22_NANDCLE>;
+		slew-rate = <0>;
+		atmel,drive-strength = <ATMEL_PIO_DRVSTR_ME>;
+		bias-disable;
+	};
+
+	pinctrl_nand_rb: nand-rb {
+		pinmux = <PIN_PD3__NANDRDY>;
+		slew-rate = <0>;
+		bias-pull-up;
+	};
+
+	pinctrl_qspi1_io3: qspi1-io3 {
+		pinmux = <PIN_PB22__QSPI1_IO3>,
+			 <PIN_PB23__QSPI1_IO2>;
+		bias-pull-up;
+		slew-rate = <0>;
+		atmel,drive-strength = <ATMEL_PIO_DRVSTR_ME>;
+	};
+
+	pinctrl_qspi1: qspi1-default {
+		pinmux = <PIN_PB24__QSPI1_IO1>,
+			 <PIN_PB25__QSPI1_IO0>,
+			 <PIN_PB26__QSPI1_CS>,
+			 <PIN_PB27__QSPI1_SCK>;
+		bias-disable;
+		slew-rate = <0>;
+		atmel,drive-strength = <ATMEL_PIO_DRVSTR_ME>;
+	};
+};
+
+&qspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi1 &pinctrl_qspi1_io3>;
+	status = "okay";
+
+		flash@0 {
+			compatible = "sst,sst26vf064b", "jedec,spi-nor";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0>;
+			spi-max-frequency = <104000000>;
+			spi-cs-setup-ns = /bits/ 16 <7>;
+			spi-tx-bus-width = <4>;
+			spi-rx-bus-width = <4>;
+			m25p,fast-read;
+		};
+};
+
+&slow_xtal {
+	clock-frequency = <32768>;
+};
+
+&tcb0 {
+	timer0: timer@0 {
+		compatible = "atmel,tcb-timer";
+		reg = <0>;
+	};
+
+	timer1: timer@1 {
+		compatible = "atmel,tcb-timer";
+		reg = <1>;
+	};
+};
+
+&trng {
+	status = "okay";
+};
