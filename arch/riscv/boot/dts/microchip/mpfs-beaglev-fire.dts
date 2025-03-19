@@ -30,6 +30,8 @@
 		serial2 = &mmuart2;
 		serial3 = &mmuart3;
 		serial4 = &mmuart4;
+		mmc0 = &mmc;
+		mmc1 = &sdmmc;
 	};
 
 	chosen {
@@ -335,7 +337,7 @@
 		};
 	};
 
-	mmc@1 {
+	sdmmc: mmc@1 {
 		compatible = "mmc-spi-slot";
 		reg = <1>;
 		gpios = <&gpio2 31 1>;
