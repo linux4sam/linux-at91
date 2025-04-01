@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -513,14 +514,12 @@ err_dsi_probe:
 	return ret;
 }
 
-static int dw_mipi_dsi_mchp_remove(struct platform_device *pdev)
+static void dw_mipi_dsi_mchp_remove(struct platform_device *pdev)
 {
 	struct dw_mipi_dsi_mchp *dsi = platform_get_drvdata(pdev);
 
 	dw_mipi_dsi_remove(dsi->dsi);
 	clk_disable_unprepare(dsi->pllref_clk);
-
-	return 0;
 }
 
 static const struct dw_mipi_dsi_mchp_chip_data sam9x75_chip_data = {
