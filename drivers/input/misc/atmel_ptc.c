@@ -1072,7 +1072,7 @@ static int atmel_ptc_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int atmel_ptc_remove(struct platform_device *pdev)
+static void atmel_ptc_remove(struct platform_device *pdev)
 {
 	struct atmel_ptc *ptc = platform_get_drvdata(pdev);
 
@@ -1082,8 +1082,6 @@ static int atmel_ptc_remove(struct platform_device *pdev)
 
 	if (debug_mode)
 		sysfs_remove_group(&ptc->dev->kobj, &atmel_ptc_qtm_mb_attr_group);
-
-	return 0;
 }
 
 /*
