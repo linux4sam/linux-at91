@@ -521,7 +521,8 @@ static int atmel_ptc_request_pins(struct atmel_ptc *ptc)
 			if (ptc->x_lines_requested[j])
 				continue;
 
-			if (gpio_request_one(ptc->pins->x_lines[j].id, GPIOF_DIR_IN, ptc->pins->x_lines[j].name)) {
+			if (gpio_request_one(ptc->pins->x_lines[j].id, GPIOF_IN,
+						ptc->pins->x_lines[j].name)) {
 				dev_err(ptc->dev, "Can't get %s\n", ptc->pins->x_lines[j].name);
 				return -ENXIO;
 			}
@@ -532,7 +533,8 @@ static int atmel_ptc_request_pins(struct atmel_ptc *ptc)
 			if (ptc->y_lines_requested[j])
 				continue;
 
-			if (gpio_request_one(ptc->pins->y_lines[j].id, GPIOF_DIR_IN, ptc->pins->y_lines[j].name)) {
+			if (gpio_request_one(ptc->pins->y_lines[j].id, GPIOF_IN,
+						ptc->pins->y_lines[j].name)) {
 				dev_err(ptc->dev, "Can't get %s\n", ptc->pins->y_lines[j].name);
 				return -ENXIO;
 			}
