@@ -174,12 +174,11 @@ static int sensehat_display_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sensehat_display_remove(struct platform_device *pdev)
+static void sensehat_display_remove(struct platform_device *pdev)
 {
 	struct sensehat_display *sensehat_display = dev_get_drvdata(&pdev->dev);
 
 	misc_deregister(&sensehat_display->mdev);
-	return 0;
 }
 
 static const struct of_device_id sensehat_display_device_id[] = {
