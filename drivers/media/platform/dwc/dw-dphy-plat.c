@@ -193,11 +193,9 @@ static int dw_dphy_rx_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int dw_dphy_rx_remove(struct platform_device *pdev)
+static void dw_dphy_rx_remove(struct platform_device *pdev)
 {
 	phy_unregister(&pdev->dev);
-
-	return 0;
 }
 
 #if IS_ENABLED(CONFIG_OF)
