@@ -114,12 +114,12 @@ dw_mipi_csi_try_format(struct v4l2_mbus_framefmt *mf)
 
 static struct v4l2_mbus_framefmt *
 dw_mipi_csi_get_format(struct dw_csi *dev, struct v4l2_subdev_state *sd_state,
+		       unsigned int pad,
 		       enum v4l2_subdev_format_whence which)
 {
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
-		return sd_state->pads ? v4l2_subdev_get_try_format(&dev->sd,
-							sd_state,
-							0) : NULL;
+		return sd_state->pads ?
+			v4l2_subdev_state_get_format(sd_state, pad) : NULL;
 	dev_dbg(dev->dev,
 		"%s got v4l2_mbus_pixelcode. 0x%x\n", __func__,
 		dev->format.code);
@@ -140,6 +140,7 @@ dw_mipi_csi_set_fmt(struct v4l2_subdev *sd,
 	struct dw_csi *dev = sd_to_mipi_csi_dev(sd);
 	struct mipi_fmt *dev_fmt;
 	struct v4l2_mbus_framefmt *mf = dw_mipi_csi_get_format(dev, sd_state,
+							       fmt->pad,
 							       fmt->which);
 	int i;
 
@@ -178,7 +179,7 @@ dw_mipi_csi_get_fmt(struct v4l2_subdev *sd,
 	struct dw_csi *dev = sd_to_mipi_csi_dev(sd);
 	struct v4l2_mbus_framefmt *mf;
 
-	mf = dw_mipi_csi_get_format(dev, sd_state, fmt->which);
+	mf = dw_mipi_csi_get_format(dev, sd_state, fmt->pad, fmt->which);
 	if (!mf)
 		return -EINVAL;
 
@@ -212,11 +213,11 @@ dw_mipi_csi_g_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg)
 }
 #endif
 
-static int dw_mipi_csi_init_cfg(struct v4l2_subdev *sd,
-				struct v4l2_subdev_state *sd_state)
+static int dw_mipi_csi_init_state(struct v4l2_subdev *sd,
+				  struct v4l2_subdev_state *sd_state)
 {
 	struct v4l2_mbus_framefmt *format =
-	    v4l2_subdev_get_try_format(sd, sd_state, 0);
+		v4l2_subdev_state_get_format(sd_state, 0);
 
 	format->colorspace = V4L2_COLORSPACE_SRGB;
 	format->code = MEDIA_BUS_FMT_RGB888_1X24;
@@ -274,7 +275,6 @@ static int dw_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static struct v4l2_subdev_pad_ops dw_mipi_csi_pad_ops = {
-	.init_cfg = dw_mipi_csi_init_cfg,
 	.enum_mbus_code = dw_mipi_csi_enum_mbus_code,
 	.enum_frame_size = dw_enum_frame_size,
 	.get_fmt = dw_mipi_csi_get_fmt,
@@ -290,6 +290,10 @@ static const struct v4l2_subdev_ops dw_mipi_csi_subdev_ops = {
 	.core = &dw_mipi_csi_core_ops,
 	.pad = &dw_mipi_csi_pad_ops,
 	.video = &dw_mipi_csi_video_ops,
+};
+
+static const struct v4l2_subdev_internal_ops dw_mipi_csi_internal_ops = {
+	.init_state = dw_mipi_csi_init_state,
 };
 
 static irqreturn_t dw_mipi_csi_irq1(int irq, void *dev_id)
@@ -555,7 +559,7 @@ static int dw_csi_probe(struct platform_device *pdev)
 
 		csi->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	} else {
-		strlcpy(sd->name, dev_name(dev), sizeof(sd->name));
+		strscpy(sd->name, dev_name(dev), sizeof(sd->name));
 	}
 	csi->fmt = &dw_mipi_csi_formats[0];
 	csi->format.code = dw_mipi_csi_formats[0].mbus_code;
@@ -623,7 +627,7 @@ csi2host_phyclk_err:
  * @param[in] pdev pointer to the platform device structure
  * @return 0 on success
  */
-static int dw_csi_remove(struct platform_device *pdev)
+static void dw_csi_remove(struct platform_device *pdev)
 {
 	struct v4l2_subdev *sd = platform_get_drvdata(pdev);
 	struct dw_csi *mipi_csi = sd_to_mipi_csi_dev(sd);
@@ -635,8 +639,6 @@ static int dw_csi_remove(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_OF)
 	media_entity_cleanup(&mipi_csi->sd.entity);
 #endif
-
-	return 0;
 }
 
 #if IS_ENABLED(CONFIG_OF)
