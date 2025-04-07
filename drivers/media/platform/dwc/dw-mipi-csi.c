@@ -58,7 +58,7 @@ struct interrupt_type csi_int = {
 	dev_info(csi_dev->dev, "%s: 0x%x: %X\n", "#VAR#",\
 	VAR, dw_mipi_csi_read(csi_dev, VAR))
 
-void dw_mipi_csi_write_part(struct dw_csi *dev, u32 address, u32 data,
+static void dw_mipi_csi_write_part(struct dw_csi *dev, u32 address, u32 data,
 			    u8 shift, u8 width)
 {
 	u32 mask = (1 << width) - 1;
