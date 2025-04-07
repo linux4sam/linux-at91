@@ -95,7 +95,7 @@ u8 dw_dphy_setup_config(struct dw_dphy_rx *dphy)
 }
 
 #if IS_ENABLED(CONFIG_DWC_MIPI_TC_DPHY_GEN3)
-void dw_dphy_if_write(struct dw_dphy_rx *dphy, u32 address, u32 data)
+static void dw_dphy_if_write(struct dw_dphy_rx *dphy, u32 address, u32 data)
 {
 	writel(data, dphy->dphy1_if_addr + address);
 
@@ -159,7 +159,7 @@ end:
 	return dphy1;
 }
 
-void dw_dphy_write_msk(struct dw_dphy_rx *dev, u32 address, u32 data, u8 shift,
+static void dw_dphy_write_msk(struct dw_dphy_rx *dev, u32 address, u32 data, u8 shift,
 		       u8 width)
 {
 	u32 temp = dw_dphy_read(dev, address);
@@ -351,7 +351,7 @@ static void dw_dphy_gen3_8bit_tc_power_up(struct dw_dphy_rx *dphy)
 	}
 }
 
-int dw_dphy_g118_settle(struct dw_dphy_rx *dphy)
+static int dw_dphy_g118_settle(struct dw_dphy_rx *dphy)
 {
 	u32 input_freq, total_settle, settle_time, byte_clk, lp_time;
 
