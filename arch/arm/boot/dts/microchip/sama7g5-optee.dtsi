@@ -37,6 +37,19 @@
 			clock-frequency = <200000000>;
 		};
 
+		/* Add 2 dummy fixed-clocks for PIT64B (see below) */
+		dummy_clk_pit_fixed1: dummy-clk-pit-fixed1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+		};
+
+		dummy_clk_pit_fixed2: dummy-clk-pit-fixed2 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <5000000>;
+		};
+
 		clk32kfixed: clk32kfixed {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -136,12 +149,16 @@
 	status = "disabled";
 };
 
+/*
+ * Use fixed-clock for PIT64B since SCMI clocks are probed too late for
+ * clocksource
+ */
 &pit64b0 {
-	status = "disabled";
+	clocks = <&dummy_clk_pit_fixed1>, <&dummy_clk_pit_fixed2>;
 };
 
 &pit64b1 {
-	status = "disabled";
+	clocks = <&dummy_clk_pit_fixed1>, <&dummy_clk_pit_fixed2>;
 };
 
 &rtc {
