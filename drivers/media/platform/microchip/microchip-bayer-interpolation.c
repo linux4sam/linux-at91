@@ -84,22 +84,14 @@ static struct v4l2_mbus_framefmt
 					   struct v4l2_subdev_state *sd_state,
 					   unsigned int pad, u32 which)
 {
-	struct v4l2_mbus_framefmt *get_fmt;
-
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		get_fmt = v4l2_subdev_get_try_format(&mchp_bayer->subdev,
-						     sd_state, pad);
-		break;
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		get_fmt = &mchp_bayer->formats[pad];
-		break;
+		return &mchp_bayer->formats[pad];
 	default:
-		get_fmt = NULL;
-		break;
+		return NULL;
 	}
-
-	return get_fmt;
 }
 
 static int mchp_bayer_interpolation_s_stream(struct v4l2_subdev *subdev, int enable)
@@ -217,10 +209,10 @@ static int mchp_bayer_interpolation_open(struct v4l2_subdev *subdev, struct v4l2
 	struct mchp_bayer_interpolation_dev *mchp_bayer = to_mchp_bayer(subdev);
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SINK);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SINK);
 	*format = mchp_bayer->default_formats[MVC_PAD_SINK];
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SOURCE);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SOURCE);
 	*format = mchp_bayer->default_formats[MVC_PAD_SOURCE];
 
 	return 0;
@@ -342,15 +334,13 @@ media_error:
 	return ret;
 }
 
-static int mchp_bayer_interpolation_remove(struct platform_device *pdev)
+static void mchp_bayer_interpolation_remove(struct platform_device *pdev)
 {
 	struct mchp_bayer_interpolation_dev *mchp_bayer = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &mchp_bayer->subdev;
 
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_bayer_interpolation_of_id_table[] = {
