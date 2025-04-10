@@ -397,30 +397,12 @@ __mipi_csi2rx_get_pad_format(struct mipi_csi2rx_state *csi2rx,
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(&csi2rx->subdev,
-						  sd_state, pad);
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-			return &csi2rx->format[pad];
+		return &csi2rx->format[pad];
 	default:
 		return NULL;
 	}
-}
-
-static int mipi_csi2rx_init_cfg(struct v4l2_subdev *sd,
-				struct v4l2_subdev_state *sd_state)
-{
-	struct mipi_csi2rx_state *csi2rx = to_csi2rxstate(sd);
-	struct v4l2_mbus_framefmt *format;
-	unsigned int i;
-
-	mutex_lock(&csi2rx->lock);
-	for (i = 0; i < MIPI_CSI_MEDIA_PADS; i++) {
-		format = v4l2_subdev_get_try_format(sd, sd_state, i);
-		*format = csi2rx->default_format[i];
-	}
-	mutex_unlock(&csi2rx->lock);
-
-	return 0;
 }
 
 static int mipi_csi2rx_get_format(struct v4l2_subdev *sd,
@@ -532,9 +514,33 @@ static int mipi_csi2rx_enum_mbus_code(struct v4l2_subdev *sd,
 	return ret;
 }
 
+static int mipi_csi2rx_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct mipi_csi2rx_state *state = to_csi2rxstate(sd);
+	struct v4l2_mbus_framefmt *format;
+
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SINK);
+	*format = state->default_format[MVC_PAD_SINK];
+
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SOURCE);
+	*format = state->default_format[MVC_PAD_SOURCE];
+
+	return 0;
+}
+
+static int mipi_csi2rx_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
+{
+	return 0;
+}
+
 /* -----------------------------------------------------------------------------
  * Media Operations
  */
+
+static const struct v4l2_subdev_internal_ops mipi_csi2rx_internal_ops = {
+	.open = mipi_csi2rx_open,
+	.close = mipi_csi2rx_close,
+};
 
 static const struct media_entity_operations mipi_csi2rx_media_ops = {
 	.link_validate = v4l2_subdev_link_validate
@@ -549,7 +555,6 @@ static const struct v4l2_subdev_video_ops mipi_csi2rx_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops mipi_csi2rx_pad_ops = {
-	.init_cfg = mipi_csi2rx_init_cfg,
 	.get_fmt = mipi_csi2rx_get_format,
 	.set_fmt = mipi_csi2rx_set_format,
 	.enum_mbus_code = mipi_csi2rx_enum_mbus_code,
@@ -737,6 +742,7 @@ static int mipi_csi2rx_probe(struct platform_device *pdev)
 	strscpy(subdev->name, dev_name(dev), sizeof(subdev->name));
 	subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;
 	subdev->entity.ops = &mipi_csi2rx_media_ops;
+	subdev->internal_ops = &mipi_csi2rx_internal_ops;
 	v4l2_set_subdevdata(subdev, csi2rx);
 
 	ret = media_entity_pads_init(&subdev->entity, MIPI_CSI_MEDIA_PADS,
@@ -769,7 +775,7 @@ err_clk_put:
 	return ret;
 }
 
-static int mipi_csi2rx_remove(struct platform_device *pdev)
+static void mipi_csi2rx_remove(struct platform_device *pdev)
 {
 	struct mipi_csi2rx_state *csi2rx = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &csi2rx->subdev;
@@ -780,8 +786,6 @@ static int mipi_csi2rx_remove(struct platform_device *pdev)
 	mutex_destroy(&csi2rx->lock);
 	clk_bulk_disable_unprepare(num_clks, csi2rx->clks);
 	clk_bulk_put(num_clks, csi2rx->clks);
-
-	return 0;
 }
 
 static const struct of_device_id mipi_csi2rx_of_id_table[] = {
