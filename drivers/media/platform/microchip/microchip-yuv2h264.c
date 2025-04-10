@@ -139,22 +139,14 @@ __mchp_yuv2h264_get_pad_format(struct mchp_yuv2h264_device *yuv2h264,
 			       struct v4l2_subdev_state *sd_state,
 			       unsigned int pad, u32 which)
 {
-	struct v4l2_mbus_framefmt *format;
-
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		format = v4l2_subdev_get_try_format(&yuv2h264->subdev,
-						    sd_state, pad);
-		break;
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		format = &yuv2h264->formats[pad];
-		break;
+		return &yuv2h264->formats[pad];
 	default:
-		format = NULL;
-		break;
+		return NULL;
 	}
-
-	return format;
 }
 
 static int mchp_yuv2h264_get_format(struct v4l2_subdev *subdev,
@@ -223,10 +215,10 @@ static int mchp_yuv2h264_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh 
 	struct v4l2_mbus_framefmt *format;
 
 	/* Initialize with default formats */
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SINK);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SINK);
 	*format = yuv2h264->default_formats[MVC_PAD_SINK];
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SOURCE);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SOURCE);
 	*format = yuv2h264->default_formats[MVC_PAD_SOURCE];
 
 	return 0;
@@ -415,7 +407,7 @@ media_error:
 	return ret;
 }
 
-static int mchp_yuv2h264_remove(struct platform_device *pdev)
+static void mchp_yuv2h264_remove(struct platform_device *pdev)
 {
 	struct mchp_yuv2h264_device *yuv2h264 = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &yuv2h264->subdev;
@@ -423,8 +415,6 @@ static int mchp_yuv2h264_remove(struct platform_device *pdev)
 	v4l2_async_unregister_subdev(subdev);
 	v4l2_ctrl_handler_free(&yuv2h264->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_yuv2h264_of_id_table[] = {
