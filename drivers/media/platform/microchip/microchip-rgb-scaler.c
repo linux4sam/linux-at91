@@ -149,7 +149,7 @@ static int mchp_rgb_scaler_enum_frame_size(struct v4l2_subdev *subdev,
 {
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(subdev, sd_state, fse->pad);
+	format = v4l2_subdev_state_get_format(sd_state, fse->pad);
 
 	if (fse->index || fse->code != format->code)
 		return -EINVAL;
@@ -167,22 +167,14 @@ __mchp_rgb_scaler_get_pad_format(struct mchp_rgb_scaler_device *rgb_scaler,
 				 struct v4l2_subdev_state *sd_state,
 				 unsigned int pad, u32 which)
 {
-	struct v4l2_mbus_framefmt *format;
-
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		format = v4l2_subdev_get_try_format(&rgb_scaler->subdev,
-						    sd_state, pad);
-		break;
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		format = &rgb_scaler->formats[pad];
-		break;
+		return &rgb_scaler->formats[pad];
 	default:
-		format = NULL;
-		break;
+		return NULL;
 	}
-
-	return format;
 }
 
 static struct v4l2_rect *
@@ -193,9 +185,7 @@ __mchp_rgb_scaler_get_crop(struct mchp_rgb_scaler_device *rgb_scaler,
 
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		crop = v4l2_subdev_get_try_crop(&rgb_scaler->subdev,
-						sd_state,
-						MVC_PAD_SINK);
+		crop = v4l2_subdev_state_get_crop(sd_state, MVC_PAD_SINK);
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		crop = &rgb_scaler->crop;
@@ -347,10 +337,10 @@ static int mchp_rgb_scaler_open(struct v4l2_subdev *subdev, struct v4l2_subdev_f
 	struct v4l2_mbus_framefmt *format;
 
 	/* Initialize with default formats */
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SINK);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SINK);
 	*format = rgb_scaler->default_formats[MVC_PAD_SINK];
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SOURCE);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SOURCE);
 	*format = rgb_scaler->default_formats[MVC_PAD_SOURCE];
 
 	return 0;
@@ -477,15 +467,13 @@ error:
 	return ret;
 }
 
-static int mchp_rgb_scaler_remove(struct platform_device *pdev)
+static void mchp_rgb_scaler_remove(struct platform_device *pdev)
 {
 	struct mchp_rgb_scaler_device *rgb_scaler = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &rgb_scaler->subdev;
 
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_rgb_scaler_of_id_table[] = {
