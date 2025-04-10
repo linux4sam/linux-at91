@@ -64,22 +64,14 @@ __mchp_gvpc_get_pad_format(struct mchp_gvpc_device *mchp_gvpc,
 			   struct v4l2_subdev_state *sd_state,
 			   unsigned int pad, u32 which)
 {
-	struct v4l2_mbus_framefmt *format;
-
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		format = v4l2_subdev_get_try_format(&mchp_gvpc->subdev,
-						    sd_state, pad);
-		break;
+		return v4l2_subdev_state_get_format(sd_state, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		format = &mchp_gvpc->formats[pad];
-		break;
+		return &mchp_gvpc->formats[pad];
 	default:
-		format = NULL;
-		break;
+		return NULL;
 	}
-
-	return format;
 }
 
 static int mchp_gvpc_get_format(struct v4l2_subdev *subdev,
@@ -133,10 +125,10 @@ static int mchp_gvpc_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	struct mchp_gvpc_device *mchp_gvpc = to_gvpc(subdev);
 	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SINK);
+	format =  v4l2_subdev_state_get_format(fh->state, MVC_PAD_SINK);
 	*format = mchp_gvpc->default_formats[MVC_PAD_SINK];
 
-	format = v4l2_subdev_get_try_format(subdev, fh->state, MVC_PAD_SOURCE);
+	format = v4l2_subdev_state_get_format(fh->state, MVC_PAD_SOURCE);
 	*format = mchp_gvpc->default_formats[MVC_PAD_SOURCE];
 
 	return 0;
@@ -290,15 +282,13 @@ error:
 	return ret;
 }
 
-static int mchp_gvpc_remove(struct platform_device *pdev)
+static void mchp_gvpc_remove(struct platform_device *pdev)
 {
 	struct mchp_gvpc_device *mchp_gvpc = platform_get_drvdata(pdev);
 	struct v4l2_subdev *subdev = &mchp_gvpc->subdev;
 
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_gvpc_of_id_table[] = {
