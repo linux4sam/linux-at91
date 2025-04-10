@@ -1355,7 +1355,6 @@ static int mchp_vcpp_probe(struct platform_device *pdev)
 	vb2_q->mem_ops = &vb2_dma_contig_memops;
 	vb2_q->allow_cache_hints = 1;
 	vb2_q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	vb2_q->min_buffers_needed = 2;
 	vb2_q->lock = &mchp_vcpp->lock;
 
 	ret = vb2_queue_init(vb2_q);
@@ -1403,7 +1402,7 @@ err_clk_put:
 	return ret;
 }
 
-static int mchp_vcpp_remove(struct platform_device *pdev)
+static void mchp_vcpp_remove(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev = platform_get_drvdata(pdev);
 	struct mchp_vcpp_fpga *mchp_vcpp = container_of(v4l2_dev,
@@ -1418,8 +1417,6 @@ static int mchp_vcpp_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&mchp_vcpp->v4l2_dev);
 	clk_bulk_disable_unprepare(num_clks, mchp_vcpp->clks);
 	clk_bulk_put(num_clks, mchp_vcpp->clks);
-
-	return 0;
 }
 
 static const struct of_device_id mchp_vcpp_of_match[] = {
