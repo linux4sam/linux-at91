@@ -1372,7 +1372,6 @@ static int mchp_dscmi_graph_notify_complete(struct v4l2_async_notifier *notifier
 	vb2_q->ops = &mchp_dscmi_qops;
 	vb2_q->mem_ops = &vb2_dma_contig_memops;
 	vb2_q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	vb2_q->min_buffers_needed = 2;
 	vb2_q->lock = &mchp_dscmi->lock;
 
 	ret = vb2_queue_init(vb2_q);
@@ -1713,7 +1712,7 @@ dma_free:
 	return ret;
 }
 
-static int mchp_dscmi_remove(struct platform_device *pdev)
+static void mchp_dscmi_remove(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev = platform_get_drvdata(pdev);
 	struct mchp_dscmi_fpga *mchp_dscmi = container_of(v4l2_dev,
@@ -1729,8 +1728,6 @@ static int mchp_dscmi_remove(struct platform_device *pdev)
 	v4l2_async_nf_cleanup(&mchp_dscmi->current_subdev->notifier);
 	v4l2_device_unregister(&mchp_dscmi->v4l2_dev);
 	dma_release_channel(mchp_dscmi->dma_chan);
-
-	return 0;
 }
 
 static const struct mchp_dscmi_driver_platdata mpfs_osd = {
