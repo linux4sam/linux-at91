@@ -47,7 +47,6 @@ struct mpfs_gpio_chip {
 	struct regmap *regs;
 	const struct mpfs_gpio_reg_offsets *offsets;
 	struct gpio_chip gc;
-	u8 irq_data[MPFS_MAX_NUM_GPIO];
 };
 
 static const struct regmap_config mpfs_gpio_regmap_config = {
@@ -182,10 +181,9 @@ static const struct irq_chip mpfs_gpio_irqchip = {
 static void mpfs_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
-	void *handler_data = irq_desc_get_handler_data(desc);
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(&desc->irq_data);
 	struct mpfs_gpio_chip *mpfs_gpio = gpiochip_get_data(gc);
-	u8 gpio_index = *((u8 *)handler_data);
+	int gpio_index = irqd_to_hwirq(&desc->irq_data) % 32;
 	unsigned int status;
 
 	/*
@@ -263,10 +261,8 @@ static int mpfs_gpio_probe(struct platform_device *pdev)
 
 		girq->parents = devm_kcalloc(&pdev->dev, girq->num_parents,
 					     sizeof(*girq->parents), GFP_KERNEL);
-		irq_data = devm_kmalloc_array(&pdev->dev, girq->num_parents,
-					      sizeof(*irq_data), GFP_KERNEL);
 
-		if (!girq->parents || !irq_data) {
+		if (!girq->parents) {
 			return -ENOMEM;
 		}
 
@@ -276,15 +272,11 @@ static int mpfs_gpio_probe(struct platform_device *pdev)
 				return ret;
 
 			girq->parents[i] = ret;
-			mpfs_gpio->irq_data[i] = i;
-			irq_data[i] = &mpfs_gpio->irq_data[i];
 
 			irq_set_chip_data(ret, &mpfs_gpio->gc);
 			irq_set_handler(ret, handle_simple_irq);
 		}
 
-		girq->parent_handler_data_array = irq_data;
-		girq->per_parent_data = true;
 		girq->handler = handle_simple_irq;
 		girq->default_type = IRQ_TYPE_NONE;
 	}
