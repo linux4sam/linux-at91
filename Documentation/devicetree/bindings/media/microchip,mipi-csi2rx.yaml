@@ -116,7 +116,7 @@ additionalProperties: false
 examples:
   - |
     mcsi2rx_0: csi2rx@50020000 {
-        compatible = "microchip,mipi-csi2-rx";
+        compatible = "microchip,mipi-csi2-rx-rtl-v0";
         reg = <0x50020000 0x10000>;
         interrupt-parent = <&plic>;
         interrupts = <120>;
