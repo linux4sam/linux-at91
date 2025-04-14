@@ -15,6 +15,7 @@
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <soc/microchip/mpfs.h>
 
 static DEFINE_MUTEX(mpfs_generic_service_mutex);
