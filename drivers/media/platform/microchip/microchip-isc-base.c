@@ -1580,8 +1580,8 @@ static const struct v4l2_ctrl_ops isc_awb_ops = {
 		.name = _name_str, \
 		.type = V4L2_CTRL_TYPE_INTEGER, \
 		.flags = V4L2_CTRL_FLAG_SLIDER, \
-		.min = -4095, \
-		.max = 4095, \
+		.min = -8191, \
+		.max = 8191, \
 		.step = 1, \
 		.def = 0, \
 	}
