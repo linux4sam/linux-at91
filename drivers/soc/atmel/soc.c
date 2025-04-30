@@ -25,7 +25,7 @@
 #define AT91_CIDR_VERSION_MASK(x)	GENMASK(x, 0)
 #define AT91_CIDR_EXT			BIT(31)
 #define AT91_CIDR_MATCH_MASK		GENMASK(30, 5)
-#define AT91_CIDR_MASK_SAMA7G5		GENMASK(27, 5)
+#define AT91_CIDR_MASK_SAMA7		GENMASK(27, 5)
 
 static const struct at91_soc socs[] __initconst = {
 #ifdef CONFIG_SOC_AT91RM9200
@@ -245,7 +245,7 @@ static const struct at91_soc socs[] __initconst = {
 		 "samv70q19", "samv7"),
 #endif
 #ifdef CONFIG_SOC_SAMA7
-	AT91_SOC(SAMA7D65_CIDR_MATCH, AT91_CIDR_MASK_SAMA7G5,
+	AT91_SOC(SAMA7D65_CIDR_MATCH, AT91_CIDR_MASK_SAMA7,
 		 AT91_CIDR_VERSION_MASK(3), SAMA7D65_EXID_MATCH,
 		 "sama7d65", "sama7d6"),
 	AT91_SOC(SAMA7G5_CIDR_MATCH, AT91_CIDR_MATCH_MASK,
