@@ -25,7 +25,11 @@ description: |
 
 properties:
   compatible:
-    const: microchip,mpfs-gpio-irq-mux
+    oneOf:
+      - const: microchip,mpfs-gpio-irq-mux
+      - items:
+          - const: microchip,pic64gx-gpio-irq-mux
+          - const: microchip,mpfs-gpio-irq-mux
 
   reg:
     maxItems: 1
