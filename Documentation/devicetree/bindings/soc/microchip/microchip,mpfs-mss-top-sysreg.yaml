@@ -44,6 +44,10 @@ properties:
       of PolarFire clock/reset IDs.
     const: 1
 
+  interrupt-controller@54:
+    type: object
+    $ref: /schemas/interrupt-controller/microchip,mpfs-gpio-irq-mux.yaml
+
 required:
   - compatible
   - reg
@@ -52,9 +56,32 @@ additionalProperties: false
 
 examples:
   - |
-    syscon@20002000 {
-      compatible = "microchip,mpfs-mss-top-sysreg", "syscon", "simple-mfd";
-      reg = <0x20002000 0x1000>;
-      #reset-cells = <1>;
+    soc {
+      #address-cells = <1>;
+      #size-cells = <1>;
+
+      syscon@20002000 {
+        compatible = "microchip,mpfs-mss-top-sysreg", "syscon", "simple-mfd";
+        reg = <0x20002000 0x1000>;
+        #reset-cells = <1>;
+          interrupt-controller@54 {
+            compatible = "microchip,mpfs-gpio-irq-mux";
+            reg = <0x54 0x4>;
+            interrupt-parent = <&plic>;
+            interrupt-controller;
+            #interrupt-cells = <1>;
+            interrupts = <13>, <14>, <15>, <16>,
+                         <17>, <18>, <19>, <20>,
+                         <21>, <22>, <23>, <24>,
+                         <25>, <26>, <27>, <28>,
+                         <29>, <30>, <31>, <32>,
+                         <33>, <34>, <35>, <36>,
+                         <37>, <38>, <39>, <40>,
+                         <41>, <42>, <43>, <44>,
+                         <45>, <46>, <47>, <48>,
+                         <49>, <50>, <51>, <52>,
+                         <53>;
+          };
+       };
     };
 
