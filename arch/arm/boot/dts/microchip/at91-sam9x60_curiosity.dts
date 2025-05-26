@@ -470,7 +470,7 @@
 	};
 };
 
-&tcb0 {
+&tcb1 {
 	timer0: timer@0 {
 		compatible = "atmel,tcb-timer";
 		reg = <0>;
