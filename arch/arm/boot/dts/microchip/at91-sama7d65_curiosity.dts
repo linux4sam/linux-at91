@@ -632,7 +632,6 @@
 &sdmmc1 {
 	bus-width = <4>;
 	vmmc-supply = <&vdd_3v3>;
-	vqmmc-supply = <&vdd_3v3>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc1_default>;
 	status = "okay";
