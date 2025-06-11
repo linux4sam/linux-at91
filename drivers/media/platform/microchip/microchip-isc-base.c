@@ -1313,7 +1313,6 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 static void isc_wb_update(struct isc_ctrls *ctrls)
 {
 	struct isc_device *isc = container_of(ctrls, struct isc_device, ctrls);
-	u32 *hist_count = &ctrls->hist_count[0];
 	u32 c, offset[4];
 	u64 avg = 0;
 	/* We compute two gains, stretch gain and grey world gain */
@@ -1324,10 +1323,10 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 	 * them towards the green channel.
 	 * Thus we want to keep Green as fixed and adjust only Red/Blue
 	 * Compute the average of the both green channels first
+	 * Use channel averages for Grey World algorithm
 	 */
-	avg = (u64)hist_count[ISC_HIS_CFG_MODE_GR] +
-		(u64)hist_count[ISC_HIS_CFG_MODE_GB];
-	avg >>= 1;
+	avg = (ctrls->channel_avg[ISC_HIS_CFG_MODE_GR] +
+			ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
 
 	dev_dbg(isc->dev, "isc wb: green components average %llu\n", avg);
 
@@ -1336,6 +1335,11 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		return;
 
 	for (c = ISC_HIS_CFG_MODE_GR; c <= ISC_HIS_CFG_MODE_B; c++) {
+		u32 hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];
+		u32 hist_max = ctrls->hist_minmax[c][HIST_MAX_INDEX];
+		u32 channel_avg = ctrls->channel_avg[c];
+		u32 total_pixels = ctrls->total_pixels[c];
+
 		/*
 		 * the color offset is the minimum value of the histogram.
 		 * we stretch this color to the full range by substracting
@@ -1369,23 +1373,21 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		 * decimals
 		 */
 		s_gain[c] = (HIST_ENTRIES << 9) /
-			(ctrls->hist_minmax[c][HIST_MAX_INDEX] -
-			ctrls->hist_minmax[c][HIST_MIN_INDEX] + 1);
+			(hist_max - hist_min + 1);
 
 		/*
-		 * Now we have to compute the gain w.r.t. the average.
-		 * Add/lose gain to the component towards the average.
-		 * If it happens that the component is zero, use the
-		 * fixed point value : 1.0 gain.
+		 * Grey World gain using channel averages
+		 * This is much more accurate than using hist_count
 		 */
-		if (hist_count[c])
-			gw_gain[c] = div_u64(avg << 9, hist_count[c]);
+		if (channel_avg > 0 && total_pixels > 1000)
+			gw_gain[c] = div64_u64((avg << 9), channel_avg);
 		else
 			gw_gain[c] = 1 << 9;
 
 		dev_dbg(isc->dev,
-			"isc wb: component %d, s_gain %u, gw_gain %u\n",
-			c, s_gain[c], gw_gain[c]);
+			"isc wb: component %d, black_level=%u, avg=%u, s_gain=%u, gw_gain=%u",
+			c, hist_min, channel_avg, s_gain[c], gw_gain[c]);
+
 		/* multiply both gains and adjust for decimals */
 		ctrls->gain[c] = s_gain[c] * gw_gain[c];
 		ctrls->gain[c] >>= 9;
@@ -1393,8 +1395,9 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		/* make sure we are not out of range */
 		ctrls->gain[c] = clamp_val(ctrls->gain[c], 0, GENMASK(12, 0));
 
-		dev_dbg(isc->dev, "isc wb: component %d, final gain %u\n",
-			c, ctrls->gain[c]);
+		dev_dbg(isc->dev,
+			"isc wb: component %d, final gain %u, offset %d\n",
+			c, ctrls->gain[c], ctrls->offset[c]);
 	}
 }
 
