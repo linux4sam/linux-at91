@@ -1231,24 +1231,83 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 	regmap_bulk_read(regmap, ISC_HIS_ENTRY + isc->offsets.his_entry,
 			 hist_entry, HIST_ENTRIES);
 
-	*hist_count = 0;
-	/*
-	 * we deliberately ignore the end of the histogram,
-	 * the most white pixels
-	 */
-	for (i = 1; i < HIST_ENTRIES; i++) {
-		if (*hist_entry && !*min)
-			*min = i;
-		if (*hist_entry)
-			*max = i;
-		*hist_count += i * (*hist_entry++);
+	/* Calculate total pixels */
+	u32 total_pixels = 0;
+
+	for (i = 0; i < HIST_ENTRIES; i++)
+		total_pixels += hist_entry[i];
+
+	/* Handle empty histogram case */
+	if (total_pixels == 0) {
+		*hist_count = 0;
+		ctrls->channel_avg[ctrls->hist_id] = 256; /* Default middle value */
+		ctrls->total_pixels[ctrls->hist_id] = 0;
+		*min = 1;
+		*max = HIST_ENTRIES - 1;
+		dev_dbg(isc->dev, "isc wb: no pixels in histogram for channel %u", ctrls->hist_id);
+		return;
 	}
+
+	/* Smart outlier rejection - skip bottom/top 2% */
+	u32 dark_threshold = total_pixels / 50;   /* Bottom 2% */
+	u32 bright_threshold = total_pixels / 50; /* Top 2% */
+	u32 cumulative = 0;
+
+	/* Find effective minimum (skip dark noise) */
+	*min = 1;
+	for (i = 1; i < HIST_ENTRIES; i++) {
+		cumulative += hist_entry[i];
+		if (cumulative > dark_threshold) {
+			*min = i;
+			break;
+		}
+	}
+
+	/* Find effective maximum (skip bright saturation) */
+	cumulative = 0;
+	*max = HIST_ENTRIES - 1;
+	for (i = HIST_ENTRIES - 1; i > *min; i--) {
+		cumulative += hist_entry[i];
+		if (cumulative > bright_threshold) {
+			*max = i;
+			break;
+		}
+	}
+
+	/* Ensure reasonable range */
+	if (*max <= *min) {
+		*min = HIST_ENTRIES / 4;
+		*max = (HIST_ENTRIES * 3) / 4;
+	}
+
+	/* Calculate both pixel count and weighted average for useful range */
+	*hist_count = 0;
+	u64 weighted_sum = 0;
+
+	for (i = *min; i <= *max; i++) {
+		u32 pixel_count = hist_entry[i];
+		*hist_count += pixel_count;
+		weighted_sum += (u64)i * pixel_count;
+	}
+
+	/* Store total useful pixels for this channel */
+	ctrls->total_pixels[ctrls->hist_id] = *hist_count;
+
+	/* Calculate channel average */
+	if (*hist_count > 0)
+		ctrls->channel_avg[ctrls->hist_id] =
+			div64_u64(weighted_sum, *hist_count);
+	else
+		/* Default middle value */
+		ctrls->channel_avg[ctrls->hist_id] = 256;
 
 	if (!*min)
 		*min = 1;
 
-	dev_dbg(isc->dev, "isc wb: hist_id %u, hist_count %u",
-		ctrls->hist_id, *hist_count);
+	dev_dbg(isc->dev,
+		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u",
+		ctrls->hist_id, ctrls->channel_avg[ctrls->hist_id],
+		*hist_count, *min, *max, total_pixels);
 }
 
 static void isc_wb_update(struct isc_ctrls *ctrls)
