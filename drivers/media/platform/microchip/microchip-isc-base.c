@@ -1345,7 +1345,27 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		 * we stretch this color to the full range by substracting
 		 * this value from the color component.
 		 */
-		offset[c] = ctrls->hist_minmax[c][HIST_MIN_INDEX];
+		if (hist_min > 5 && hist_min < 60 && total_pixels > 1000) {
+			/*
+			 * Basic adaptive black level offset correction
+			 * (Simplified version for kernel fallback)
+			 */
+			if (hist_min > 20)
+				/* Conservative for high levels */
+				offset[c] = hist_min - 4;
+			else if (hist_min > 10)
+				/* Moderate correction */
+				offset[c] = hist_min - 2;
+			else
+				/* Gentle correction */
+				offset[c] = hist_min - 1;
+
+			offset[c] = max(1U, offset[c]);  /* Ensure minimum of 1 */
+		} else {
+			/* Use default behavior for edge cases */
+			offset[c] = hist_min;
+		}
+
 		/*
 		 * The offset is always at least 1. If the offset is 1, we do
 		 * not need to adjust it, so our result must be zero.
