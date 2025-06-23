@@ -197,6 +197,23 @@ enum isc_scaler_pads {
 	ISC_SCALER_PADS_NUM	= 2,
 };
 
+/* Video device node structure */
+struct isc_vdev_node {
+	struct video_device vdev;
+	struct vb2_queue buf_queue;
+	struct mutex vlock; /* lock for video node */
+	struct media_pad pad;
+};
+
+/* Statistics device structure */
+struct isc_stats {
+	struct isc_device *isc;
+	struct isc_vdev_node vnode;
+	struct list_head stat;
+	spinlock_t lock; /* lock for buffers */
+	struct v4l2_format vdev_fmt;
+};
+
 /*
  * struct isc_device - ISC device driver data/config struct
  * @regmap:		Register map
@@ -340,6 +357,9 @@ struct isc_device {
 		struct v4l2_ctrl	*gb_off_ctrl;
 	};
 
+	/* Statistics device */
+	struct isc_stats stats;
+
 #define GAMMA_ENTRIES	64
 	/* pointer to the defined gamma table */
 	const u32	(*gamma_table)[GAMMA_ENTRIES];
@@ -396,6 +416,10 @@ int isc_scaler_link(struct isc_device *isc);
 int isc_scaler_init(struct isc_device *isc);
 int isc_mc_init(struct isc_device *isc, u32 ver);
 void isc_mc_cleanup(struct isc_device *isc);
+int isc_stats_register(struct isc_device *isc);
+void isc_stats_unregister(struct isc_device *isc);
+void isc_stats_isr(struct isc_stats *stats);
+bool isc_stats_active(struct isc_stats *stats);
 
 struct isc_format *isc_find_format_by_code(struct isc_device *isc,
 					   unsigned int code, int *index);
