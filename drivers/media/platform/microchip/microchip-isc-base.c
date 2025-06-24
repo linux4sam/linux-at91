@@ -1908,6 +1908,13 @@ static int isc_async_complete(struct v4l2_async_notifier *notifier)
 		goto isc_async_complete_err;
 	}
 
+	/* Register statistics device */
+	ret = isc_stats_register(isc);
+	if (ret) {
+		dev_err(isc->dev, "Failed to register stats device: %d\n", ret);
+		goto isc_async_complete_unregister_device;
+	}
+
 	ret = isc_scaler_link(isc);
 	if (ret < 0)
 		goto isc_async_complete_unregister_device;
@@ -2032,6 +2039,7 @@ void isc_mc_cleanup(struct isc_device *isc)
 {
 	media_entity_cleanup(&isc->video_dev.entity);
 	media_device_cleanup(&isc->mdev);
+	isc_stats_unregister(isc);
 }
 EXPORT_SYMBOL_GPL(isc_mc_cleanup);
 
