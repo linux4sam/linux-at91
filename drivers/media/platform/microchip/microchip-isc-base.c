@@ -314,8 +314,7 @@ static int isc_configure(struct isc_device *isc)
 	 * The current implemented histogram is available for RAW R, B, GB, GR
 	 * channels. We need to check if sensor is outputting RAW BAYER
 	 */
-	if (isc->ctrls.awb &&
-	    ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code))
+	if (ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code))
 		isc_set_histogram(isc, true);
 	else
 		isc_set_histogram(isc, false);
