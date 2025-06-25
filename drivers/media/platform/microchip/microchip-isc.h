@@ -151,7 +151,7 @@ struct isc_ctrls {
 	u32 gain[HIST_BAYER];
 	s32 offset[HIST_BAYER];
 
-	u32 hist_entry[HIST_ENTRIES];
+	u32 hist_entry[HIST_BAYER][HIST_ENTRIES];
 	u32 hist_count[HIST_BAYER];
 	u8 hist_id;
 	u8 hist_stat;

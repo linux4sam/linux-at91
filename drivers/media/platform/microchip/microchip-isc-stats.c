@@ -301,7 +301,7 @@ static void isc_stats_fill_data(struct isc_stats *stats,
 
 	/* Copy existing histogram data from AWB work function */
 	for (c = 0; c < HIST_BAYER; c++) {
-		memcpy(pbuf->hist[c].hist_bins, isc->full_hist_data[c],
+		memcpy(pbuf->hist[c].hist_bins, &isc->ctrls.hist_entry[0][c],
 		       sizeof(pbuf->hist[c].hist_bins));
 
 		pbuf->hist[c].hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];

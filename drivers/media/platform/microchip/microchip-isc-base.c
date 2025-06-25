@@ -1221,7 +1221,7 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 	struct regmap *regmap = isc->regmap;
 	struct isc_ctrls *ctrls = &isc->ctrls;
 	u32 *hist_count = &ctrls->hist_count[ctrls->hist_id];
-	u32 *hist_entry = &ctrls->hist_entry[0];
+	u32 *hist_entry = &ctrls->hist_entry[ctrls->hist_id][0];
 	u32 i;
 
 	*min = 0;
