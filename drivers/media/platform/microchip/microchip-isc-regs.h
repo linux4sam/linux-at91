@@ -270,8 +270,11 @@
 
 /* Hue Register */
 #define ISC_CBCHS_HUE	0x4e0
+#define ISC_CBCHS_HUE_MASK	GENMASK(8, 0)
+
 /* Saturation Register */
 #define ISC_CBCHS_SAT	0x4e4
+#define ISC_CBCHS_SAT_MASK	GENMASK(11, 0)
 
 /* Offset for SUB422 register specific to sama5d2 product */
 #define ISC_SAMA5D2_SUB422_OFFSET	0
