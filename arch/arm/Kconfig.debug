@@ -207,6 +207,14 @@ choice
 		  their output to the USART1 port on SAMV7 based
 		  machines.
 
+	config DEBUG_AT91_SAMA7D65_FLEXCOM3
+		bool "Kernel low-level debugging on SAMA7D65 FLEXCOM3"
+		select DEBUG_AT91_UART
+		depends on SOC_SAMA7D65
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on the FLEXCOM3 port IOSET 1 of SAMA7D65.
+
 	config DEBUG_AT91_SAMA7D65_FLEXCOM6
 		bool "Kernel low-level debugging on SAMA7D65 FLEXCOM6"
 		select DEBUG_AT91_UART
@@ -1635,6 +1643,7 @@ config DEBUG_UART_PHYS
 	default 0xd4018000 if DEBUG_MMP_UART3
 	default 0xe0000000 if DEBUG_SPEAR13XX
 	default 0xe0064200 if DEBUG_AT91_LAN966_FLEXCOM
+	default 0xe182c200 if DEBUG_AT91_SAMA7D65_FLEXCOM3
 	default 0xe2020200 if DEBUG_AT91_SAMA7D65_FLEXCOM6
 	default 0xe1824200 if DEBUG_AT91_SAMA7G5_FLEXCOM3
 	default 0xe4007000 if DEBUG_HIP04_UART
@@ -1699,6 +1708,7 @@ config DEBUG_UART_VIRT
 	default 0xc8821000 if DEBUG_RV1108_UART1
 	default 0xc8912000 if DEBUG_RV1108_UART0
 	default 0xe0010fe0 if ARCH_RPC
+	default 0xfc82c200 if DEBUG_AT91_SAMA7D65_FLEXCOM3
 	default 0xfd020200 if DEBUG_AT91_SAMA7D65_FLEXCOM6
 	default 0xe0824200 if DEBUG_AT91_SAMA7G5_FLEXCOM3
 	default 0xf0010000 if DEBUG_ASM9260_UART
