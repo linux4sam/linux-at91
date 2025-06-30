@@ -1509,7 +1509,7 @@ static void isc_awb_work(struct work_struct *w)
 	mutex_unlock(&isc->awb_mutex);
 
 	/* if awb has been disabled, we don't need to start another histogram */
-	if (ctrls->awb)
+	if (ctrls->hist_stat == HIST_ENABLED)
 		regmap_write(regmap, ISC_CTRLEN, ISC_CTRL_HISREQ);
 
 	pm_runtime_put_sync(isc->dev);
