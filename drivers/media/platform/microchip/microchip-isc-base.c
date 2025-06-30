@@ -1450,7 +1450,16 @@ static void isc_awb_work(struct work_struct *w)
 	if (hist_id != ISC_HIS_CFG_MODE_B) {
 		hist_id++;
 	} else {
-		isc_wb_update(ctrls);
+		/* All 4 channels processed - notify userspace */
+		if (isc_stats_active(&isc->stats))
+			isc_stats_isr(&isc->stats);
+		else
+			dev_info(isc->dev, "No active userspace listeners\n");
+
+		/* Continue with AWB processing only if AWB is enabled */
+		if (ctrls->awb != ISC_WB_NONE)
+			isc_wb_update(ctrls);
+
 		hist_id = ISC_HIS_CFG_MODE_GR;
 	}
 
@@ -1499,7 +1508,7 @@ static void isc_awb_work(struct work_struct *w)
 	mutex_lock(&isc->awb_mutex);
 
 	/* streaming is not active anymore */
-	if (isc->stop) {
+	if (isc->stop && !isc_stats_active(&isc->stats)) {
 		mutex_unlock(&isc->awb_mutex);
 		return;
 	}
