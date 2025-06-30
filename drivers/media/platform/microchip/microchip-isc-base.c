@@ -262,6 +262,10 @@ static void isc_set_histogram(struct isc_device *isc, bool enable)
 	struct isc_ctrls *ctrls = &isc->ctrls;
 
 	if (enable) {
+		/* Initialize histogram data storage for clean start */
+		memset(ctrls->total_pixels, 0, sizeof(ctrls->total_pixels));
+		memset(ctrls->hist_minmax, 0, sizeof(ctrls->hist_minmax));
+
 		regmap_write(regmap, ISC_HIS_CFG + isc->offsets.his,
 			     ISC_HIS_CFG_MODE_GR |
 			     (isc->config.sd_format->cfa_baycfg
