@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0)
+// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 /*
  * Microchip Polarfire SoC MSS CAN controller driver
  *
