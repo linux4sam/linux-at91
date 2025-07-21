@@ -8,7 +8,7 @@
 #define __MESON_CLKC_H
 
 #include <linux/clk-provider.h>
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "meson-clkc-utils.h"
 
 struct platform_device;

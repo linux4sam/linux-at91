@@ -8,7 +8,7 @@
 #include <linux/module.h>
 #include "meson-aoclk.h"
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-dualdiv.h"
 
 #include <dt-bindings/clock/gxbb-aoclkc.h>

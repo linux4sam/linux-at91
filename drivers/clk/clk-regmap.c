@@ -5,7 +5,7 @@
  */
 
 #include <linux/module.h>
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 
 static int clk_regmap_gate_endisable(struct clk_hw *hw, int enable)
 {

@@ -2325,6 +2325,18 @@ config SENSORS_TMP513
 	  This driver can also be built as a module. If so, the module
 	  will be called tmp513.
 
+config SENSORS_POLARFIRE_SOC_TVS
+	tristate "PolarFire SoC (MPFS) temperature and voltage sensor"
+	depends on POLARFIRE_SOC_MAILBOX
+	help
+	  This driver adds support for the PolarFire SoC (MPFS) Temperature and
+	  Voltage Sensor.
+
+	  To compile this driver as a module, choose M here. the
+	  module will be called tvs-mpfs.
+
+	  If unsure, say N.
+
 config SENSORS_VEXPRESS
 	tristate "Versatile Express"
 	depends on VEXPRESS_CONFIG

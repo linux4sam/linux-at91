@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/remoteproc/microchip,miv-remoteproc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Mi-V Remoteproc
+
+description:
+  Microchip's SoCs using the Mi-V ecosystem typically have one or more
+  harts (cores) within a coreplex. This coreplex can be configured to run in
+  an Asymmetric Multi Processing (AMP) mode where harts (cores) are split in
+  independent software contexts.
+
+  This document defines the binding for the remoteproc component that loads and
+  boots firmwares on the remote AMP context.
+
+maintainers:
+  - Valentina Fernandez <valentina.fernandezalanis@microchip.com>
+  - Conor Dooley <conor.dooley@microchip.com>
+
+properties:
+  compatible:
+    const: microchip,miv-remoteproc
+
+  mboxes:
+    description:
+      This property is required only if the rpmsg/virtio functionality is used.
+      Mi-V IHC mailbox specifier. To be used for communication with a
+      remote AMP context. The specifier format is as per the bindings,
+      Documentation/devicetree/bindings/mailbox/microchip,miv-ihc.yaml
+    minItems: 1
+
+  microchip,auto-boot:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      If defined, when remoteproc is probed, it loads the default firmware and
+      starts the remote processor.
+
+allOf:
+  - $ref: /schemas/reserved-memory/memory-region.yaml
+
+required:
+  - compatible
+
+unevaluatedProperties: false
+
+examples:
+  - |
+
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        contextb: contextb_reserved@81000000 {
+          reg = <0x81000000 0x400000>;
+          no-map;
+        };
+    };
+
+    soc {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      remote-context {
+          compatible = "microchip,miv-remoteproc";
+          memory-region = <&contextb>;
+          mboxes= <&ihc 0>;
+      };
+    };
+
+...

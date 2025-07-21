@@ -59,3 +59,103 @@ config VIDEO_MICROCHIP_CSI2DC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called microchip-csi2dc.
+
+config VIDEO_MCHP_DSCMI
+	tristate "Microchip Digital Serial Camera Memory Interface Driver"
+	depends on V4L_PLATFORM_DRIVERS
+	depends on VIDEO_DEV && OF
+	select VIDEOBUF2_DMA_CONTIG
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  Microchip Digital Serial Camera Memory Interface Driver Support For Smart Embedded Vision Kit.
+
+config VIDEO_MICROCHIP_COMMON
+	tristate
+	default n
+	help
+	  Microchip common code base for FPAG Soft IP drivers.
+
+config VIDEO_MICROCHIP_DEMOSAIC
+	tristate "Microchip Bayer Interpolation Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Bayer Interpolation Driver Support.
+
+config VIDEO_MICROCHIP_GVPC
+	tristate "Microchip GVPC (Generic Video Pipeline Connector) Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip GVPC (Generic Video Pipeline Connector) Driver Support.
+
+config VIDEO_MICROCHIP_IMAGE_ENHANCEMENT
+        tristate "Microchip Video image enhancement"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+        help
+          Driver for the Microchip Video image enhancement
+
+config VIDEO_MICROCHIP_MIPI_CSI2
+	tristate "Microchip MIPI CSI2 Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip MIPI CSI2 FPGA Soft IP Driver Support.
+
+config VIDEO_MICROCHIP_OSD
+        tristate "Microchip Video On Screen Display"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+        help
+          Driver for the Microchip Video OSD (On Screen Display)
+
+config VIDEO_MICROCHIP_RGB_SCALER
+        tristate "Microchip Video RGB Scaler"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+        help
+          Driver for the Microchip Video RGB Scaler
+
+config VIDEO_MICROCHIP_VIDEO_CAPTURE
+	tristate "Microchip Video Capture Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Video Capture Driver Support For FPGA Soft IP.
+
+config VIDEO_MICROCHIP_WHITE_BALANCE
+	tristate "Microchip White Balance Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip White Balance Driver Support For FPGA Soft IP.
+
+config VIDEO_MICROCHIP_YUV2H264
+	tristate "Microchip Video H264 Encoder Driver"
+	depends on VIDEO_DEV && OF
+	select CONFIG_VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	select VIDEO_MICROCHIP_COMMON
+	help
+	  Microchip Video H264 Encoder Driver Support.
+

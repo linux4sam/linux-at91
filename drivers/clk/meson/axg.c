@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-pll.h"
 #include "clk-mpll.h"
 #include "axg.h"

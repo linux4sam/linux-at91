@@ -1,0 +1,22 @@
+#
+# Microchip Crypto drivers configuration
+#
+
+config CRYPTO_DEV_POLARFIRE_SOC
+	tristate "Microchip PolarFire SoC User cryptographic engine driver"
+	depends on RISCV_SBI
+	depends on ARCH_MICROCHIP || COMPILE_TEST
+	select CRYPTO_ENGINE
+	select CRYPTO_AES
+	select CRYPTO_AEAD
+	select CRYPTO_AKCIPHER
+	select CRYPTO_KPP
+	select CRYPTO_SKCIPHER
+	default y
+	help
+	  Support for Microchip PolarFire SoC User crypto engine.
+	  This module provides acceleration for skcipher functions.
+
+	  If you choose 'M' here, this module will be called microchip-crypto.
+
+	  If unsure, say N.

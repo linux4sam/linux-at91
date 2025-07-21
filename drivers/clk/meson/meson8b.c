@@ -17,7 +17,7 @@
 #include <linux/regmap.h>
 
 #include "meson8b.h"
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "meson-clkc-utils.h"
 #include "clk-pll.h"
 #include "clk-mpll.h"

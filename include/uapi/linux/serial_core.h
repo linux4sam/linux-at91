@@ -231,7 +231,11 @@
 /* Sunplus UART */
 #define PORT_SUNPLUS	123
 
+/* Microchip Core UART (why not port generic?)*/
+#define PORT_MCHP_COREUART	124
+
 /* Generic type identifier for ports which type is not important to userspace. */
 #define PORT_GENERIC	(-1)
+
 
 #endif /* _UAPILINUX_SERIAL_CORE_H */

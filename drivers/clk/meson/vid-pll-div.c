@@ -7,7 +7,7 @@
 #include <linux/clk-provider.h>
 #include <linux/module.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "vid-pll-div.h"
 
 static inline struct meson_vid_pll_div_data *

@@ -168,12 +168,38 @@ config MAILBOX_TEST
 config POLARFIRE_SOC_MAILBOX
 	tristate "PolarFire SoC (MPFS) Mailbox"
 	depends on HAS_IOMEM
+	depends on MFD_SYSCON
 	depends on ARCH_MICROCHIP_POLARFIRE || COMPILE_TEST
+	depends on MFD_SYSCON
 	help
 	  This driver adds support for the PolarFire SoC (MPFS) mailbox controller.
 
 	  To compile this driver as a module, choose M here. the
 	  module will be called mailbox-mpfs.
+
+	  If unsure, say N.
+
+config MIV_IHC
+	tristate "Mi-V Inter-hart Communication (IHC) driver"
+	depends on RISCV_SBI
+	depends on ARCH_MICROCHIP || COMPILE_TEST
+	help
+	  This driver adds support for the inter-hart
+	  communication mailbox controller driver.
+
+	  To compile this driver as a module, choose M here. the
+	  module will be called mailbox-miv-ihc.
+
+config MCHP_SBI_IPC_MBOX
+	tristate "Microchip Inter-processor Communication (IPC) SBI driver"
+	depends on RISCV_SBI || COMPILE_TEST
+	depends on ARCH_MICROCHIP
+	help
+	  Mailbox implementation for Microchip devices with an
+	  Inter-process communication (IPC) controller.
+
+	  To compile this driver as a module, choose M here. the
+	  module will be called mailbox-mchp-ipc-sbi.
 
 	  If unsure, say N.
 

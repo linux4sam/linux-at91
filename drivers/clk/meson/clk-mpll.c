@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-mpll.h"
 
 #define SDM_DEN 16384

@@ -16,7 +16,7 @@
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "meson-clkc-utils.h"
 
 struct meson_aoclk_data {

@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/microchip,coreuart-rtl-v5.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip CoreUART APB Serial Controller
+
+maintainers:
+  - Prashanth Kumar Burujukindi <prashanthkumar.burujukindi@microchip.com>
+
+description: |
+  Microchip CoreUART is a soft IP for FPGA designs,
+  supports configurable baud rates, parity modes, and data widths.
+
+allOf:
+  - $ref: serial.yaml#
+
+properties:
+  compatible:
+    const: microchip,coreuart-rtl-v5
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+
+unevaluatedProperties: false
+
+examples:
+  - |
+   #include <dt-bindings/clock/microchip,mpfs-clock.h>
+
+   serial@40000300 {
+        compatible = "microchip,coreuart-rtl-v5";
+        reg = <0x40000300 0x100>;
+        interrupt-parent = <&plic>;
+        interrupts = <124>;
+        clocks = <&ccc_nw CLK_CCC_PLL0_OUT3>;
+        status = "okay";
+    };

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 
+#include "dt-bindings/mailbox/miv-ihc.h"
+
 / {
 	fabric_clk3: fabric-clk3 {
 		compatible = "fixed-clock";
@@ -64,6 +66,67 @@
 					  "XCVR2_LOCK", "XCVR2_ERROR", "XCVR3_RX_VALID",
 					  "XCVR3_LOCK", "XCVR3_ERROR", "XCVR_0B_REF_CLK_PLL_LOCK",
 					  "XCVR_0C_REF_CLK_PLL_LOCK", "B0_HSIO81N";
+		};
+	};
+
+	ihc: mailbox {
+		compatible = "microchip,miv-ihc";
+		interrupt-parent = <&plic>;
+		interrupts = <IHC_HART1_INT>;
+		microchip,miv-ihc-remote-context-id = <IHC_CONTEXT_B>;
+		#mbox-cells = <1>;
+		status = "disabled";
+	};
+
+	fabric-pcie-bus@3000000000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x40000000 0x0 0x40000000 0x0 0x20000000>,
+			 <0x30 0x0 0x30 0x0 0x10 0x0>;
+		dma-ranges = <0x0 0x0 0x0 0x80000000 0x0 0x4000000>,
+			     <0x0 0x4000000 0x0 0xc4000000 0x0 0x6000000>,
+			     <0x0 0xa000000 0x0 0x8a000000 0x0 0x8000000>,
+			     <0x0 0x12000000 0x14 0x12000000 0x0 0x10000000>,
+			     <0x0 0x22000000 0x10 0x22000000 0x0 0x5e000000>;
+
+		pcie: pcie@3000000000 {
+			compatible = "microchip,pcie-host-1.0";
+			#address-cells = <0x3>;
+			#interrupt-cells = <0x1>;
+			#size-cells = <0x2>;
+			device_type = "pci";
+			dma-noncoherent;
+			reg = <0x30 0x0 0x0 0x8000000>, <0x0 0x43004000 0x0 0x2000>, <0x0 0x43006000 0x0 0x2000>;
+			reg-names = "cfg", "bridge", "ctrl";
+			bus-range = <0x0 0x7f>;
+			interrupt-parent = <&plic>;
+			interrupts = <119>;
+			interrupt-map = <0 0 0 1 &pcie_intc 0>,
+					<0 0 0 2 &pcie_intc 1>,
+					<0 0 0 3 &pcie_intc 2>,
+					<0 0 0 4 &pcie_intc 3>;
+			interrupt-map-mask = <0 0 0 7>;
+			clocks = <&ccc_nw CLK_CCC_PLL0_OUT1>,
+					 <&ccc_nw CLK_CCC_PLL0_OUT3>;
+			clock-names = "fic1", "fic3";
+			ranges = <0x43000000 0x0 0x9000000 0x30 0x9000000 0x0 0xf000000>,
+				 <0x1000000 0x0 0x8000000 0x30 0x8000000 0x0 0x1000000>,
+				 <0x3000000 0x0 0x18000000 0x30 0x18000000 0x0 0x70000000>;
+			dma-ranges = <0x3000000 0x0 0x80000000 0x0 0x0 0x0 0x4000000>,
+				     <0x3000000 0x0 0x84000000 0x0 0x4000000 0x0 0x6000000>,
+				     <0x3000000 0x0 0x8a000000 0x0 0xa000000 0x0 0x8000000>,
+				     <0x3000000 0x0 0x92000000 0x0 0x12000000 0x0 0x10000000>,
+				     <0x3000000 0x0 0xa2000000 0x0 0x22000000 0x0 0x5e000000>;
+			msi-parent = <&pcie>;
+			msi-controller;
+			status = "disabled";
+
+			pcie_intc: interrupt-controller {
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+				interrupt-controller;
+			};
 		};
 	};
 

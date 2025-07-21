@@ -263,6 +263,14 @@ config HI6421V600_IRQ
 	  This driver provides IRQ handling for Hi6421v600, used on
 	  some Kirin chipsets, like the one at Hikey 970.
 
+config MPFS_DMA_PROXY
+	tristate "Microchip dma proxy driver"
+	depends on OF
+	help
+	  This driver will give DMA interface to userspace
+	  user can configure src, dst and size to initiate transfer
+	  proxy dma driver will use platform dma
+
 config HP_ILO
 	tristate "Channel interface driver for the HP iLO processor"
 	depends on PCI

@@ -287,6 +287,7 @@ static int mpfs_probe(struct platform_device *pdev)
 	musb_pdev->dev.parent = dev;
 	musb_pdev->dev.coherent_dma_mask = DMA_BIT_MASK(39);
 	musb_pdev->dev.dma_mask = &musb_pdev->dev.coherent_dma_mask;
+	musb_pdev->dev.dma_range_map = pdev->dev.dma_range_map;
 	device_set_of_node_from_dev(&musb_pdev->dev, dev);
 
 	glue->dev = dev;

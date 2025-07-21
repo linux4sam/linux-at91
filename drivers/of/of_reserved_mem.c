@@ -686,3 +686,41 @@ struct reserved_mem *of_reserved_mem_lookup(struct device_node *np)
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(of_reserved_mem_lookup);
+
+/**
+ * of_reserved_mem_lookup_byname() - acquire reserved_mem from a device node by name
+ * @np:		node pointer of the desired reserved-memory region
+ * @name:	name of the selected memory region
+ *
+ * This function allows drivers to acquire a reference to the reserved_mem
+ * struct based on a specified name of a reserved memory region associated with
+ * the device node.
+ *
+ * Returns a reserved_mem reference on success, or an error pointer on failure.
+ * If the name does not match any entry in memory-region-names property, it returns ERR_PTR()
+ * If the reserved memory is not found, it returns NULL.
+ */
+struct reserved_mem *of_reserved_mem_lookup_byname(struct device_node *np, const char *name)
+{
+	struct device_node *target;
+	struct reserved_mem *rmem;
+	int index;
+
+	index = of_property_match_string(np, "memory-region-names", name);
+	if (index < 0)
+		return ERR_PTR(index);
+
+	target = of_parse_phandle(np, "memory-region", index);
+	if (!target)
+		return NULL;
+
+	rmem = of_reserved_mem_lookup(target);
+	if(!rmem){
+		of_node_put(target);
+		return NULL;
+	}
+
+	of_node_put(target);
+	return rmem;
+}
+EXPORT_SYMBOL_GPL(of_reserved_mem_lookup_byname);

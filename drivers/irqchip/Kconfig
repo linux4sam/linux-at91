@@ -730,6 +730,19 @@ config MCHP_EIC
 	help
 	  Support for Microchip External Interrupt Controller.
 
+config POLARFIRE_SOC_IRQ_MUX
+	bool "Microchip PolarFire SoC's GPIO IRQ Mux"
+	depends on ARCH_MICROCHIP_POLARFIRE
+	select REGMAP
+	select REGMAP_MMIO
+	default y
+	help
+	  Support for the interrupt mux on Polarfire SoC. It sits between
+	  the GPIO controllers and the PLIC, as only 35 interrupts are shared
+	  between 3 GPIO controllers with 32 interrupts each. Configuration of
+	  the mux is done by the platform firmware, this driver is responsible
+	  for reading that configuration and setting up correct routing.
+
 config SUNPLUS_SP7021_INTC
 	bool "Sunplus SP7021 interrupt controller" if COMPILE_TEST
 	default SOC_SP7021

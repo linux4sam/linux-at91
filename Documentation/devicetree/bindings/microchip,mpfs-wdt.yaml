@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/watchdog/microchip,mpfs-wdt.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip PolarFire SoC Watchdog Timer
+
+allOf:
+  - $ref: "watchdog.yaml#"
+
+maintainers:
+  - Daire McNamara <daire.mcnamara@microchip.com>
+
+properties:
+  compatible:
+      const: microchip,mpfs-wdt
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+    items:
+      - description: The MPFS watchdog uses a 24-bit counter that counts every 256 PCLK cycles,
+                     providing a maximum watchdog refresh rate of 13.74 seconds (assuming a
+                     312.5 MHz APB clock rate), 14.32 seconds (assuming a 300 MHz ABP clock rate),
+                     or 28.63 seconds (assuming a 150 MHz ABP clock rate).
+
+  interrupts:
+    maxItems: 2
+    items:
+      - description: an mvrp interrupt indicates that the watchdog is in the period between its
+                     mvrp counter and its trig counter.  This indicates the watchdog can be
+                     serviced in this period.
+      - description: a trig interrupt indicates that the watchdog is in the period between its
+                     trig counter (a maximum of 2^11 - 1 ticks) and 0.  The watchdog cannot be stopped
+                     but any emergency actions can be triggered by handling this interrupt.
+
+  interrupt-names:
+    maxItems: 2
+    items:
+      - const: mvrp
+      - const: trig
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - interrupts
+  - interrupt-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    watchdog@20001000 {
+        compatible = "microchip,mpfs-wdt";
+        reg = <0x20001000 0x1000>;
+        interrupts = <100>, <105>;
+        clocks = <&pclk>;
+    };
+
+...

@@ -11,7 +11,7 @@
 #include <linux/regmap.h>
 #include <linux/module.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "meson-eeclk.h"
 
 int meson_eeclkc_probe(struct platform_device *pdev)

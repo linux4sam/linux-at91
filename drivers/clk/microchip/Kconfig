@@ -6,7 +6,10 @@ config COMMON_CLK_PIC32
 config MCHP_CLK_MPFS
 	bool "Clk driver for PolarFire SoC"
 	depends on ARCH_MICROCHIP_POLARFIRE || COMPILE_TEST
+	depends on MFD_SYSCON
 	default ARCH_MICROCHIP_POLARFIRE
 	select AUXILIARY_BUS
+	select COMMON_CLK_REGMAP
+	select REGMAP_MMIO
 	help
 	  Supports Clock Configuration for PolarFire SoC

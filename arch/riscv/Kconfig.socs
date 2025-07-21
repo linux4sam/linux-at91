@@ -8,6 +8,16 @@ config ARCH_MICROCHIP
 	help
 	  This enables support for Microchip SoC platforms.
 
+config MPFS_DMA_NONCOHERENT
+	bool
+	depends on !DMA_DIRECT_REMAP
+	depends on ARCH_MICROCHIP
+	select DMA_GLOBAL_POOL
+	select RISCV_DMA_NONCOHERENT
+	select RISCV_NONSTANDARD_CACHE_OPS
+	select SIFIVE_CCACHE
+	default y
+
 config ARCH_RENESAS
 	bool "Renesas RISC-V SoCs"
 	help

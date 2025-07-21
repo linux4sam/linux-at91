@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Original all-in-one devicetree:
- * Copyright (C) 2021-2022 - Wolfgang Grandegger <wg@aries-embedded.de>
+ * Copyright (C) 2021-2023 - Wolfgang Grandegger <wg@aries-embedded.de>
  * Rewritten to use includes:
  * Copyright (C) 2022 - Conor Dooley <conor.dooley@microchip.com>
  */
@@ -13,6 +13,10 @@
 / {
 	model = "Aries Embedded M100PFEVPS";
 	compatible = "aries,m100pfsevp", "microchip,mpfs";
+
+	soc {
+		dma-ranges = <0 0 0 0 0x40 0>;
+	};
 
 	aliases {
 		ethernet0 = &mac0;
@@ -53,10 +57,6 @@
 };
 
 &gpio0 {
-	interrupts = <13>, <14>, <15>, <16>,
-		     <17>, <18>, <19>, <20>,
-		     <21>, <22>, <23>, <24>,
-		     <25>, <26>;
 	ngpios = <14>;
 	status = "okay";
 
@@ -65,24 +65,9 @@
 		gpios = <13 0>;
 		input;
 	};
-
-	/* Set to low for eMMC, high for SD-card */
-	mmc-sel-hog {
-		gpio-hog;
-		gpios = <12 0>;
-		output-high;
-	};
 };
 
 &gpio2 {
-	interrupts = <13>, <14>, <15>, <16>,
-		     <17>, <18>, <19>, <20>,
-		     <21>, <22>, <23>, <24>,
-		     <25>, <26>, <27>, <28>,
-		     <29>, <30>, <31>, <32>,
-		     <33>, <34>, <35>, <36>,
-		     <37>, <38>, <39>, <40>,
-		     <41>, <42>, <43>, <44>;
 	status = "okay";
 };
 
@@ -105,20 +90,6 @@
 };
 
 &mbox {
-	status = "okay";
-};
-
-&mmc {
-	max-frequency = <50000000>;
-	bus-width = <4>;
-	cap-mmc-highspeed;
-	cap-sd-highspeed;
-	no-1-8-v;
-	sd-uhs-sdr12;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
-	sd-uhs-sdr104;
-	disable-wp;
 	status = "okay";
 };
 
@@ -169,4 +140,8 @@
 &usb {
 	status = "okay";
 	dr_mode = "host";
+};
+
+&wdt1 {
+	status = "okay";
 };

@@ -15,6 +15,10 @@
 	model = "Aldec TySOM-M-MPFS250T-REV2";
 	compatible = "aldec,tysom-m-mpfs250t-rev2", "microchip,mpfs";
 
+	soc {
+		dma-ranges = <0 0 0 0 0x40 0>;
+	};
+
 	aliases {
 		ethernet0 = &mac0;
 		ethernet1 = &mac1;
@@ -34,20 +38,16 @@
 	ddrc_cache_lo: memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0x0 0x30000000>;
-		status = "okay";
 	};
 
 	ddrc_cache_hi: memory@1000000000 {
 		device_type = "memory";
-		reg = <0x10 0x00000000 0x0 0x40000000>;
-		status = "okay";
+		reg = <0x10 0x0 0x0 0x40000000>;
 	};
 
 	leds {
 		compatible = "gpio-leds";
-		status = "okay";
-
-		led0 {
+		led-0 {
 			gpios = <&gpio1 23 1>;
 			default-state = "on";
 			linux,default-trigger = "heartbeat";
@@ -62,7 +62,6 @@
 &i2c1 {
 	status = "okay";
 	hwmon: hwmon@45 {
-		status = "okay";
 		compatible = "ti,ina219";
 		reg = <0x45>;
 		shunt-resistor = <2000>;
@@ -70,12 +69,6 @@
 };
 
 &gpio1 {
-	interrupts = <27>, <28>, <29>, <30>,
-		     <31>, <32>, <33>, <47>,
-		     <35>, <36>, <37>, <38>,
-		     <39>, <40>, <41>, <42>,
-		     <43>, <44>, <45>, <46>,
-		     <47>, <48>, <49>, <50>;
 	status = "okay";
 };
 
@@ -145,6 +138,7 @@
 		compatible = "micron,n25q128a11", "jedec,spi-nor";
 		reg = <0x0>;
 		spi-max-frequency = <10000000>;
+		status = "okay";
 	};
 };
 
@@ -155,4 +149,8 @@
 &usb {
 	status = "okay";
 	dr_mode = "host";
+};
+
+&wdt1 {
+	status = "okay";
 };

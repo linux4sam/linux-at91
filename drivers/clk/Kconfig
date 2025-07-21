@@ -33,6 +33,10 @@ menuconfig COMMON_CLK
 
 if COMMON_CLK
 
+config COMMON_CLK_REGMAP
+	bool
+	select REGMAP
+
 config COMMON_CLK_WM831X
 	tristate "Clock driver for WM831x/2x PMICs"
 	depends on MFD_WM831X

@@ -690,13 +690,32 @@ static int mc_pcie_setup_inbound_ranges(struct platform_device *pdev,
 					MC_MAX_NUM_INBOUND_WINDOWS);
 				return -EINVAL;
 			}
-			mc_pcie_setup_inbound_atr(port, atr_index, 0,
+			mc_pcie_setup_inbound_atr(port, atr_index, lower_32_bits(range.cpu_addr),
 						  range.pci_addr, range.size);
 			atr_index++;
 		}
 	}
 
 	return 0;
+}
+
+static void mc_setup_iomems(struct pci_host_bridge *bridge,
+                struct plda_pcie_rp *port)
+{       
+        void __iomem *bridge_base_addr = port->bridge_addr;
+        struct resource_entry *entry;
+        u64 pci_addr;
+        u32 index = 1;
+        
+        resource_list_for_each_entry(entry, &bridge->windows) {
+                if (resource_type(entry->res) == IORESOURCE_MEM) {
+                        pci_addr = entry->res->start - entry->offset;
+                        plda_pcie_setup_window(bridge_base_addr, index,
+                                               lower_32_bits(entry->res->start), pci_addr,
+                                               resource_size(entry->res));
+                        index++;
+                }
+        }
 }
 
 static int mc_platform_init(struct pci_config_window *cfg)
@@ -707,17 +726,19 @@ static int mc_platform_init(struct pci_config_window *cfg)
 	int ret;
 
 	/* Configure address translation table 0 for PCIe config space */
-	plda_pcie_setup_window(port->bridge_base_addr, 0, cfg->res.start,
-			       cfg->res.start,
+	plda_pcie_setup_window(port->bridge_base_addr, 0, lower_32_bits(cfg->res.start),
+			       lower_32_bits(cfg->res.start),
 			       resource_size(&cfg->res));
 
 	/* Need some fixups in config space */
 	mc_pcie_enable_msi(port, cfg->win);
 
-	/* Configure non-config space outbound ranges */
-	ret = plda_pcie_setup_iomems(bridge, &port->plda);
-	if (ret)
-		return ret;
+	/* 
+	 * Configure non-config space outbound ranges
+	 * On PolarFire SoC, the AXI side of the translation
+	 * can only contain 32 address bits
+	 */
+	mc_setup_iomems(bridge, &port->plda);
 
 	ret = mc_pcie_setup_inbound_ranges(pdev, port);
 	if (ret)

@@ -1600,6 +1600,19 @@ config SERIAL_ESP32_ACM
 	  snippet may be used:
 	    earlycon=esp32s3acm,mmio32,0x60038000
 
+config SERIAL_MICROCHIP_COREUART
+	tristate "UART driver for Microchip FPGA CoreUART soft IP core"
+	depends on SERIAL_CORE
+	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
+	help
+	  This driver supports Microchip's CoreUART APB soft IP used in FPGA designs,
+	  including PolarFire SoC. It provides serial communication support with
+	  configurable baud rates, parity, and data bits.
+	  When earlycon option is enabled the following kernel command line
+	  snippet may be used:
+	  "earlycon=mchp_coreuart,115200".
+
 endmenu
 
 config SERIAL_MCTRL_GPIO

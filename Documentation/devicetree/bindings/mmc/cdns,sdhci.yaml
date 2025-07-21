@@ -15,6 +15,7 @@ properties:
       - enum:
           - amd,pensando-elba-sd4hc
           - microchip,mpfs-sd4hc
+          - microchip,pic64gx-sd4hc
           - socionext,uniphier-sd4hc
       - const: cdns,sd4hc
 
@@ -113,6 +114,8 @@ properties:
     minimum: 0
     maximum: 0x7f
 
+  dma-noncoherent: true
+
 required:
   - compatible
   - reg
@@ -120,7 +123,7 @@ required:
   - clocks
 
 allOf:
-  - $ref: mmc-controller.yaml
+  - $ref: sdhci-common.yaml#
   - if:
       properties:
         compatible:

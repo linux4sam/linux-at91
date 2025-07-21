@@ -33,7 +33,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-pll.h"
 
 static inline struct meson_clk_pll_data *

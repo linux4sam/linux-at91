@@ -14,13 +14,18 @@ maintainers:
 
 properties:
   compatible:
-    enum:
-      - microchip,mpfs-musb
+    oneOf:
+      - items:
+          - const: microchip,pic64gx-musb
+          - const: microchip,mpfs-musb
+      - const: microchip,mpfs-musb
 
   dr_mode: true
 
   reg:
     maxItems: 1
+
+  dma-noncoherent: true
 
   interrupts:
     minItems: 2

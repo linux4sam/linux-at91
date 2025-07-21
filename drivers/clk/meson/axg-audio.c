@@ -17,7 +17,7 @@
 
 #include "meson-clkc-utils.h"
 #include "axg-audio.h"
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-phase.h"
 #include "sclk-div.h"
 

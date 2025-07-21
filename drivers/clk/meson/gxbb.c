@@ -11,7 +11,7 @@
 #include <linux/module.h>
 
 #include "gxbb.h"
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-pll.h"
 #include "clk-mpll.h"
 #include "meson-eeclk.h"

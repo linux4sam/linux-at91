@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/remoteproc/microchip,ipc-sbi-remoteproc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip IPC Remote Processor
+
+description:
+  Microchip family of RISC-V SoCs typically have one or more
+  clusters. These clusters can be configured to run in an Asymmetric
+  Multi Processing (AMP) mode where clusters are split in independent
+  software contexts.
+
+maintainers:
+  - Valentina Fernandez <valentina.fernandezalanis@microchip.com>
+
+properties:
+  compatible:
+    const: microchip,ipc-sbi-remoteproc
+
+  mboxes:
+    description:
+      Microchip IPC mailbox specifier. To be used for communication with
+      a remote cluster. The specifier format is as per the bindings,
+      Documentation/devicetree/bindings/mailbox/microchip,sbi-ipc.yaml
+    maxItems: 1
+
+  memory-region:
+    minItems: 1
+    maxItems: 5
+    description:
+      List of phandles to the reserved memory regions associated wih the remoteproc
+      device. This is variable and describes the memories shared with the remote cluster
+      (e.g. firmware, resource table, rpmsg vrings, etc.)
+    items:
+      anyOf:
+        - description: region used for the resource table when firmware is started by the bootloader
+        - description: region used for the remote cluster firmware image section
+        - description: virtio device (vdev) buffer
+        - description: virtqueue for sending messages to the remote cluster (vring0)
+        - description: virtqueue for receiving messages from the remote cluster (vring1)
+
+
+  memory-region-names:
+    minItems: 1
+    maxItems: 5
+    items:
+      anyOf:
+        - const: rsc-table
+        - const: firmware
+        - const: buffer
+        - const: vring0
+        - const: vring1
+
+required:
+  - compatible
+  - mboxes
+  - memory-region
+  - memory-region-names
+
+additionalProperties: false
+
+
+examples:
+  - |
+    // Early boot mode example - firmware started by bootloader
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        remoteproc {
+            compatible = "microchip,ipc-sbi-remoteproc";
+            mboxes= <&ihc 8>;
+            memory-region = <&rsctable>, <&vdev0buffer>,
+                            <&vdev0vring0>, <&vdev0vring1>;
+            memory-region-names = "rsc-table", "buffer",
+                                  "vring0", "vring1";
+        };
+    };
+
+  - |
+    // Late boot mode example - firmware started by Linux (remoteproc)
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        remoteproc {
+            compatible = "microchip,ipc-sbi-remoteproc";
+            mboxes= <&ihc 8>;
+            memory-region = <&cluster_firmware>, <&vdev0buffer>,
+                            <&vdev0vring0>, <&vdev0vring1>;
+            memory-region-names = "firmware", "buffer",
+                                  "vring0", "vring1";
+        };
+    };
+...

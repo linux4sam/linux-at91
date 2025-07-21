@@ -19,7 +19,7 @@
 
 #include "clk-mpll.h"
 #include "clk-pll.h"
-#include "clk-regmap.h"
+#include <linux/clk/clk-regmap.h>
 #include "clk-cpu-dyndiv.h"
 #include "vid-pll-div.h"
 #include "vclk.h"
