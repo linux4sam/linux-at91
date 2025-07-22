@@ -621,6 +621,18 @@
 			status = "disabled";
 		};
 
+		gpu: gpu@e1480000 {
+			compatible = "vivante,gc";
+			reg = <0xe1480000 0x4000>;
+			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 45>, <&pmc PMC_TYPE_GCK 45>;
+			clock-names = "bus", "core";
+			assigned-clocks = <&pmc PMC_TYPE_GCK 45>;
+			assigned-clock-rates = <533000000>;
+			assigned-clock-parents = <&pmc PMC_TYPE_CORE PMC_GPUPLL>;
+			status = "disabled";
+		};
+
 		aes: crypto@e1600000 {
 			compatible = "microchip,sama7d65-aes", "atmel,at91sam9g46-aes";
 			reg = <0xe1600000 0x100>;
