@@ -630,6 +630,7 @@ static struct {
 	{ .n = "flex8_clk",	.p = PCK_PARENT_HW_MCK9, .id = 42, },
 	{ .n = "flex9_clk",	.p = PCK_PARENT_HW_MCK9, .id = 43, },
 	{ .n = "flex10_clk",	.p = PCK_PARENT_HW_MCK9, .id = 44, },
+	{ .n = "gpu_clk",	.p = PCK_PARENT_HW_MCK3, .id = 45, },
 	{ .n = "gmac0_clk",	.p = PCK_PARENT_HW_MCK6, .id = 46, },
 	{ .n = "gmac1_clk",	.p = PCK_PARENT_HW_MCK6, .id = 47, },
 	{ .n = "gmac0_tsu_clk",	.p = PCK_PARENT_HW_MCK1, .id = 49, },
@@ -807,6 +808,14 @@ static const struct {
 	  .pp_mux_table = { 8, },
 	  .pp_count = 1,
 	  .pp_chg_id = INT_MIN, },
+
+	{ .n  = "gpu_gclk",
+	  .id = 45,
+	  .r = { .max = 533000001 },
+	  .pp = { PLL_IDS_TO_ARR_ENTRY(GPU, DIV0), },
+	  .pp_mux_table = { 7, },
+	  .pp_count = 1,
+	  .pp_chg_id = 4, },
 
 	{ .n  = "gmac0_gclk",
 	  .id = 46,
