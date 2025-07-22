@@ -9,6 +9,7 @@
  */
 
 #include "dw-dphy-rx.h"
+#include <linux/string.h>
 
 static ssize_t dphy_reset_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
@@ -21,7 +22,7 @@ static ssize_t dphy_reset_show(struct device *dev,
 	usleep_range(100, 200);
 	dw_dphy_write(dphy, R_CSI2_DPHY_RSTZ, 1);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t dphy_freq_store(struct device *dev,
@@ -65,7 +66,7 @@ static ssize_t dphy_freq_show(struct device *dev, struct device_attribute *attr,
 		 sizeof(buffer),
 		 "Freq %d\n", dphy->dphy_freq);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t dphy_addr_store(struct device *dev,
@@ -105,7 +106,7 @@ static ssize_t idelay_show(struct device *dev, struct device_attribute *attr,
 	snprintf(buffer,
 		 sizeof(buffer), "idelay %d\n", dw_dphy_if_get_idelay(dphy));
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t idelay_store(struct device *dev, struct device_attribute *attr,
@@ -168,7 +169,7 @@ static ssize_t len_config_show(struct device *dev,
 
 	snprintf(buffer, sizeof(buffer), "Length %d\n", dphy->dphy_te_len);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t dw_dphy_g118_settle_store(struct device *dev,
@@ -206,7 +207,7 @@ static ssize_t dw_dphy_g118_settle_show(struct device *dev,
 
 	snprintf(buffer, sizeof(buffer), "Settle %d ns\n", dphy->lp_time);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static DEVICE_ATTR_RO(dphy_reset);

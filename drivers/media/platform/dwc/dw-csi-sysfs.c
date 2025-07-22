@@ -9,6 +9,7 @@
  */
 
 #include "dw-mipi-csi.h"
+#include <linux/string.h>
 
 static ssize_t core_version_show(struct device *dev,
 				 struct device_attribute *attr,
@@ -23,7 +24,7 @@ static ssize_t core_version_show(struct device *dev,
 	snprintf(buffer, 10, "v.%d.%d*\n", csi_dev->hw_version_major,
 		 csi_dev->hw_version_minor);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t n_lanes_store(struct device *dev, struct device_attribute *attr,
@@ -63,7 +64,7 @@ static ssize_t n_lanes_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.num_lanes);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t core_reset_show(struct device *dev,
@@ -82,7 +83,7 @@ static ssize_t core_reset_show(struct device *dev,
 
 	snprintf(buffer, 10, "Reset\n");
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t data_type_store(struct device *dev,
@@ -123,7 +124,7 @@ static ssize_t data_type_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->ipi_dt);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t hsa_store(struct device *dev,
@@ -164,7 +165,7 @@ static ssize_t hsa_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.hsa);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t hbp_store(struct device *dev,
@@ -205,7 +206,7 @@ static ssize_t hbp_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.hbp);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t hsd_store(struct device *dev,
@@ -246,7 +247,7 @@ static ssize_t hsd_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.hsd);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t vsa_store(struct device *dev,
@@ -287,7 +288,7 @@ static ssize_t vsa_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.vsa);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t vbp_store(struct device *dev,
@@ -328,7 +329,7 @@ static ssize_t vbp_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.vbp);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t vfp_store(struct device *dev,
@@ -369,7 +370,7 @@ static ssize_t vfp_show(struct device *dev,
 
 	snprintf(buffer, 10, "%x\n", csi_dev->hw.vfp);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t virtual_channel_store(struct device *dev,
@@ -410,7 +411,7 @@ static ssize_t virtual_channel_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.virtual_ch);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t ipi_color_mode_store(struct device *dev,
@@ -453,7 +454,7 @@ static ssize_t ipi_color_mode_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.ipi_color_mode);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t ipi_auto_flush_store(struct device *dev,
@@ -496,7 +497,7 @@ static ssize_t ipi_auto_flush_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.ipi_auto_flush);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t ipi_timings_mode_store(struct device *dev,
@@ -539,7 +540,7 @@ static ssize_t ipi_timings_mode_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.ipi_mode);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static ssize_t output_type_store(struct device *dev,
@@ -582,7 +583,7 @@ static ssize_t output_type_show(struct device *dev,
 
 	snprintf(buffer, 10, "%d\n", csi_dev->hw.output);
 
-	return strlcpy(buf, buffer, PAGE_SIZE);
+	return strscpy(buf, buffer, PAGE_SIZE);
 }
 
 static DEVICE_ATTR_RO(core_version);
