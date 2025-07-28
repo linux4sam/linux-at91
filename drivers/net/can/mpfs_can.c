@@ -196,6 +196,7 @@ enum mpfs_can_reg {
 						 MPFS_CAN_ISR_ACK_ERR_MASK | \
 						 MPFS_CAN_ISR_FORM_ERR_MASK | \
 						 MPFS_CAN_ISR_CRC_ERR_MASK | \
+						 MPFS_CAN_ISR_OVR_LOAD_MASK | \
 						 MPFS_CAN_ISR_BUS_OFF_MASK)
 
 #define MPFS_CAN_IER_MASK			(MPFS_CAN_IER_ARB_LOSS_MASK | \
@@ -209,6 +210,7 @@ enum mpfs_can_reg {
 						 MPFS_CAN_IER_TXMSG_SNT_MASK | \
 						 MPFS_CAN_IER_RXMSG_SNT_MASK | \
 						 MPFS_CAN_IER_RTR_SNT_MASK | \
+						 MPFS_CAN_IER_OVR_LOAD_MASK | \
 						 MPFS_CAN_IER_GLOBAL_MASK)
 
 /**
