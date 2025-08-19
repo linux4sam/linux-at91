@@ -21,9 +21,6 @@
 #define ISC_STATS_MIN_BUFS	2
 #define ISC_STATS_MAX_BUFS	8
 
-/* Statistics data format ID */
-#define V4L2_META_FMT_ISC_STAT_3A	v4l2_fourcc('I', 'S', 'C', 'S')
-
 /**
  * struct isc_stat_buffer - Raw histogram statistics buffer structure
  * @frame_number: Sequential frame number from capture
