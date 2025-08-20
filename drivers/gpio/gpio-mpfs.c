@@ -181,8 +181,7 @@ static const struct irq_chip mpfs_gpio_irqchip = {
 static void mpfs_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(&desc->irq_data);
-	struct mpfs_gpio_chip *mpfs_gpio = gpiochip_get_data(gc);
+	struct mpfs_gpio_chip *mpfs_gpio = irq_desc_get_handler_data(desc);
 	int gpio_index = irqd_to_hwirq(&desc->irq_data) % 32;
 	unsigned int status;
 
@@ -258,6 +257,7 @@ static int mpfs_gpio_probe(struct platform_device *pdev)
 	if (girq->num_parents) {
 		gpio_irq_chip_set_chip(girq, &mpfs_gpio_irqchip);
 		girq->parent_handler = mpfs_gpio_irq_handler;
+		girq->parent_handler_data = mpfs_gpio;
 
 		girq->parents = devm_kcalloc(&pdev->dev, girq->num_parents,
 					     sizeof(*girq->parents), GFP_KERNEL);
@@ -272,9 +272,6 @@ static int mpfs_gpio_probe(struct platform_device *pdev)
 				return ret;
 
 			girq->parents[i] = ret;
-
-			irq_set_chip_data(ret, &mpfs_gpio->gc);
-			irq_set_handler(ret, handle_simple_irq);
 		}
 
 		girq->handler = handle_simple_irq;
