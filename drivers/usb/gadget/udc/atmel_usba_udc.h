@@ -74,6 +74,10 @@
 /* Bitfields in USBA_TST */
 #define USBA_SPEED_CFG_OFFSET			0
 #define USBA_SPEED_CFG_SIZE			2
+#define USBA_SPEED_CFG_NORMAL			0
+#define USBA_SPEED_CFG_HIGH			2
+#define USBA_SPEED_CFG_FULL			3
+#define USBA_SPEED_CFG_MASK			3
 #define USBA_TST_J_MODE				(1 <<  2)
 #define USBA_TST_K_MODE				(1 <<  3)
 #define USBA_TST_PKT_MODE			(1 <<  4)

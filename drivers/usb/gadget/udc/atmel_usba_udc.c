@@ -1973,14 +1973,21 @@ static int atmel_usba_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct usba_udc *udc = container_of(gadget, struct usba_udc, gadget);
 	unsigned long flags;
-	u32 ctrl;
+	u32 ctrl, tst;
 
 	spin_lock_irqsave(&udc->lock, flags);
+
+	tst = usba_readl(udc, TST);
+
 	ctrl = usba_readl(udc, CTRL);
-	if (is_on)
+	if (is_on) {
+		tst &= ~USBA_SPEED_CFG_MASK;
 		ctrl &= ~USBA_DETACH;
-	else
+	} else {
+		tst |= USBA_SPEED_CFG_FULL;
 		ctrl |= USBA_DETACH;
+	}
+	usba_writel(udc, TST, tst);
 	usba_writel(udc, CTRL, ctrl);
 	spin_unlock_irqrestore(&udc->lock, flags);
 
