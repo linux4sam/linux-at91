@@ -32,7 +32,7 @@
 #include "microchip-isc-regs.h"
 #include "microchip-isc.h"
 
-#define ISC_IS_FORMAT_RAW(mbus_code) \
+#define ISC_IS_FORMAT_RAW(mbus_code)		\
 	(((mbus_code) & 0xf000) == 0x3000)
 
 #define ISC_IS_FORMAT_GREY(mbus_code) \
@@ -1677,6 +1677,165 @@ static int isc_g_volatile_awb_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int isc_cc_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct isc_device *isc = container_of(ctrl->handler,
+					     struct isc_device, ctrls.handler);
+	struct regmap *regmap = isc->regmap;
+
+	dev_dbg(isc->dev, "id = 0x%x; val = 0x%x", ctrl->id, ctrl->val);
+
+	switch (ctrl->id) {
+	case ISC_CID_CC_RR:
+		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_RG:
+		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_RB:
+		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OR:
+		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_GR:
+		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_GG:
+		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_GB:
+		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OG:
+		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_BR:
+		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_BG:
+		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_BB:
+		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OB:
+		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int isc_cc_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct isc_device *isc = container_of(ctrl->handler,
+					     struct isc_device, ctrls.handler);
+	struct regmap *regmap = isc->regmap;
+	unsigned int reg;
+
+	switch (ctrl->id) {
+	case ISC_CID_CC_RR:
+		regmap_read(regmap, ISC_CC_RR_RG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_RG:
+		regmap_read(regmap, ISC_CC_RR_RG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_RB:
+		regmap_read(regmap, ISC_CC_RB_OR, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OR:
+		regmap_read(regmap, ISC_CC_RB_OR, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_GR:
+		regmap_read(regmap, ISC_CC_GR_GG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_GG:
+		regmap_read(regmap, ISC_CC_GR_GG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_GB:
+		regmap_read(regmap, ISC_CC_GB_OG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OG:
+		regmap_read(regmap, ISC_CC_GB_OG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_BR:
+		regmap_read(regmap, ISC_CC_BR_BG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_BG:
+		regmap_read(regmap, ISC_CC_BR_BG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_BB:
+		regmap_read(regmap, ISC_CC_BB_OB, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OB:
+		regmap_read(regmap, ISC_CC_BB_OB, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	dev_dbg(isc->dev, "id = 0x%x; val = 0x%x", ctrl->id, ctrl->val);
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops isc_cc_ops = {
+	.s_ctrl = isc_cc_s_ctrl,
+	.g_volatile_ctrl = isc_cc_g_volatile_ctrl,
+};
+
+#define ISC_CTRL_CC(_name, _id, _name_str) \
+	static const struct v4l2_ctrl_config _name = { \
+		.ops = &isc_cc_ops, \
+		.id = _id, \
+		.name = _name_str, \
+		.type = V4L2_CTRL_TYPE_INTEGER, \
+		.flags = V4L2_CTRL_FLAG_SLIDER, \
+		.min = -2048, \
+		.max = 2047, \
+		.step = 1, \
+		.def = 0, \
+	}
+
+ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR");
+ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG");
+
+ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB");
+ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR");
+
+ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR");
+ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG");
+
+ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB");
+ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG");
+
+ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR");
+ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG");
+
+ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB");
+ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB");
+
 static const struct v4l2_ctrl_ops isc_awb_ops = {
 	.s_ctrl = isc_s_awb_ctrl,
 	.g_volatile_ctrl = isc_g_volatile_awb_ctrl,
@@ -1766,6 +1925,20 @@ static int isc_ctrl_init(struct isc_device *isc)
 	isc->b_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_b_off_ctrl, NULL);
 	isc->gr_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gr_off_ctrl, NULL);
 	isc->gb_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gb_off_ctrl, NULL);
+
+	/* Color correction control */
+	isc->cc_rr = v4l2_ctrl_new_custom(hdl, &isc_cc_rr_ctrl, NULL);
+	isc->cc_rg = v4l2_ctrl_new_custom(hdl, &isc_cc_rg_ctrl, NULL);
+	isc->cc_rb = v4l2_ctrl_new_custom(hdl, &isc_cc_rb_ctrl, NULL);
+	isc->cc_or = v4l2_ctrl_new_custom(hdl, &isc_cc_or_ctrl, NULL);
+	isc->cc_gr = v4l2_ctrl_new_custom(hdl, &isc_cc_gr_ctrl, NULL);
+	isc->cc_gg = v4l2_ctrl_new_custom(hdl, &isc_cc_gg_ctrl, NULL);
+	isc->cc_gb = v4l2_ctrl_new_custom(hdl, &isc_cc_gb_ctrl, NULL);
+	isc->cc_og = v4l2_ctrl_new_custom(hdl, &isc_cc_og_ctrl, NULL);
+	isc->cc_br = v4l2_ctrl_new_custom(hdl, &isc_cc_br_ctrl, NULL);
+	isc->cc_bg = v4l2_ctrl_new_custom(hdl, &isc_cc_bg_ctrl, NULL);
+	isc->cc_bb = v4l2_ctrl_new_custom(hdl, &isc_cc_bb_ctrl, NULL);
+	isc->cc_ob = v4l2_ctrl_new_custom(hdl, &isc_cc_ob_ctrl, NULL);
 
 	/*
 	 * The cluster is in auto mode with autowhitebalance enabled
