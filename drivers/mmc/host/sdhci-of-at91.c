@@ -42,12 +42,16 @@
 /* drv type A, programmable clock mode */
 #define SDHCI_AT91_PRESET_DRVA_CONF	(SDHCI_AT91_PRESET_COMMON_CONF \
 					 | 0x4000)
+
+#define SDHCI_AT91_RETRY_TUN_MAX	10
+
 struct sdhci_at91_soc_data {
 	const struct sdhci_pltfm_data *pdata;
 	bool baseclk_is_generated_internally;
 	unsigned int divider_for_baseclk;
 	unsigned int max_sdr104_clk;
 	bool pm_runtime_disable_clks;
+	bool final_tun_brdrdy_masked;
 	u32 quirks2;
 };
 
@@ -56,6 +60,7 @@ struct sdhci_at91_priv {
 	struct clk *hclock;
 	struct clk *gck;
 	struct clk *mainck;
+	unsigned long hclock_ns;
 	bool restore_needed;
 	bool cal_always_on;
 };
@@ -105,6 +110,94 @@ static void sdhci_at91_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	clk |= SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+}
+
+static int sdhci_at91_platform_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_at91_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	unsigned int retries;
+	int i, err = -EAGAIN;
+	u16 ctrl;
+
+	/* DDR50 is tuning-free and hardwired to the fixed sampling clock */
+	if (host->timing == MMC_TIMING_UHS_DDR50)
+		return 0;
+
+	/* SDMMC only has Re-Tuning Mode 1 (Timer); use retune_timer instead */
+	host->mmc->retune_period = host->tuning_count;
+
+	for (retries = 0; retries < SDHCI_AT91_RETRY_TUN_MAX; retries++) {
+		/* We may start tuning multiple times, end once */
+		sdhci_start_tuning(host);
+
+		/*
+		 * The tuning HW iterates over an immutable number of phases.
+		 * Issue opcode repeatedly till all phases have been tested,
+		 * regardless of the Execute Tuning bit.
+		 */
+		for (i = 0; i < host->tuning_loop_count; i++) {
+			sdhci_send_tuning(host, opcode);
+			if (host->tuning_done)
+				continue;
+			if (priv->soc_data->final_tun_brdrdy_masked &&
+			    i == host->tuning_loop_count - 1 &&
+			    !(sdhci_readw(host, SDHCI_HOST_CONTROL2) &
+			      SDHCI_CTRL_EXEC_TUNING))
+				/*
+				 * SAMA5D2 silicon erratum just caused
+				 * sdhci_send_tuning to time out waiting for
+				 * Buffer Read Ready. Proceed.
+				 */
+				break;
+
+			dev_warn(mmc_dev(host->mmc),
+				 "%s: tuning cmd error, falling back to fixed sampling clock\n",
+				 mmc_hostname(host->mmc));
+			err = -ETIMEDOUT;
+			host->tuning_err = err;
+			sdhci_abort_tuning(host, opcode);
+			return err;
+		}
+
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if ((ctrl & (SDHCI_CTRL_TUNED_CLK | SDHCI_CTRL_EXEC_TUNING)) ==
+		    SDHCI_CTRL_TUNED_CLK) {
+			err = 0;
+			break;
+		}
+
+		/*
+		 * Due to a silicon erratum, SAMA7D65 occasionally fails to
+		 * autoclear the Execute Tuning bit. Recovering requires
+		 * clearing the bit manually.
+		 * Also, SAMA5D2 MPUs on rare occasions fail to delimit the
+		 * sampling window, and then will not set the Sampling Clock
+		 * Select bit.
+		 * In both cases reset the tuning circuit, and retry the tuning
+		 * sequence.
+		 */
+		sdhci_reset_tuning(host);
+		/*
+		 * After clearing the Execute Tuning bit, allow one peripheral
+		 * clock cycle for the clear event to act before possibly
+		 * setting the bit again.
+		 */
+		ndelay(priv->hclock_ns);
+	}
+
+	if (err)
+		dev_warn(mmc_dev(host->mmc),
+			 "%s: tuning failed, fell back to fixed sampling clock\n",
+			 mmc_hostname(host->mmc));
+#ifdef CONFIG_MMC_DEBUG
+	if (!err && retries >= 2)
+		dev_dbg(mmc_dev(host->mmc), "%s: had to tune %u times\n",
+			mmc_hostname(host->mmc), 1u + retries);
+#endif
+	host->tuning_err = err;
+	sdhci_end_tuning(host);
+	return err;
 }
 
 static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
@@ -203,6 +296,7 @@ static const struct sdhci_ops sdhci_at91_sama5d2_ops = {
 	.set_clock		= sdhci_at91_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
 	.reset			= sdhci_at91_reset,
+	.platform_execute_tuning = sdhci_at91_platform_execute_tuning,
 	.set_uhs_signaling	= sdhci_at91_set_uhs_signaling,
 	.set_power		= sdhci_set_power_and_bus_voltage,
 	.hw_reset		= sdhci_at91_hw_reset,
@@ -217,6 +311,7 @@ static const struct sdhci_at91_soc_data soc_data_sama5d2 = {
 	.baseclk_is_generated_internally = false,
 	.max_sdr104_clk = 120000000,
 	.pm_runtime_disable_clks = true,
+	.final_tun_brdrdy_masked = true,
 	.quirks2 = SDHCI_QUIRK2_BROKEN_HS200,
 };
 
@@ -440,6 +535,7 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	struct sdhci_host		*host;
 	struct sdhci_pltfm_host		*pltfm_host;
 	struct sdhci_at91_priv		*priv;
+	unsigned long			rate;
 	int				ret;
 
 	soc_data = of_device_get_match_data(&pdev->dev);
@@ -453,6 +549,11 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
 	priv->soc_data = soc_data;
+
+	if (of_device_is_compatible(pdev->dev.of_node, "atmel,sama5d2-sdhci"))
+		host->tuning_loop_count = 34;
+	else
+		host->tuning_loop_count = 17;
 
 	/* Perform a software reset before using the IP */
 	sdhci_at91_reset(host, SDHCI_RESET_ALL);
@@ -481,6 +582,8 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	ret = sdhci_at91_set_clks_presets(&pdev->dev, true);
 	if (ret)
 		return ret;
+	rate = clk_get_rate(priv->hclock);
+	priv->hclock_ns = DIV_ROUND_UP(NSEC_PER_SEC, rate);
 
 	priv->restore_needed = false;
 
