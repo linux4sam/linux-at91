@@ -660,7 +660,6 @@
 	sdhci-caps-mask = <0x0 0x00200000>;
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc1>;
-	vqmmc-supply = <&vdd_3v3>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc1_default>;
 	status = "okay";
