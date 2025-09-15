@@ -368,6 +368,16 @@ static int sdhci_at91_set_clks_presets(struct device *dev, bool start_clks)
 	 */
 	writel(SDMMC_CACR_KEY | SDMMC_CACR_CAPWREN, host->ioaddr + SDMMC_CACR);
 	caps1 &= (~SDHCI_SUPPORT_SDR104);
+	/*
+	 * Capabilities in silicon typically avoid specifying the re-tuning
+	 * period. Instead, they code the 'Get information from other source'
+	 * case. In that case, default to 32 sec.
+	 */
+	if ((caps1 & SDHCI_RETUNING_TIMER_COUNT_MASK) ==
+		SDHCI_RETUNING_TIMER_COUNT_MASK) {
+		caps1 &= ~SDHCI_RETUNING_TIMER_COUNT_MASK;
+		caps1 |= FIELD_PREP(SDHCI_RETUNING_TIMER_COUNT_MASK, 0x6);
+	}
 	writel(caps1, host->ioaddr + SDHCI_CAPABILITIES_1);
 	writel(0, host->ioaddr + SDMMC_CACR);
 
