@@ -79,6 +79,21 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
+
+	vmmc_sdmmc1: regulator-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "VDD_SD_CARD1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pioa PIN_PB21 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sdmmc1_card_pwr>;
+		startup-delay-us = <360>;
+		off-on-delay-us = <25000>;
+		enable-active-high;
+		regulator-boot-on;
+		status = "okay";
+	};
 };
 
 &adc {
@@ -550,15 +565,19 @@
 			bias-disable;
 		};
 
-		ck-cd-rstn-vddsel {
+		ck-cd-wp-vddsel {
 			pinmux = <PIN_PB23__SDMMC1_CK>,
-				 <PIN_PB21__SDMMC1_RSTN>,
 				 <PIN_PB30__SDMMC1_1V8SEL>,
 				 <PIN_PB29__SDMMC1_CD>,
 				 <PIN_PB28__SDMMC1_WP>;
 			slew-rate = <0>;
 			bias-disable;
 		};
+	};
+
+	pinctrl_sdmmc1_card_pwr: sdmmc1-card-pwr {
+		pinmux = <PIN_PB21__GPIO>;
+		bias-disable;
 	};
 
 	pinctrl_uart6_default: uart6-default {
@@ -639,7 +658,8 @@
 	bus-width = <4>;
 	no-1-8-v;
 	sdhci-caps-mask = <0x0 0x00200000>;
-	vmmc-supply = <&vdd_3v3>;
+	full-pwr-cycle;
+	vmmc-supply = <&vmmc_sdmmc1>;
 	vqmmc-supply = <&vdd_3v3>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc1_default>;
