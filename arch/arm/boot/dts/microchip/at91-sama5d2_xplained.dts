@@ -65,9 +65,15 @@
 
 		sdmmc0: sdio-host@a0000000 {
 			bus-width = <8>;
+			vmmc-supply = <&vdd_3v3_reg>;
+			vqmmc-supply = <&vdd_3v3_reg>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_sdmmc0_default>;
 			non-removable;
+			no-sd;
+			no-sdio;
+			cap-mmc-hw-reset;
+			cap-mmc-highspeed;
 			mmc-ddr-3_3v;
 			status = "okay";
 		};
