@@ -565,14 +565,19 @@
 			bias-disable;
 		};
 
-		ck-cd-wp-vddsel {
+		ck-wp-vddsel {
 			pinmux = <PIN_PB23__SDMMC1_CK>,
 				 <PIN_PB30__SDMMC1_1V8SEL>,
-				 <PIN_PB29__SDMMC1_CD>,
 				 <PIN_PB28__SDMMC1_WP>;
 			slew-rate = <0>;
 			bias-disable;
 		};
+	};
+
+	pinctrl_sdmmc1_cd: sdmmc1-card-detect {
+		pinmux = <PIN_PB29__GPIO>;
+		bias-disable;
+		input-debounce = <1>;
 	};
 
 	pinctrl_sdmmc1_card_pwr: sdmmc1-card-pwr {
@@ -660,8 +665,9 @@
 	sdhci-caps-mask = <0x0 0x00200000>;
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc1>;
+	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sdmmc1_default>;
+	pinctrl-0 = <&pinctrl_sdmmc1_default &pinctrl_sdmmc1_cd>;
 	status = "okay";
 };
 
