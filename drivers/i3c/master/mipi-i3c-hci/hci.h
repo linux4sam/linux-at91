@@ -34,6 +34,10 @@ struct hci_cmd_ops;
 /* Our main structure */
 struct i3c_hci {
 	struct i3c_master_controller master;
+#if defined(CONFIG_SOC_SAMA7D65)
+	struct clk *gclk;
+	struct clk *pclk;
+#endif
 	void __iomem *base_regs;
 	void __iomem *DAT_regs;
 	void __iomem *DCT_regs;
@@ -140,6 +144,11 @@ struct i3c_hci_dev_data {
 #define HCI_QUIRK_OD_PP_TIMING		BIT(3)  /* Set OD and PP timings for AMD platforms */
 #define HCI_QUIRK_RESP_BUF_THLD		BIT(4)  /* Set resp buf thld to 0 for AMD platforms */
 
+/* list of quirks for Microchip platforms */
+#define MCHP_HCI_QUIRK_PIO_MODE 	BIT(2)  /* Set PIO mode */
+#define MCHP_HCI_QUIRK_OD_PP_TIMING    	BIT(3)  /* Set OD and PP timings */
+#define MCHP_HCI_QUIRK_RESP_BUF_THLD   	BIT(4)  /* Set resp buf thld to 0 */
+#define MCHP_HCI_QUIRK_SAMA7D65		BIT(5)  /* Set SAMA7D65 SoC specific features */
 
 /* global functions */
 void mipi_i3c_hci_resume(struct i3c_hci *hci);
@@ -147,5 +156,7 @@ void mipi_i3c_hci_pio_reset(struct i3c_hci *hci);
 void mipi_i3c_hci_dct_index_reset(struct i3c_hci *hci);
 void amd_set_od_pp_timing(struct i3c_hci *hci);
 void amd_set_resp_buf_thld(struct i3c_hci *hci);
+void mchp_set_od_pp_timing(struct i3c_hci *hci);
+void mchp_set_resp_buf_thld(struct i3c_hci *hci);
 
 #endif
