@@ -1,0 +1,656 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ *  at91-sama7d65_curiosity_pro.dts - Device Tree file for SAMA7D65 Curiosity Pro board
+ *
+ *  Copyright (c) 2025 Microchip Technology Inc. and its subsidiaries
+ *
+ *  Author: Ryan Wanner <ryam.wanner@microchip.com>
+ *
+ */
+/dts-v1/;
+#include "sama7d65-pinfunc.h"
+#include "sama7d65.dtsi"
+#include <dt-bindings/mfd/atmel-flexcom.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/pinctrl/at91.h>
+#include <dt-bindings/sound/microchip,pdmc.h>
+
+/ {
+	model = "Microchip SAMA7D65 Curiosity Pro";
+	compatible = "microchip,sama7d65-curiosity-pro", "microchip,sama7d65", "microchip,sama7d6", "microchip,sama7";
+
+	chosen {
+
+		bootargs = "rw root=/dev/mmcblk0p2 rootfstype=ext4 rootwait";
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		serial0 = &uart6;
+		i2c1 = &i2c10;
+		mmc0 = &sdmmc1;
+		gmac1 = &gmac1;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_key_gpio_default>;
+
+		button {
+			label = "PB_USER";
+			gpios = <&pioa PIN_PC10 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_0>;
+			wakeup-source;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led_gpio_default>;
+
+		led-red {
+			color = <LED_COLOR_ID_RED>;
+			gpios = <&pioa PIN_PB17 GPIO_ACTIVE_HIGH>; /* Conflict with pwm. */
+		};
+
+		led-green {
+			color = <LED_COLOR_ID_GREEN>;
+			gpios = <&pioa PIN_PB15 GPIO_ACTIVE_HIGH>; /* Conflict with pwm. */
+		};
+
+		led-blue {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_HEARTBEAT;
+			gpios = <&pioa PIN_PA21 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0x60000000 0x40000000>;
+	};
+};
+
+&adc {
+	vddana-supply = <&vddout25>;
+	vref-supply = <&vddout25>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adc_default &pinctrl_adtrg_default>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1_default>;
+	status = "okay";
+};
+
+&can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can2_default>;
+	status = "okay";
+};
+
+&can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can3_default>;
+	status = "okay";
+};
+
+&cpu0 {
+	cpu-supply = <&vddcpu>;
+};
+
+&dma0 {
+	status = "okay";
+};
+
+&dma1 {
+	status = "okay";
+};
+
+&dma2 {
+	status = "okay";
+};
+
+&ebi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_nand_default>;
+	status = "okay";
+
+	nand_controller: nand-controller {
+		status = "okay";
+
+		nand@0 {
+			reg = <0x0 0x0 0x1000000>;
+			atmel,rb = <0>;
+			nand-bus-width = <8>;
+			nand-ecc-mode = "hw";
+			nand-ecc-strength = <8>;
+			nand-ecc-step-size = <512>;
+			nand-on-flash-bbt;
+			label = "atmel_nand";
+		};
+	};
+};
+
+&flx6 {
+	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_USART>;
+	status = "okay";
+};
+
+&uart6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart6_default>;
+	status = "okay";
+};
+
+&flx10 {
+	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
+	status = "okay";
+};
+
+&i2c10 {
+	dmas = <0>, <0>;
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_i2c10_default>;
+	pinctrl-1 = <&pinctrl_i2c10_gpio>;
+	sda-gpios = <&pioa PIN_PB19 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&pioa PIN_PB20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	i2c-analog-filter;
+	i2c-digital-filter;
+	i2c-digital-filter-width-ns = <35>;
+	status = "okay";
+
+	pac1934@10 {
+		compatible = "microchip,pac1934";
+		reg = <0x10>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@1 {
+			reg = <0x1>;
+			shunt-resistor-micro-ohms = <47000>;
+			label = "VDD3V3";
+		};
+
+		channel@2 {
+			reg = <0x2>;
+			shunt-resistor-micro-ohms = <47000>;
+			label = "VDDIODDR";
+		};
+
+		channel@3 {
+			reg = <0x3>;
+			shunt-resistor-micro-ohms = <47000>;
+			label = "VDDCORE";
+		};
+
+		channel@4 {
+			reg = <0x4>;
+			shunt-resistor-micro-ohms = <47000>;
+			label = "VDDCPU";
+		};
+	};
+
+	pmic@5b {
+		compatible = "microchip,mcp16502";
+		reg = <0x5b>;
+
+		regulators {
+			vdd_3v3: VDD_IO {
+				regulator-name = "VDD_IO";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddioddr: VDD_DDR {
+				regulator-name = "VDD_DDR";
+				regulator-min-microvolt = <1350000>;
+				regulator-max-microvolt = <1350000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1350000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1350000>;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcore: VDD_CORE {
+				regulator-name = "VDD_CORE";
+				regulator-min-microvolt = <1050000>;
+				regulator-max-microvolt = <1050000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1050000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcpu: VDD_OTHER {
+				regulator-name = "VDD_OTHER";
+				regulator-min-microvolt = <1050000>;
+				regulator-max-microvolt = <1250000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-ramp-delay = <3125>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <1050000>;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vldo1: LDO1 {
+				regulator-name = "LDO1";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-suspend-microvolt = <1800000>;
+					regulator-on-in-suspend;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+				};
+			};
+
+			vldo2: LDO2 {
+				regulator-name = "LDO2";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3700000>;
+
+				regulator-state-standby {
+					regulator-suspend-microvolt = <1800000>;
+					regulator-on-in-suspend;
+				};
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+				};
+			};
+		};
+	};
+
+	eeprom0: eeprom@51 {
+		compatible = "microchip,24aa025e48";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x51>;
+		pagesize = <16>;
+		size = <256>;
+
+		nvmem-layout {
+			compatible = "fixed-layout";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			eeprom0_eui48: eui48@fa {
+				reg = <0xfa 0x6>;
+			};
+		};
+	};
+};
+
+&main_xtal {
+	clock-frequency = <24000000>;
+};
+
+&gmac1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gmac1_default
+		     &pinctrl_gmac1_mdc_default
+		     &pinctrl_gmac1_mdio_default
+		     &pinctrl_gmac1_txck_default
+		     &pinctrl_gmac1_phy_irq>;
+	phy-mode = "rgmii-id";
+	status = "okay";
+
+	nvmem-cells = <&eeprom0_eui48>;
+	nvmem-cell-names = "mac-address";
+
+	ethernet-phy@1 {
+		reg = <0x1>;
+		interrupt-parent = <&pioa>;
+		interrupts = <PIN_PE3 IRQ_TYPE_LEVEL_LOW>;
+		status = "okay";
+	};
+};
+
+&pioa {
+	pinctrl_adc_default: adc_default {
+		pinmux = <PIN_PC5__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_adtrg_default: adtrg-default {
+		pinmux = <PIN_PB7__ADTRG>;
+		bias-pull-up;
+	};
+
+	pinctrl_can1_default: can1-default {
+		pinmux = <PIN_PD10__CANTX1>,
+			<PIN_PD11__CANRX1>;
+		bias-disable;
+	};
+
+	pinctrl_can2_default: can2-default {
+		pinmux = <PIN_PD12__CANTX2>,
+			<PIN_PD13__CANRX2>;
+		bias-disable;
+	};
+
+	pinctrl_can3_default: can3-default {
+		pinmux = <PIN_PD14__CANTX3>,
+			<PIN_PD15__CANRX3>;
+		bias-disable;
+	};
+
+	pinctrl_gmac1_default: gmac1-default{
+		pinmux = <PIN_PD22__G1_TX0>,
+			 <PIN_PD23__G1_TX1>,
+			 <PIN_PE0__G1_TX2>,
+			 <PIN_PE1__G1_TX3>,
+			 <PIN_PD27__G1_RX0>,
+			 <PIN_PD28__G1_RX1>,
+			 <PIN_PD30__G1_RX2>,
+			 <PIN_PD31__G1_RX3>,
+			 <PIN_PD21__G1_TXCTL>,
+			 <PIN_PE2__G1_RXCK>,
+			 <PIN_PD24__G1_RXCTL>;
+		slew-rate = <0>;
+		bias-disable;
+	};
+
+	pinctrl_gmac1_mdc_default: gmac1-mdc-default {
+		pinmux = <PIN_PD25__G1_MDC>;
+		bias-disable;
+	};
+
+	pinctrl_gmac1_mdio_default: gmac1-mdio-default {
+		pinmux = <PIN_PD26__G1_MDIO>;
+		bias-pull-up;
+	};
+
+	pinctrl_gmac1_phy_irq: gmac1-phy-irq {
+		pinmux = <PIN_PE3__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_gmac1_txck_default: gmac1-txck-default {
+		pinmux = <PIN_PD29__G1_REFCK>;
+		slew-rate = <0>;
+		bias-pull-up;
+	};
+
+	pinctrl_led_gpio_default: led-gpio-default {
+		pinmux = <PIN_PB15__GPIO>,
+			 <PIN_PB17__GPIO>,
+			 <PIN_PA21__GPIO>;
+		bias-pull-up;
+	};
+
+	pinctrl_i2c10_default: i2c10-default{
+		pinmux = <PIN_PB19__FLEXCOM10_IO1>,
+			 <PIN_PB20__FLEXCOM10_IO0>;
+		bias-disable;
+	};
+
+	pinctrl_i2c10_gpio: i2c10-gpio{
+		pinmux = <PIN_PB19__GPIO>,
+			 <PIN_PB20__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_key_gpio_default: key-gpio-default {
+		pinmux = <PIN_PC10__GPIO>;
+		bias-pull-up;
+	};
+
+	pinctrl_nand_default: nand-default {
+		pinmux = <PIN_PA0__NWER0>,
+			 <PIN_PA1__A21>,
+			 <PIN_PA2__A22>,
+			 <PIN_PA3__D0>,
+			 <PIN_PA4__D1>,
+			 <PIN_PA5__D4>,
+			 <PIN_PA6__D5>,
+			 <PIN_PA7__D6>,
+			 <PIN_PA8__D7>,
+			 <PIN_PA9__D2>,
+			 <PIN_PA10__D3>,
+			 <PIN_PA11__NANDRDY>,
+			 <PIN_PA12__NRD>,
+			 <PIN_PA13__NCS0>;
+		slew-rate = <0>;
+		bias-disable;
+	};
+
+	pinctrl_qspi0_default: qspi0-default {
+		pinmux = <PIN_PB8__QSPI0_IO3>,
+			 <PIN_PB9__QSPI0_IO2>,
+			 <PIN_PB10__QSPI0_IO1>,
+			 <PIN_PB11__QSPI0_IO0>,
+			 <PIN_PB12__QSPI0_CS>,
+			 <PIN_PB13__QSPI0_SCK>;
+		bias-disable;
+		atmel,drive-strength = <ATMEL_PIO_DRVSTR_ME>;
+		slew-rate = <0>;
+	};
+
+	pinctrl_sdmmc1_default: sdmmc1-default {
+		cmd-data {
+			pinmux = <PIN_PB22__SDMMC1_CMD>,
+				 <PIN_PB24__SDMMC1_DAT0>,
+				 <PIN_PB25__SDMMC1_DAT1>,
+				 <PIN_PB26__SDMMC1_DAT2>,
+				 <PIN_PB27__SDMMC1_DAT3>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+
+		ck-cd-rstn-vddsel {
+			pinmux = <PIN_PB23__SDMMC1_CK>,
+				 <PIN_PB21__SDMMC1_RSTN>,
+				 <PIN_PB30__SDMMC1_1V8SEL>,
+				 <PIN_PB29__SDMMC1_CD>,
+				 <PIN_PB28__SDMMC1_WP>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_sdmmc2_default: sdmmc2_default {
+		cmd_data {
+			pinmux = <PIN_PC27__SDMMC2_CMD>,
+				 <PIN_PC29__SDMMC2_DAT0>,
+				 <PIN_PC30__SDMMC2_DAT1>,
+				 <PIN_PC31__SDMMC2_DAT2>,
+				 <PIN_PD0__SDMMC2_DAT3>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+
+		ck {
+			pinmux = <PIN_PC28__SDMMC2_CK>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_uart6_default: uart6-default {
+		pinmux = <PIN_PD18__FLEXCOM6_IO0>,
+			 <PIN_PD19__FLEXCOM6_IO1>;
+		bias-disable;
+	};
+
+	pinctrl_usba_vbus_det: usba-vbus-det {
+		pinmux = <PIN_PC8__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_usbb_vbus_en: usbb-vbus-en {
+		pinmux = <PIN_PC20__GPIO>;
+		bias-disable;
+	};
+
+	pinctrl_usbc_vbus_en: usbc-vbus-en {
+		pinmux = <PIN_PC21__GPIO>;
+		bias-disable;
+	};
+};
+
+&qspi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi0_default>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		m25p,fast-read;
+		label = "at91-qspi";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			at91bootstrap@0 {
+				label = "qspi0: at91bootstrap";
+				reg = <0x0 0x40000>;
+			};
+
+			bootloader@40000 {
+				label = "qspi0: u-boot";
+				reg = <0x40000 0x100000>;
+			};
+
+			bootloaderenv@140000 {
+				label = "qspi0: u-boot env";
+				reg = <0x140000 0x40000>;
+			};
+
+			dtb@180000 {
+				label = "qspi0: device tree";
+				reg = <0x180000 0x80000>;
+			};
+
+			kernel@200000 {
+				label = "qspi0: kernel";
+				reg = <0x200000 0x600000>;
+			};
+		};
+	};
+};
+
+&rtt {
+	atmel,rtt-rtc-time-reg = <&gpbr 0x0>;
+	status = "disabled";
+};
+
+&sdmmc1 {
+	bus-width = <4>;
+	vmmc-supply = <&vdd_3v3>;
+	vqmmc-supply = <&vdd_3v3>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdmmc1_default>;
+	status = "okay";
+};
+
+&sdmmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdmmc2_default>;
+	status = "okay";
+	vmmc-supply = <&vdd_3v3>;
+	status = "okay";
+};
+
+&shdwc {
+	debounce-delay-us = <976>;
+	status = "okay";
+
+	input@0 {
+		reg = <0>;
+	};
+};
+
+&slow_xtal {
+	clock-frequency = <32768>;
+};
+
+&usb0 {
+	atmel,vbus-gpio = <&pioa PIN_PC8 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usba_vbus_det>;
+	status = "okay";
+};
+
+&ehci0 {
+	status = "okay";
+};
+
+&ohci0 {
+	num-ports = <3>;
+	atmel,vbus-gpio = <0
+			   &pioa PIN_PC20 GPIO_ACTIVE_HIGH
+			   &pioa PIN_PC21 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbb_vbus_en &pinctrl_usbc_vbus_en>;
+	status = "okay";
+};
+
+&vddout25 {
+	vin-supply = <&vdd_3v3>;
+	status = "okay";
+};
