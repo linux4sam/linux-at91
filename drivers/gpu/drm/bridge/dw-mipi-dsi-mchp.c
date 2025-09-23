@@ -239,7 +239,7 @@ static void dw_mipi_dsi_phy_write(struct dw_mipi_dsi_mchp *dsi,
 static int dw_mipi_dsi_mchp_init(void *priv_data)
 {
 	struct dw_mipi_dsi_mchp *dsi = priv_data;
-	int ret, index, vco;
+	int index, vco;
 
 	/*
 	 * Get vco from frequency(lane_mbps)
@@ -290,7 +290,7 @@ static int dw_mipi_dsi_mchp_init(void *priv_data)
 			      LOOP_DIV_HIGH_SEL(dsi->feedback_div) |
 			      HIGH_PROGRAM_EN);
 
-	return ret;
+	return 0;
 }
 
 static int dw_mipi_dsi_mchp_get_lane_mbps(void *priv_data,
@@ -316,16 +316,13 @@ static int dw_mipi_dsi_mchp_get_lane_mbps(void *priv_data,
 	}
 
 	mpclk = DIV_ROUND_UP(mode->clock, MSEC_PER_SEC);
-	if (mpclk) {
-		/* take 1/0.8, since mbps must be bigger than bandwidth of RGB */
-		desired_mbps = mpclk * (bpp / lanes) * 10 / 8;
-		if (desired_mbps < max_mbps) {
-			target_mbps = desired_mbps;
-		} else {
-			dev_err(dsi->dev,
-				"DPHY clock frequency is out of range\n");
-			return -ERANGE;
-		}
+	/* take 1/0.8, since mbps must be bigger than bandwidth of RGB */
+	desired_mbps = mpclk * (bpp / lanes) * 10 / 8;
+	if (desired_mbps && desired_mbps < max_mbps) {
+		target_mbps = desired_mbps;
+	} else {
+		dev_err(dsi->dev, "DPHY clock frequency is out of range\n");
+		return -ERANGE;
 	}
 
 	fin = clk_get_rate(dsi->pllref_clk);
