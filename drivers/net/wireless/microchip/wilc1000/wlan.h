@@ -123,6 +123,10 @@
 #define WILC3000_SPI_CLK_STATUS_REG	0x13
 #define WILC3000_SPI_CLK_STATUS_BIT	BIT(2)
 
+#define WILC3000_BOOT_REGISTER			0x4F0000
+#define WILC3000_BT_CPU_REGISTER		0x3B0090
+#define WILC3000_PERIPHERIAL_GLOBAL_REGISTER	0x3B0400
+
 #define WILC_SPI_HOST_TO_FW_REG		0x0b
 #define WILC_SPI_HOST_TO_FW_BIT		BIT(0)
 
@@ -541,4 +545,5 @@ void release_bus(struct wilc *wilc, enum bus_release release, int source);
 int wilc_wlan_init(struct net_device *dev);
 u32 wilc_get_chipid(struct wilc *wilc, bool update);
 int wilcs02_init_vmm_registers(struct wilc *wilc);
+int wilc3000_prepare_ble_ram(struct wilc *wilc);
 #endif

@@ -2340,9 +2340,7 @@ int wilc_cfg80211_register(struct wilc *wilc)
 {
 	int ret;
 
-	/* WPA3/SAE supported on WILC1000/WILCS02 */
-	if (is_wilc1000(wilc->chipid) || is_wilcs02(wilc->chipid))
-		wilc->wiphy->features |= NL80211_FEATURE_SAE;
+	wilc->wiphy->features |= NL80211_FEATURE_SAE;
 
 	if (is_wilcs02(wilc->chipid)) {
 		wilc->wiphy->regulatory_flags = REGULATORY_WIPHY_SELF_MANAGED;
