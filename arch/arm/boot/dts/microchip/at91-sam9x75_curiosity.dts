@@ -70,7 +70,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_classd_default>;
 	atmel,pwm-type = "single";
-	atmel,non-overlap-time = <10>;
+	atmel,non-overlap-time = <20>;
 	status = "okay";
 };
 
@@ -318,8 +318,8 @@
 	classd {
 		pinctrl_classd_default: classd-default {
 			atmel,pins =
-				<AT91_PIOA 18 AT91_PERIPH_C AT91_PINCTRL_PULL_UP>,
-				<AT91_PIOA 19 AT91_PERIPH_C AT91_PINCTRL_PULL_UP>;
+				<AT91_PIOA 18 AT91_PERIPH_C (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)>,
+				<AT91_PIOA 19 AT91_PERIPH_C (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)>;
 		};
 	};
 
