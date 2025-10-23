@@ -48,6 +48,10 @@ properties:
     type: object
     $ref: /schemas/interrupt-controller/microchip,mpfs-gpio-irq-mux.yaml
 
+  pinctrl@200:
+    type: object
+    $ref: /schemas/pinctrl/microchip,mpfs-pinctrl-iomux0.yaml
+
 required:
   - compatible
   - reg
