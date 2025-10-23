@@ -695,7 +695,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_classd_default_pfets &pinctrl_classd_default_nfets>;
 				atmel,pwm-type = "diff";
-				atmel,non-overlap-time = <10>;
+				atmel,non-overlap-time = <20>;
 				status = "okay";
 			};
 
