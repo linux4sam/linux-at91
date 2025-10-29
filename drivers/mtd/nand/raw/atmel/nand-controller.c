@@ -1250,6 +1250,11 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 	if (!nand_interface_is_sdr(conf))
 		return -ENOTSUPP;
 
+	/* SAMA7D65 supports only mode 0 */
+	if (of_machine_is_compatible("microchip,sama7d65"))
+		if (conf->timings.sdr.tRC_min < 100000)
+			return -EOPNOTSUPP;
+
 	/*
 	 * tRC < 30ns implies EDO mode. This controller does not support this
 	 * mode.
@@ -1268,6 +1273,12 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 	 * NWE_PULSE = tWP
 	 */
 	ncycles = DIV_ROUND_UP(conf->timings.sdr.tWP_min, mckperiodps);
+
+	/* Set NWE_PULSE = 5 clk cycles for sama7d65 mode 3 */
+	if ((of_machine_is_compatible("microchip,sama7d65") &&
+	     conf->timings.sdr.tRC_min <= 30000))
+		ncycles += 2;
+
 	totalcycles = ncycles;
 	ret = atmel_smc_cs_conf_set_pulse(smcconf, ATMEL_SMC_NWE_SHIFT,
 					  ncycles);
@@ -1376,13 +1387,10 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 	 */
 	pulse = max(conf->timings.sdr.tRP_min, conf->timings.sdr.tREA_max);
 
-	/*
-	 * Extend the NRD_PULSE for sama7d65. The data setup time before
-	 * NRD high pulse needs to be covered with 5 nsecs for sama7d65
-	 */
+	/* Extend the NRD_PULSE for sama7d65 mode 3. Set NRD_PULSE = 10 */
 	if ((of_machine_is_compatible("microchip,sama7d65") &&
 	     conf->timings.sdr.tRC_min <= 30000))
-		pulse += mckperiodps;
+		pulse += (mckperiodps * 6);
 
 	ncycles = DIV_ROUND_UP(pulse, mckperiodps);
 	totalcycles += ncycles;
@@ -1398,7 +1406,12 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 	 */
 	timeps = max(conf->timings.sdr.tAR_min, conf->timings.sdr.tCLR_min);
 	ncycles = DIV_ROUND_UP(timeps, mckperiodps);
+
+	/* For SAMA7D65 NRD_SETUP should be 10 clk cycles */
+	if (of_machine_is_compatible("microchip,sama7d65"))
+		ncycles = 10;
 	totalcycles += ncycles;
+
 	ret = atmel_smc_cs_conf_set_setup(smcconf, ATMEL_SMC_NRD_SHIFT, ncycles);
 	if (ret)
 		return ret;
