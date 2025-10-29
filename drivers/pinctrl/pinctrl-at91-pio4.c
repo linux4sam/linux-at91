@@ -1015,6 +1015,7 @@ static struct pinctrl_desc atmel_pinctrl_desc = {
 static int __maybe_unused atmel_pctrl_suspend(struct device *dev)
 {
 	struct atmel_pioctrl *atmel_pioctrl = dev_get_drvdata(dev);
+	bool polarity;
 	int i, j;
 
 	/*
@@ -1034,9 +1035,16 @@ static int __maybe_unused atmel_pctrl_suspend(struct device *dev)
 			atmel_pioctrl->pm_suspend_backup[i].cfgr[j] =
 				atmel_gpio_read(atmel_pioctrl, i,
 						ATMEL_PIO_CFGR);
-			if (atmel_pioctrl->pm_wakeup_sources[i] & BIT(j) && atmel_pioctrl->pmc)
-				writel_relaxed((j + i * ATMEL_PIO_NPINS_PER_BANK) | AT91_PMC_WCR_CMD |
-						AT91_PMC_WCR_EN, atmel_pioctrl->pmc + AT91_PMC_WCR);
+			if (atmel_pioctrl->pm_wakeup_sources[i] & BIT(j) && atmel_pioctrl->pmc) {
+				polarity = !!(atmel_gpio_read(atmel_pioctrl, i, ATMEL_PIO_PDSR) & BIT(j));
+
+				if (!polarity)
+					writel((j + i * ATMEL_PIO_NPINS_PER_BANK) | AT91_PMC_WCR_CMD |
+							AT91_PMC_WCR_EN | AT91_PMC_WCR_POL, atmel_pioctrl->pmc + AT91_PMC_WCR);
+				else
+					writel((j + i * ATMEL_PIO_NPINS_PER_BANK) | AT91_PMC_WCR_CMD |
+							AT91_PMC_WCR_EN, atmel_pioctrl->pmc + AT91_PMC_WCR);
+			}
 
 		}
 	}
