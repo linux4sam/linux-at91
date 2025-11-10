@@ -282,6 +282,8 @@
 			interrupts = <90>;
 			current-speed = <115200>;
 			clocks = <&clkcfg CLK_MMUART0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart0_mssio>;
 			status = "disabled"; /* Reserved for the HSS */
 		};
 
@@ -290,9 +292,9 @@
 				     "microchip,mpfs-mss-top-sysreg",
 				     "syscon", "simple-mfd";
 			reg = <0x0 0x20002000 0x0 0x1000>;
-			#reset-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#reset-cells = <1>;
 
 			irqmux: interrupt-controller@54 {
 				compatible = "microchip,pic64gx-gpio-irq-mux",
@@ -312,6 +314,20 @@
 					     <45>, <46>, <47>, <48>,
 					     <49>, <50>, <51>, <52>,
 					     <53>;
+			};
+
+			iomux0: pinctrl@200 {
+				compatible = "microchip,pic64gx-pinctrl-iomux0",
+					     "microchip,mpfs-pinctrl-iomux0";
+				reg = <0x200 0x4>;
+				pinctrl-use-default;
+			};
+
+			mssio: pinctrl@204 {
+				compatible = "microchip,pic64gx-pinctrl-mssio",
+					     "microchip,mpfs-pinctrl-mssio";
+				reg = <0x204 0x7c>;
+				pinctrl-use-default;
 			};
 		};
 
@@ -450,6 +466,8 @@
 			interrupt-parent = <&plic>;
 			interrupts = <55>;
 			clocks = <&clkcfg CLK_SPI1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi1_mssio>;
 			status = "disabled";
 		};
 
@@ -462,6 +480,8 @@
 			interrupts = <58>;
 			clocks = <&clkcfg CLK_I2C0>;
 			clock-frequency = <100000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c0_mssio>;
 			status = "disabled";
 		};
 
@@ -474,6 +494,8 @@
 			interrupts = <61>;
 			clocks = <&clkcfg CLK_I2C1>;
 			clock-frequency = <100000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c1_mssio>;
 			status = "disabled";
 		};
 
@@ -694,6 +716,16 @@
 				 <0x30 0x0 0x30 0x0 0x10 0x0>; /* FIC1,HI */
 
 			dma-ranges = <0x14 0x0 0x0 0x80000000 0x0 0x40000000>;
+
+			gpio2_pinctrl: pinctrl@41000000 {
+				compatible = "microchip,pic64gx-pinctrl-gpio2";
+				reg = <0x0 0x41000000 0x0 0x4>;
+				pinctrl-use-default;
+				pinctrl-names = "default";
+				pinctrl-0 = <&mdio0_fio>, <&mdio1_fio>, <&spi0_fio>, <&qspi_fio>,
+					    <&uart3_fio>, <&uart4_fio>, <&can1_fio>, <&can0_fio>,
+					    <&uart2_fio>;
+			};
 
 			/* Camera YUV422 pipeline */
 			mchp_vdma_cam: video-pipeline@60000000 {
