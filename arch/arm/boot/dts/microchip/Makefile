@@ -3,6 +3,7 @@
 DTC_FLAGS_at91-sam9x60_curiosity := -@
 DTC_FLAGS_at91-sam9x60ek := -@
 DTC_FLAGS_at91-sam9x75_curiosity := -@
+DTC_FLAGS_at91-sam9x75eb := -@
 DTC_FLAGS_at91-sama5d27_som1_ek := -@
 DTC_FLAGS_at91-sama5d27_wlsom1_ek := -@
 DTC_FLAGS_at91-sama5d29_curiosity := -@
@@ -17,8 +18,6 @@ DTC_FLAGS_at91-sama7d65_curiosity_pro := -@
 DTC_FLAGS_at91-sama7d65eb := -@
 DTC_FLAGS_at91-sama7g54_curiosity := -@
 DTC_FLAGS_at91-sama7g5ek := -@
-DTC_FLAGS_at91-sam9x75eb := -@
-DTC_FLAGS_at91-sam9x75_curiosity := -@
 dtb-$(CONFIG_SOC_AT91RM9200) += \
 	at91rm9200ek.dtb \
 	mpa1600.dtb
