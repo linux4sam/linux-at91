@@ -1243,8 +1243,8 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				atmel,fifo-size = <32>;
-				dmas = <&dma0 AT91_XDMAC_DT_PERID(25)>,
-				       <&dma0 AT91_XDMAC_DT_PERID(26)>;
+				dmas = <&dma0 AT91_XDMAC_DT_PERID(26)>,
+				       <&dma0 AT91_XDMAC_DT_PERID(25)>;
 				dma-names = "tx", "rx";
 				status = "disabled";
 			};
