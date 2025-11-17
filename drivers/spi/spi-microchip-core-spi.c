@@ -160,7 +160,6 @@ static void mchp_corespi_set_cs(struct spi_device *spi, bool disable)
 
 static int mchp_corespi_setup(struct spi_device *spi)
 {
-	struct mchp_corespi *corespi = spi_controller_get_devdata(spi->controller);
 	u32 dev_mode = spi->mode & (SPI_CPOL | SPI_CPHA);
 
 	if (spi_get_csgpiod(spi, 0))
