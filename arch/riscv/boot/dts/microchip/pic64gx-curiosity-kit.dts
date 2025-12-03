@@ -19,6 +19,7 @@
 /dts-v1/;
 
 #include "pic64gx.dtsi"
+#include "pic64gx-pinctrl.dtsi"
 
 /* Clock frequency (in Hz) of the rtcclk */
 #define RTCCLK_FREQ	1000000
@@ -77,6 +78,9 @@
 };
 
 &gpio2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mdio1_gpio>, <&spi0_gpio>, <&can0_gpio>, <&pcie_gpio>,
+		    <&qspi_gpio>, <&uart3_gpio>, <&uart4_gpio>, <&can1_gpio>;
 	status ="okay";
 	gpio-line-names =
 		"", "", "", "", "", "", "SWITCH2", "USR_IO12",
@@ -89,6 +93,8 @@
 	status = "okay";
 	phy-mode = "sgmii";
 	phy-handle = <&phy0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mdio0_default>;
 
 	phy0: ethernet-phy@b {
 		reg = <0xb>;
@@ -117,10 +123,14 @@
 };
 
 &mmuart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_fio>;
 	status = "okay";
 };
 
 &mmuart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_default>;
 	status = "okay";
 };
 
