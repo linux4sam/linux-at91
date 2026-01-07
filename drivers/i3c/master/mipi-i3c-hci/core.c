@@ -807,7 +807,7 @@ static void i3c_hci_remove(struct platform_device *pdev)
 
 static const __maybe_unused struct of_device_id i3c_hci_of_match[] = {
 	{ .compatible = "mipi-i3c-hci", },
-	{ .compatible = "mchp,sama7d65-i3c-hci",
+	{ .compatible = "microchip,sama7d65-i3c-hci",
 	  .data = (void *)(MCHP_HCI_QUIRK_PIO_MODE | MCHP_HCI_QUIRK_OD_PP_TIMING |
 			   MCHP_HCI_QUIRK_RESP_BUF_THLD | MCHP_HCI_QUIRK_SAMA7D65) },
 	{},
