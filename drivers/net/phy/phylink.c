@@ -3260,6 +3260,16 @@ int phylink_ethtool_set_eee(struct phylink *pl, struct ethtool_keee *eee)
 }
 EXPORT_SYMBOL_GPL(phylink_ethtool_set_eee);
 
+/**
+ * phylink_init_phydev() - initialize phydev associated to phylink
+ * @pl: a pointer to a &struct phylink returned from phylink_create()
+ */
+int phylink_init_phydev(struct phylink *pl)
+{
+	return phy_init_hw(pl->phydev);
+}
+EXPORT_SYMBOL_GPL(phylink_init_phydev);
+
 /* This emulates MII registers for a fixed-mode phy operating as per the
  * passed in state. "aneg" defines if we report negotiation is possible.
  *
