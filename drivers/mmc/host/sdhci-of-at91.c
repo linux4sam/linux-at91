@@ -52,6 +52,7 @@ struct sdhci_at91_soc_data {
 	unsigned int max_sdr104_clk;
 	bool pm_runtime_disable_clks;
 	bool final_tun_brdrdy_masked;
+	bool cal_disabled;
 	u32 quirks2;
 };
 
@@ -203,6 +204,9 @@ static int sdhci_at91_platform_execute_tuning(struct sdhci_host *host, u32 opcod
 static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
 					 unsigned int timing)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_at91_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	u32 calcr;
 	u16 clk;
 	u8 mc3r, mc1r;
 
@@ -235,6 +239,12 @@ static void sdhci_at91_set_uhs_signaling(struct sdhci_host *host,
 	if (clk & SDHCI_CLOCK_CARD_EN) {
 		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
 		sdhci_writew(host, clk | SDHCI_CLOCK_CARD_EN, SDHCI_CLOCK_CONTROL);
+	}
+
+	if (priv->soc_data->cal_disabled) {
+		/* Upon tuning skip void I/O calibration */
+		calcr = sdhci_readl(host, SDMMC_CALCR);
+		sdhci_writel(host, calcr | SDMMC_CALCR_TUNDIS, SDMMC_CALCR);
 	}
 }
 
@@ -312,6 +322,7 @@ static const struct sdhci_at91_soc_data soc_data_sama5d2 = {
 	.max_sdr104_clk = 120000000,
 	.pm_runtime_disable_clks = true,
 	.final_tun_brdrdy_masked = true,
+	.cal_disabled = true,
 	.quirks2 = SDHCI_QUIRK2_BROKEN_HS200,
 };
 
