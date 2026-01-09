@@ -35,6 +35,9 @@
 #define		SDMMC_CACR_KEY		(0x46 << 8)
 #define SDMMC_CALCR	0x240
 #define		SDMMC_CALCR_EN		BIT(0)
+#define		SDMMC_CALCR_CLKDIV_MASK	GENMASK(3, 1)
+#define		SDMMC_CALCR_CLKDIV_SHIFT	1
+#define		SDMMC_MAKE_CALCR_CLKDIV(d)	(((((d) >> 1) - 1) & 0x7) << 1)
 #define		SDMMC_CALCR_ALWYSON	BIT(4)
 
 #define SDHCI_AT91_PRESET_COMMON_CONF	0x400 /* drv type B, programmable clock mode */
@@ -53,6 +56,7 @@ struct sdhci_at91_soc_data {
 	bool pm_runtime_disable_clks;
 	bool final_tun_brdrdy_masked;
 	bool cal_disabled;
+	bool needs_cal;
 	u32 quirks2;
 };
 
@@ -111,6 +115,50 @@ static void sdhci_at91_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	clk |= SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+}
+
+static int sdhci_at91_start_signal_voltage_switch(struct mmc_host *mmc,
+						  struct mmc_ios *ios)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	int err;
+	unsigned int tmp;
+	u32 calcr;
+	u16 old_ctrl, ctrl;
+	const bool dual_iov = (host->flags
+			      & (SDHCI_SIGNALING_180 | SDHCI_SIGNALING_330))
+			      == (SDHCI_SIGNALING_180 | SDHCI_SIGNALING_330);
+
+	if (dual_iov)
+		old_ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+
+	err = sdhci_start_signal_voltage_switch(mmc, ios);
+	if (err)
+		return err;
+
+	/* If we just switched from 3.3V to 1.8V the rail hasn't settled yet */
+	if (dual_iov) {
+		old_ctrl &= SDHCI_CTRL_VDD_180;
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2)
+		       & SDHCI_CTRL_VDD_180;
+		if (ctrl && !old_ctrl)
+			/* 1.8V regulator output is due to settle within 5 ms */
+			usleep_range(5000, 5500);
+	}
+
+	/* Launch an output impedance calibration of the HSIOs */
+	/* Build upon SDMMC_CALCR's reset in __sdhci_add_host() */
+	calcr = sdhci_readl(host, SDMMC_CALCR);
+	calcr &= ~SDMMC_CALCR_CLKDIV_MASK;
+	calcr |= SDMMC_CALCR_ALWYSON | SDMMC_MAKE_CALCR_CLKDIV(16);
+	sdhci_writel(host, calcr | SDMMC_CALCR_EN, SDMMC_CALCR);
+	if (read_poll_timeout(sdhci_readl, tmp, !(tmp & SDMMC_CALCR_EN),
+			      10, 20000, false, host, SDMMC_CALCR)) {
+		dev_warn(mmc_dev(mmc), "Calibration timed out\n");
+		return -EAGAIN;
+	}
+
+	return 0;
 }
 
 static int sdhci_at91_platform_execute_tuning(struct sdhci_host *host, u32 opcode)
@@ -338,6 +386,7 @@ static const struct sdhci_at91_soc_data soc_data_sama7g5 = {
 	.baseclk_is_generated_internally = true,
 	.divider_for_baseclk = 2,
 	.max_sdr104_clk = 200000000,
+	.needs_cal = true,
 	.quirks2 = SDHCI_QUIRK2_AT91_HS400_PRESET,
 };
 
@@ -629,6 +678,10 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 
 	host->quirks2 |= priv->soc_data->quirks2;
+
+	if (priv->soc_data->needs_cal)
+		host->mmc_host_ops.start_signal_voltage_switch =
+			sdhci_at91_start_signal_voltage_switch;
 
 	ret = sdhci_add_host(host);
 	if (ret)
