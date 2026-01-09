@@ -530,7 +530,6 @@
 			assigned-clock-parents = <&pmc PMC_TYPE_CORE PMC_BAUDPLL>;
 			assigned-clocks = <&pmc PMC_TYPE_GCK 75>;
 			assigned-clock-rates = <200000000>;
-			microchip,sdcal-inverted;
 			status = "disabled";
 		};
 
@@ -543,7 +542,6 @@
 			assigned-clocks = <&pmc PMC_TYPE_GCK 76>;
 			assigned-clock-rates = <200000000>;
 			assigned-clock-parents = <&pmc PMC_TYPE_CORE PMC_MCK1>;
-			microchip,sdcal-inverted;
 			status = "disabled";
 		};
 
@@ -556,7 +554,6 @@
 			assigned-clock-parents = <&pmc PMC_TYPE_CORE PMC_MCK1>;
 			assigned-clocks = <&pmc PMC_TYPE_GCK 77>;
 			assigned-clock-rates = <200000000>;
-			microchip,sdcal-inverted;
 			status = "disabled";
 		};
 
