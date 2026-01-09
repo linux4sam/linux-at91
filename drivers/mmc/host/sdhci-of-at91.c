@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/sys_soc.h>
 
 #include "sdhci-pltfm.h"
 
@@ -39,6 +40,17 @@
 #define		SDMMC_CALCR_CLKDIV_SHIFT	1
 #define		SDMMC_MAKE_CALCR_CLKDIV(d)	(((((d) >> 1) - 1) & 0x7) << 1)
 #define		SDMMC_CALCR_ALWYSON	BIT(4)
+#define		SDMMC_CALCR_TUNDIS	BIT(5)
+#define		SDMMC_CALCR_BPEN	BIT(6)
+#define		SDMMC_CALCR_CALNBP_MASK	GENMASK(23, 20)
+#define		SDMMC_CALCR_CALNBP_SHIFT	20
+#define		SDMMC_CALCR_CALPBP_MASK	GENMASK(31, 28)
+#define		SDMMC_CALCR_CALPBP_SHIFT	28
+
+#define SDMMC_CALN_1V8_TYP		4
+#define SDMMC_CALN_3V3_TYP		2
+#define SDMMC_CALP_1V8_TYP		9
+#define SDMMC_CALP_3V3_TYP		13
 
 #define SDHCI_AT91_PRESET_COMMON_CONF	0x400 /* drv type B, programmable clock mode */
 
@@ -68,6 +80,7 @@ struct sdhci_at91_priv {
 	unsigned long hclock_ns;
 	bool restore_needed;
 	bool cal_always_on;
+	bool static_cal;
 };
 
 static void sdhci_at91_set_force_card_detect(struct sdhci_host *host)
@@ -121,6 +134,8 @@ static int sdhci_at91_start_signal_voltage_switch(struct mmc_host *mmc,
 						  struct mmc_ios *ios)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_at91_priv *priv = sdhci_pltfm_priv(pltfm_host);
 	int err;
 	unsigned int tmp;
 	u32 calcr;
@@ -129,12 +144,32 @@ static int sdhci_at91_start_signal_voltage_switch(struct mmc_host *mmc,
 			      & (SDHCI_SIGNALING_180 | SDHCI_SIGNALING_330))
 			      == (SDHCI_SIGNALING_180 | SDHCI_SIGNALING_330);
 
-	if (dual_iov)
+	if (dual_iov && !priv->static_cal)
 		old_ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
 	err = sdhci_start_signal_voltage_switch(mmc, ios);
 	if (err)
 		return err;
+
+	/* Build upon SDMMC_CALCR's reset in __sdhci_add_host() */
+	calcr = sdhci_readl(host, SDMMC_CALCR);
+	if (priv->static_cal) {
+		switch (ios->signal_voltage) {
+		case MMC_SIGNAL_VOLTAGE_180:
+			calcr |= SDMMC_CALP_1V8_TYP << SDMMC_CALCR_CALPBP_SHIFT
+			      |  SDMMC_CALN_1V8_TYP << SDMMC_CALCR_CALNBP_SHIFT;
+			break;
+		case MMC_SIGNAL_VOLTAGE_330:
+			calcr |= SDMMC_CALP_3V3_TYP << SDMMC_CALCR_CALPBP_SHIFT
+			      |  SDMMC_CALN_3V3_TYP << SDMMC_CALCR_CALNBP_SHIFT;
+			break;
+		default:
+			return -EINVAL;
+		}
+		calcr |= SDMMC_CALCR_BPEN | SDMMC_CALCR_TUNDIS;
+		sdhci_writel(host, calcr, SDMMC_CALCR);
+		return 0;
+	}
 
 	/* If we just switched from 3.3V to 1.8V the rail hasn't settled yet */
 	if (dual_iov) {
@@ -147,8 +182,6 @@ static int sdhci_at91_start_signal_voltage_switch(struct mmc_host *mmc,
 	}
 
 	/* Launch an output impedance calibration of the HSIOs */
-	/* Build upon SDMMC_CALCR's reset in __sdhci_add_host() */
-	calcr = sdhci_readl(host, SDMMC_CALCR);
 	calcr &= ~SDMMC_CALCR_CLKDIV_MASK;
 	calcr |= SDMMC_CALCR_ALWYSON | SDMMC_MAKE_CALCR_CLKDIV(16);
 	sdhci_writel(host, calcr | SDMMC_CALCR_EN, SDMMC_CALCR);
@@ -599,6 +632,12 @@ static void at91_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc, struct mmc_io
 	writeb(mc3r, host->ioaddr + SDMMC_MC3R);
 }
 
+static const struct soc_device_attribute soc_broken_cal[] = {
+	{ .family = "sama7d6", .revision = "[01]" },
+	{ .family = "sama7g5", .revision = "[01]" },
+	{ /* sentinel */ }
+};
+
 static int sdhci_at91_probe(struct platform_device *pdev)
 {
 	const struct sdhci_at91_soc_data	*soc_data;
@@ -624,6 +663,8 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 		host->tuning_loop_count = 34;
 	else
 		host->tuning_loop_count = 17;
+
+	priv->static_cal = soc_device_match(soc_broken_cal) ? true : false;
 
 	/* Perform a software reset before using the IP */
 	sdhci_at91_reset(host, SDHCI_RESET_ALL);
