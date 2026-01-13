@@ -24,6 +24,7 @@
 
 #include "sdhci-pltfm.h"
 
+#define SDMMC_APSR	0x200
 #define SDMMC_MC1R	0x204
 #define		SDMMC_MC1R_DDR		BIT(3)
 #define		SDMMC_MC1R_RSTN		BIT(6)
@@ -31,6 +32,8 @@
 #define SDMMC_MC3R	0x206
 #define		SDMMC_MC3R_HS400EN	BIT(0)
 #define		SDMMC_MC3R_ESMEN	BIT(1)
+#define SDMMC_CC2R	0x20c
+#define SDMMC_TUNCR	0x220
 #define SDMMC_CACR	0x230
 #define		SDMMC_CACR_CAPWREN	BIT(0)
 #define		SDMMC_CACR_KEY		(0x46 << 8)
@@ -82,6 +85,24 @@ struct sdhci_at91_priv {
 	bool cal_always_on;
 	bool static_cal;
 };
+
+#define SDHCI_AT91_DUMP(f, x...) \
+	pr_err("%s: -at91: " f, mmc_hostname(host->mmc), ## x)
+
+static void sdhci_at91_dump_regs(struct sdhci_host *host)
+{
+	SDHCI_AT91_DUMP("======== SDHCI OF AT91 REGISTER DUMP =======\n");
+
+	SDHCI_AT91_DUMP("Present2:  0x%08x | Clock2:   0x%08x\n",
+			sdhci_readl(host, SDMMC_APSR),
+			sdhci_readl(host, SDMMC_CC2R));
+	SDHCI_AT91_DUMP("MMC ctl1:  0x%08x | MMC ctl3: 0x%08x\n",
+			sdhci_readb(host, SDMMC_MC1R),
+			sdhci_readb(host, SDMMC_MC3R));
+	SDHCI_AT91_DUMP("Outpt cal: 0x%08x | Tun ctl:  0x%08x\n",
+			sdhci_readl(host, SDMMC_CALCR),
+			sdhci_readl(host, SDMMC_TUNCR));
+}
 
 static void sdhci_at91_set_force_card_detect(struct sdhci_host *host)
 {
@@ -391,6 +412,7 @@ static const struct sdhci_ops sdhci_at91_sama5d2_ops = {
 	.set_uhs_signaling	= sdhci_at91_set_uhs_signaling,
 	.set_power		= sdhci_set_power_and_bus_voltage,
 	.hw_reset		= sdhci_at91_hw_reset,
+	.dump_vendor_regs	= sdhci_at91_dump_regs,
 };
 
 static const struct sdhci_pltfm_data sdhci_sama5d2_pdata = {
