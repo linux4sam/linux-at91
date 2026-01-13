@@ -129,6 +129,38 @@
 		regulator-always-on;
 		status = "okay";
 	};
+
+	vmmc_sdmmc1: regulator-vmmc-sdmmc1 {
+		compatible = "regulator-fixed";
+		regulator-name = "VDD_SD_CARD1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pioa PIN_PB21 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sdmmc1_card_pwr>;
+		startup-delay-us = <30>;
+		off-on-delay-us = <30000>;
+		enable-active-high;
+		regulator-boot-on;
+		vin-supply = <&vdd_3v3>;
+		status = "okay";
+	};
+
+	vmmc_sdmmc2: regulator-vmmc-sdmmc2 {
+		compatible = "regulator-fixed";
+		regulator-name = "VDD_SD_CARD2";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&pioa PIN_PC10 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sdmmc2_card_pwr>;
+		startup-delay-us = <30>;
+		off-on-delay-us = <30000>;
+		enable-active-high;
+		regulator-boot-on;
+		vin-supply = <&vdd_3v3>;
+		status = "okay";
+	};
 };
 
 &adc {
@@ -671,9 +703,8 @@
 			bias-disable;
 		};
 
-		ck_rstn_vddsel {
+		ck_vddsel {
 			pinmux = <PIN_PB23__SDMMC1_CK>,
-				 <PIN_PB21__SDMMC1_RSTN>,
 				 <PIN_PB30__SDMMC1_1V8SEL>;
 			slew-rate = <0>;
 			bias-disable;
@@ -684,6 +715,11 @@
 		pinmux = <PIN_PB29__GPIO>;
 		bias-disable;
 		input-debounce = <1>;
+	};
+
+	pinctrl_sdmmc1_card_pwr: sdmmc1-card-pwr {
+		pinmux = <PIN_PB21__GPIO>;
+		bias-disable;
 	};
 
 	pinctrl_sdmmc2_default: sdmmc2_default {
@@ -697,10 +733,9 @@
 			bias-disable;
 		};
 
-		ck_rstn_vddsel {
+		ck_wp_vddsel {
 			pinmux = <PIN_PC28__SDMMC2_CK>,
 				 <PIN_PD3__SDMMC2_1V8SEL>,
-				 <PIN_PC10__GPIO>,
 				 <PIN_PD1__SDMMC2_WP>;
 			slew-rate = <0>;
 			bias-disable;
@@ -711,6 +746,11 @@
 		pinmux = <PIN_PD2__GPIO>;
 		bias-disable;
 		input-debounce = <1>;
+	};
+
+	pinctrl_sdmmc2_card_pwr: sdmmc2-card-pwr {
+		pinmux = <PIN_PC10__GPIO>;
+		bias-disable;
 	};
 
 	pinctrl_usb_default: usb_default {
@@ -761,7 +801,8 @@
 
 &sdmmc1 {
 	bus-width = <4>;
-	vmmc-supply = <&vdd_3v3>;
+	full-pwr-cycle;
+	vmmc-supply = <&vmmc_sdmmc1>;
 	vqmmc-supply = <&vdd_3v3>;
 	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
 	disable-wp;
@@ -772,7 +813,8 @@
 
 &sdmmc2 {
 	bus-width = <4>;
-	vmmc-supply = <&vdd_3v3>;
+	full-pwr-cycle;
+	vmmc-supply = <&vmmc_sdmmc2>;
 	vqmmc-supply = <&vdd_3v3>;
 	cd-gpios = <&pioa PIN_PD2 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
