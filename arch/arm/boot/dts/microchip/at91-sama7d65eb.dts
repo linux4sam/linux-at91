@@ -803,7 +803,6 @@
 	bus-width = <4>;
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc1>;
-	vqmmc-supply = <&vdd_3v3>;
 	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
 	disable-wp;
 	pinctrl-names = "default";
@@ -815,7 +814,6 @@
 	bus-width = <4>;
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc2>;
-	vqmmc-supply = <&vdd_3v3>;
 	cd-gpios = <&pioa PIN_PD2 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc2_default &pinctrl_sdmmc2_cd>;
