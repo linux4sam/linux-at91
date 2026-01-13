@@ -671,14 +671,19 @@
 			bias-disable;
 		};
 
-		ck_cd_rstn_vddsel {
+		ck_rstn_vddsel {
 			pinmux = <PIN_PB23__SDMMC1_CK>,
 				 <PIN_PB21__SDMMC1_RSTN>,
-				 <PIN_PB30__SDMMC1_1V8SEL>,
-				 <PIN_PB29__SDMMC1_CD>;
+				 <PIN_PB30__SDMMC1_1V8SEL>;
 			slew-rate = <0>;
 			bias-disable;
 		};
+	};
+
+	pinctrl_sdmmc1_cd: sdmmc1-card-detect {
+		pinmux = <PIN_PB29__GPIO>;
+		bias-disable;
+		input-debounce = <1>;
 	};
 
 	pinctrl_sdmmc2_default: sdmmc2_default {
@@ -692,15 +697,20 @@
 			bias-disable;
 		};
 
-		ck_cd_rstn_vddsel {
+		ck_rstn_vddsel {
 			pinmux = <PIN_PC28__SDMMC2_CK>,
 				 <PIN_PD3__SDMMC2_1V8SEL>,
 				 <PIN_PC10__GPIO>,
-				 <PIN_PD2__SDMMC2_CD>,
 				 <PIN_PD1__SDMMC2_WP>;
 			slew-rate = <0>;
 			bias-disable;
 		};
+	};
+
+	pinctrl_sdmmc2_cd: sdmmc2-card-detect {
+		pinmux = <PIN_PD2__GPIO>;
+		bias-disable;
+		input-debounce = <1>;
 	};
 
 	pinctrl_usb_default: usb_default {
@@ -753,9 +763,10 @@
 	bus-width = <4>;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vdd_3v3>;
+	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
 	disable-wp;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sdmmc1_default>;
+	pinctrl-0 = <&pinctrl_sdmmc1_default &pinctrl_sdmmc1_cd>;
 	status = "okay";
 };
 
@@ -763,8 +774,9 @@
 	bus-width = <4>;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vdd_3v3>;
+	cd-gpios = <&pioa PIN_PD2 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sdmmc2_default>;
+	pinctrl-0 = <&pinctrl_sdmmc2_default &pinctrl_sdmmc2_cd>;
 	status = "okay";
 };
 
