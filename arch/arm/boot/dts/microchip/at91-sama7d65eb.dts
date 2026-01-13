@@ -508,7 +508,7 @@
 &pioa {
 	pinctrl_adc_default: adc_default {
 		pinmux = <PIN_PC5__GPIO>;
-		bias-disalbe;
+		bias-disable;
 	};
 
 	pinctrl_can1_default: can1_default {
