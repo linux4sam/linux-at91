@@ -338,15 +338,15 @@
 
 				vddcore: VDD_CORE {
 					regulator-name = "VDD_CORE";
-					regulator-min-microvolt = <1150000>;
-					regulator-max-microvolt = <1150000>;
+					regulator-min-microvolt = <1050000>;
+					regulator-max-microvolt = <1050000>;
 					regulator-initial-mode = <2>;
 					regulator-allowed-modes = <2>, <4>;
 					regulator-always-on;
 
 					regulator-state-standby {
 						regulator-on-in-suspend;
-						regulator-suspend-microvolt = <1150000>;
+						regulator-suspend-microvolt = <1050000>;
 						regulator-mode = <4>;
 					};
 
