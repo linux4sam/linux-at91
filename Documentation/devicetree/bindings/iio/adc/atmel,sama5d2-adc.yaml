@@ -11,10 +11,17 @@ maintainers:
 
 properties:
   compatible:
-    enum:
-      - atmel,sama5d2-adc
-      - microchip,sam9x60-adc
-      - microchip,sama7g5-adc
+    oneOf:
+      - enum:
+          - atmel,sama5d2-adc
+          - atmel,sama5d3-adc
+          - atmel,at91sam9x5-adc
+          - microchip,sama7g5-adc
+      - items:
+          - enum:
+              - microchip,sam9x60-adc
+              - microchip,sam9x7-adc
+          - const: atmel,sama5d2-adc
 
   reg:
     maxItems: 1
