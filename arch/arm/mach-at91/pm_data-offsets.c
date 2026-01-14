@@ -20,6 +20,7 @@ int main(void)
 						 pmc_version));
 	DEFINE(PM_DATA_PMC_MCKS,	offsetof(struct at91_pm_data,
 						 pmc_mcks));
+	DEFINE(PM_DATA_LPM,		offsetof(struct at91_pm_data, lpm));
 
 	return 0;
 }

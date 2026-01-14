@@ -56,6 +56,10 @@ properties:
     description: enable real-time timer wake-up
     type: boolean
 
+  microchip,lpm-connection:
+    description: list of phandles to devices which are connected to SHDWC's LPM pin
+    $ref: /schemas/types.yaml#/definitions/phandle
+
 patternProperties:
   "^input@[0-15]$":
     description:
@@ -95,6 +99,17 @@ allOf:
     then:
       properties:
         atmel,wakeup-rtt-timer: false
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - atmel,sama5d2-shdwc
+              - microchip,sam9x60-shdwc
+    then:
+      properties:
+        microchip,lpm-connection: false
 
 additionalProperties: false
 
