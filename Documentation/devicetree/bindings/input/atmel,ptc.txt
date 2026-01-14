@@ -1,0 +1,22 @@
+Atmel PTC Subsystem
+
+The Atmel Peripheral Touch Controller subsystem offers built-in hardware
+for capacitive touch measurement on sensors that function as buttons, sliders
+and wheels.
+
+Required properties:
+- compatible: 		Must be "atmel,sama5d2-ptc"
+- reg: 			Address, length of the shared memory and ppp registers location
+			and length.
+- clocks: 		Phandlers to the clocks.
+- clock-names: 		Must be "ptc_clk", "ptc_int_osc", "slow_clk".
+
+Example:
+	ptc@fc060000 {
+		compatible = "atmel,sama5d2-ptc";
+		reg = <0x00800000 0x10000
+		       0xfc060000 0xcf>;
+		interrupts = <58 IRQ_TYPE_LEVEL_HIGH 7>;
+		clocks = <&ptc_clk>, <&main>, <&clk32k>;
+		clock-names = "ptc_clk", "ptc_int_osc", "slow_clk";
+	};

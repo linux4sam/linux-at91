@@ -148,6 +148,18 @@ config INPUT_BBNSM_PWRKEY
 	  To compile this driver as a module, choose M here; the
 	  module will be called bbnsm_pwrkey.
 
+config INPUT_ATMEL_PTC
+	tristate "Atmel PTC Driver"
+	depends on OF || COMPILE_TEST
+	depends on SOC_SAMA5D2
+	help
+	  Say Y to enable support for the Atmel PTC Subsystem.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called atmel_ptc.
+	  If you compile it as a built-in driver, you have to build the
+	  firmware into the kernel or to use an initrd.
+
 config INPUT_BMA150
 	tristate "BMA150/SMB380 acceleration sensor support"
 	depends on I2C

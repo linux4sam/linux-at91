@@ -1160,6 +1160,16 @@
 				reg = <0xfc05c000 0x20>;
 			};
 
+			ptc@fc060000 {
+				compatible = "atmel,sama5d2-ptc";
+				reg = <0x00800000 0x10000
+				       0xfc060000 0xcf>;
+				interrupts = <58 IRQ_TYPE_LEVEL_HIGH 7>;
+				clocks = <&pmc PMC_TYPE_PERIPHERAL 58>, <&pmc PMC_TYPE_CORE PMC_MAIN>, <&clk32k>;
+				clock-names = "ptc_clk", "ptc_int_osc", "slow_clk";
+				status = "disabled";
+			};
+
 			chipid@fc069000 {
 				compatible = "atmel,sama5d2-chipid";
 				reg = <0xfc069000 0x8>;
