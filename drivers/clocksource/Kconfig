@@ -738,7 +738,7 @@ config INGENIC_OST
 	  Support for the Operating System Timer of the Ingenic JZ SoCs.
 
 config MICROCHIP_PIT64B
-	bool "Microchip PIT64B support"
+	bool "Microchip PIT64B support" if COMPILE_TEST
 	depends on OF && ARM
 	select TIMER_OF
 	help
