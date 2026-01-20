@@ -8,6 +8,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/i3c/master.h>
@@ -597,6 +598,9 @@ static int i3c_hci_init(struct i3c_hci *hci)
 	hci->DAT_regs = offset ? hci->base_regs + offset : NULL;
 	hci->DAT_entries = FIELD_GET(DAT_TABLE_SIZE, regval);
 	hci->DAT_entry_size = FIELD_GET(DAT_ENTRY_SIZE, regval) ? 0 : 8;
+	/* Microchip SAMA7D65 SoC doesnot support DAT entry size bits in the DAT section offset register */
+	if (hci->quirks & MCHP_HCI_QUIRK_SAMA7D65)
+		hci->DAT_entry_size = 8;
 	if (size_in_dwords)
 		hci->DAT_entries = 4 * hci->DAT_entries / hci->DAT_entry_size;
 	dev_info(&hci->master.dev, "DAT: %u %u-bytes entries at offset %#x\n",
@@ -607,6 +611,9 @@ static int i3c_hci_init(struct i3c_hci *hci)
 	hci->DCT_regs = offset ? hci->base_regs + offset : NULL;
 	hci->DCT_entries = FIELD_GET(DCT_TABLE_SIZE, regval);
 	hci->DCT_entry_size = FIELD_GET(DCT_ENTRY_SIZE, regval) ? 0 : 16;
+	/* Microchip SAMA7D65 SoC doesnot support DCT entry size bits in the DCT section offset register */
+	if (hci->quirks & MCHP_HCI_QUIRK_SAMA7D65)
+		hci->DCT_entry_size = 16;
 	if (size_in_dwords)
 		hci->DCT_entries = 4 * hci->DCT_entries / hci->DCT_entry_size;
 	dev_info(&hci->master.dev, "DCT: %u %u-bytes entries at offset %#x\n",
@@ -699,6 +706,10 @@ static int i3c_hci_init(struct i3c_hci *hci)
 	if (hci->quirks & HCI_QUIRK_PIO_MODE)
 		hci->RHS_regs = NULL;
 
+	/* Microchip SAMA7d65 SoC supports only PIO mode */
+	if (hci->quirks & MCHP_HCI_QUIRK_PIO_MODE)
+		hci->RHS_regs = NULL;
+
 	/* Try activating DMA operations first */
 	if (hci->RHS_regs) {
 		reg_clear(HC_CONTROL, HC_CONTROL_PIO_MODE);
@@ -734,6 +745,10 @@ static int i3c_hci_init(struct i3c_hci *hci)
 	if (hci->quirks & HCI_QUIRK_OD_PP_TIMING)
 		amd_set_od_pp_timing(hci);
 
+	/* Configure OD and PP timings for Microchip platforms */
+	if (hci->quirks & MCHP_HCI_QUIRK_OD_PP_TIMING)
+		mchp_set_od_pp_timing(hci);
+
 	return 0;
 }
 
@@ -748,6 +763,16 @@ static int i3c_hci_probe(struct platform_device *pdev)
 	hci->base_regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(hci->base_regs))
 		return PTR_ERR(hci->base_regs);
+
+#if defined(CONFIG_SOC_SAMA7D65)
+	hci->pclk = devm_clk_get_enabled(&pdev->dev, "pclk");
+	if (IS_ERR(hci->pclk))
+		return PTR_ERR(hci->pclk);
+
+	hci->gclk = devm_clk_get_enabled(&pdev->dev, "gclk");
+	if (IS_ERR(hci->gclk))
+		return PTR_ERR(hci->gclk);
+#endif
 
 	platform_set_drvdata(pdev, hci);
 	/* temporary for dev_printk's, to be replaced in i3c_master_register */
@@ -782,6 +807,9 @@ static void i3c_hci_remove(struct platform_device *pdev)
 
 static const __maybe_unused struct of_device_id i3c_hci_of_match[] = {
 	{ .compatible = "mipi-i3c-hci", },
+	{ .compatible = "microchip,sama7d65-i3c-hci",
+	  .data = (void *)(MCHP_HCI_QUIRK_PIO_MODE | MCHP_HCI_QUIRK_OD_PP_TIMING |
+			   MCHP_HCI_QUIRK_RESP_BUF_THLD | MCHP_HCI_QUIRK_SAMA7D65) },
 	{},
 };
 MODULE_DEVICE_TABLE(of, i3c_hci_of_match);
