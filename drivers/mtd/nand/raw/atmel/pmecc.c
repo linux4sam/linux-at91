@@ -41,6 +41,7 @@
  * to expose the needed lib/bch.c helpers/functions and re-use them here.
  */
 
+#include <linux/clk.h>
 #include <linux/genalloc.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
@@ -144,11 +145,13 @@ struct atmel_pmecc_caps {
 	int el_offset;
 	bool correct_erased_chunks;
 	bool clk_ctrl;
+	bool pmc_clk_ctrl;
 };
 
 struct atmel_pmecc {
 	struct device *dev;
 	const struct atmel_pmecc_caps *caps;
+	struct clk *clk;
 
 	struct {
 		void __iomem *base;
@@ -827,22 +830,43 @@ static struct atmel_pmecc *atmel_pmecc_create(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct atmel_pmecc *pmecc;
+	void *err;
+	int ret;
 
 	pmecc = devm_kzalloc(dev, sizeof(*pmecc), GFP_KERNEL);
 	if (!pmecc)
 		return ERR_PTR(-ENOMEM);
+
+	/* Enable clk if controlled by pmc */
+	if (caps->pmc_clk_ctrl) {
+		pmecc->clk = devm_clk_get(dev, NULL);
+		if (IS_ERR(pmecc->clk)) {
+			dev_err(dev, "failed to get pmecc clk\n");
+			return ERR_CAST(pmecc->clk);
+		}
+
+		ret = clk_prepare_enable(pmecc->clk);
+		if (ret) {
+			dev_err(dev, "failed to enable pmecc clk, ret = %d\n", ret);
+			return ERR_PTR(ret);
+		}
+	}
 
 	pmecc->caps = caps;
 	pmecc->dev = dev;
 	mutex_init(&pmecc->lock);
 
 	pmecc->regs.base = devm_platform_ioremap_resource(pdev, pmecc_res_idx);
-	if (IS_ERR(pmecc->regs.base))
-		return ERR_CAST(pmecc->regs.base);
+	if (IS_ERR(pmecc->regs.base)) {
+		err = ERR_CAST(pmecc->regs.base);
+		goto clk_disable;
+	}
 
 	pmecc->regs.errloc = devm_platform_ioremap_resource(pdev, errloc_res_idx);
-	if (IS_ERR(pmecc->regs.errloc))
-		return ERR_CAST(pmecc->regs.errloc);
+	if (IS_ERR(pmecc->regs.errloc)) {
+		err = ERR_CAST(pmecc->regs.errloc);
+		goto clk_disable;
+	}
 
 	/* pmecc data setup time */
 	if (caps->clk_ctrl)
@@ -853,6 +877,12 @@ static struct atmel_pmecc *atmel_pmecc_create(struct platform_device *pdev,
 	atmel_pmecc_reset(pmecc);
 
 	return pmecc;
+
+clk_disable:
+	if (caps->pmc_clk_ctrl)
+		clk_disable_unprepare(pmecc->clk);
+
+	return err;
 }
 
 static void devm_atmel_pmecc_put(struct device *dev, void *res)
@@ -902,6 +932,13 @@ static struct atmel_pmecc_caps at91sam9g45_caps = {
 	.nstrengths = 5,
 	.el_offset = 0x8c,
 	.clk_ctrl = true,
+};
+
+static struct atmel_pmecc_caps sam9x7_caps = {
+	.strengths = atmel_pmecc_strengths,
+	.nstrengths = 5,
+	.el_offset = 0x8c,
+	.pmc_clk_ctrl = true,
 };
 
 static struct atmel_pmecc_caps sama5d4_caps = {
@@ -973,6 +1010,7 @@ static const struct of_device_id atmel_pmecc_match[] = {
 	{ .compatible = "atmel,at91sam9g45-pmecc", &at91sam9g45_caps },
 	{ .compatible = "atmel,sama5d4-pmecc", &sama5d4_caps },
 	{ .compatible = "atmel,sama5d2-pmecc", &sama5d2_caps },
+	{ .compatible = "microchip,sam9x7-pmecc", &sam9x7_caps },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, atmel_pmecc_match);
@@ -998,12 +1036,21 @@ static int atmel_pmecc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void atmel_pmecc_remove(struct platform_device *pdev)
+{
+	struct atmel_pmecc *pmecc = platform_get_drvdata(pdev);
+
+	if (pmecc->caps->pmc_clk_ctrl)
+		clk_disable_unprepare(pmecc->clk);
+}
+
 static struct platform_driver atmel_pmecc_driver = {
 	.driver = {
 		.name = "atmel-pmecc",
 		.of_match_table = atmel_pmecc_match,
 	},
 	.probe = atmel_pmecc_probe,
+	.remove = atmel_pmecc_remove,
 };
 module_platform_driver(atmel_pmecc_driver);
 
