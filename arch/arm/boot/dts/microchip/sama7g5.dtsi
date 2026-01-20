@@ -884,6 +884,7 @@
 		dma0: dma-controller@e2808000 {
 			compatible = "microchip,sama7g5-dma";
 			reg = <0xe2808000 0x1000>;
+			dma-channels = <32>;
 			interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <1>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 22>;
@@ -894,6 +895,7 @@
 		dma1: dma-controller@e280c000 {
 			compatible = "microchip,sama7g5-dma";
 			reg = <0xe280c000 0x1000>;
+			dma-channels = <32>;
 			interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <1>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 23>;
@@ -905,6 +907,7 @@
 		dma2: dma-controller@e1200000 {
 			compatible = "microchip,sama7g5-dma";
 			reg = <0xe1200000 0x1000>;
+			dma-channels = <8>;
 			interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <1>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 24>;
