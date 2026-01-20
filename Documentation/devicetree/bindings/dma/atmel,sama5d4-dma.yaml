@@ -57,6 +57,13 @@ properties:
   clock-names:
     const: dma_clk
 
+  dma-channels:
+    description: |
+      Specifies the total DMA channels per XDMAC. It is required when the
+      number of channels could not be got from register XDMAC_GTYPE
+      (accessing from non-secure world for some devices).
+    maxItems: 1
+
 required:
   - compatible
   - reg
