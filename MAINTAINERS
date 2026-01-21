@@ -24919,6 +24919,17 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/dma/snps,dw-axi-dmac.yaml
 F:	drivers/dma/dw-axi-dmac/
 
+SYNOPSYS DESIGNWARE MIPI DPHY CSI-2 HOST DRIVER
+M:	Luis Oliveira <luis.oliveira@synopsys.com>
+L:	linux-media@vger.kernel.org
+S:	Maintained
+T:	git git://linuxtv.org/media_tree.git
+F:	drivers/media/platform/dwc
+F:	Documentation/devicetree/bindings/media/snps,dw-csi.yaml
+F:	Documentation/devicetree/bindings/phy/snps,dw-dphy-rx.txt
+F:	include/media/dwc/dw-csi-data.h
+F:	include/media/dwc/dw-dphy-data.h
+
 SYNOPSYS DESIGNWARE DMAC DRIVER
 M:	Viresh Kumar <vireshk@kernel.org>
 R:	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
