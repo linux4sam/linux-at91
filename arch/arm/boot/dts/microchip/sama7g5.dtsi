@@ -1039,8 +1039,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			temperature_calib: calib@1 {
-				reg = <OTP_PKT(1) 76>;
+			temperature_calib: calib@41435354 {
+				reg = <0x41435354 0x4c>;	/* Temp calib data packet TAG */
 			};
 		};
 
