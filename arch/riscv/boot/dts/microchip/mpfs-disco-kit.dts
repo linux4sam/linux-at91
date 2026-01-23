@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
-/* Copyright (c) 2020-2025 Microchip Technology Inc */
+/* Copyright (c) 2020-2021 Microchip Technology Inc */
 
 /dts-v1/;
 
@@ -8,19 +8,37 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
 
+/* Clock frequency (in Hz) of the rtcclk */
+#define RTCCLK_FREQ		   1000000
+
 / {
+	#address-cells = <2>;
+	#size-cells = <2>;
 	model = "Microchip PolarFire-SoC Discovery Kit";
 	compatible = "microchip,mpfs-disco-kit-reference-rtl-v2507",
 		     "microchip,mpfs-disco-kit",
 		     "microchip,mpfs";
 
+	soc {
+		dma-ranges = <0x14 0x0 0x0 0x80000000 0x0 0x4000000>,
+			     <0x14 0x4000000 0x0 0xc4000000 0x0 0x6000000>,
+			     <0x14 0xa000000 0x0 0x8a000000 0x0 0x8000000>,
+			     <0x14 0x12000000 0x14 0x12000000 0x0 0x10000000>,
+			     <0x14 0x22000000 0x10 0x22000000 0x0 0x1e000000>;
+	};
+
 	aliases {
 		ethernet0 = &mac0;
 		serial4 = &mmuart4;
+		serial5 = &coreuart0;
 	};
 
 	chosen {
 		stdout-path = "serial4:115200n8";
+	};
+
+	cpus {
+		timebase-frequency = <RTCCLK_FREQ>;
 	};
 
 	leds {
@@ -75,9 +93,29 @@
 		};
 	};
 
-	ddrc_cache_lo: memory@80000000 {
+	kernel: memory@80000000 {
 		device_type = "memory";
-		reg = <0x0 0x80000000 0x0 0x40000000>;
+		reg = <0x0 0x80000000 0x0 0x4000000>;
+	};
+
+	ddr_cached_low: memory@8a000000 {
+		device_type = "memory";
+		reg = <0x0 0x8a000000 0x0 0x8000000>;
+	};
+
+	ddr_non_cached_low: memory@c4000000 {
+		device_type = "memory";
+		reg = <0x0 0xc4000000 0x0 0x6000000>;
+	};
+
+	ddr_cached_high: memory@1022000000 {
+		device_type = "memory";
+		reg = <0x10 0x22000000 0x0 0x1e000000>;
+	};
+
+	ddr_non_cached_high: memory@1412000000 {
+		device_type = "memory";
+		reg = <0x14 0x12000000 0x0 0x10000000>;
 	};
 
 	reserved-memory {
@@ -85,10 +123,71 @@
 		#size-cells = <2>;
 		ranges;
 
-		hss_payload: region@bfc00000 {
-			reg = <0x0 0xbfc00000 0x0 0x400000>;
+		hss: hss-buffer@103fc00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x10 0x3fc00000 0x0 0x200000>;
 			no-map;
 		};
+
+		dma_non_cached_low: non-cached-low-buffer {
+			compatible = "shared-dma-pool";
+			size = <0x0 0x4000000>;
+			no-map;
+			alloc-ranges = <0x0 0xc4000000 0x0 0x4000000>;
+		};
+
+		dma_non_cached_high: non-cached-high-buffer {
+			compatible = "shared-dma-pool";
+			size = <0x0 0x10000000>;
+			no-map;
+			linux,dma-default;
+			alloc-ranges = <0x14 0x12000000 0x0 0x10000000>;
+		};
+
+		fabricbuf0ddrc: buffer@88000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x88000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		fabricbuf1ddrnc: buffer@c8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0xc8000000 0x0 0x2000000>;
+			no-map;
+		 };
+
+		fabricbuf2ddrncwcb: buffer@d8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0xd8000000 0x0 0x2000000>;
+			no-map;
+		};
+	};
+
+	udmabuf0 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-c0";
+		minor-number = <0>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf0ddrc>;
+		sync-mode = <3>;
+	};
+
+	udmabuf1 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-nc0";
+		minor-number = <1>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf1ddrnc>;
+		sync-mode = <3>;
+	};
+
+	udmabuf2 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-nc-wcb0";
+		minor-number = <2>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf2ddrncwcb>;
+		sync-mode = <3>;
 	};
 };
 
@@ -96,25 +195,23 @@
 	status = "okay";
 };
 
+&coreuart0 {
+	status = "okay";
+};
+
+&fpgadma {
+	status = "okay";
+};
+
+&fpgalsram {
+	status = "okay";
+};
+
 &gpio1 {
-	interrupts = <27>, <28>, <29>, <30>,
-		     <31>, <32>, <33>, <47>,
-		     <35>, <36>, <37>, <38>,
-		     <39>, <40>, <41>, <42>,
-		     <43>, <44>, <45>, <46>,
-		     <47>, <48>, <49>, <50>;
 	status = "okay";
 };
 
 &gpio2 {
-	interrupts = <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>,
-		     <53>, <53>, <53>, <53>;
 	status = "okay";
 };
 
@@ -126,14 +223,11 @@
 	status = "okay";
 };
 
-&ihc {
-	status = "okay";
-};
-
 &mac0 {
+	dma-noncoherent;
+	status = "okay";
 	phy-mode = "sgmii";
 	phy-handle = <&phy0>;
-	status = "okay";
 
 	phy0: ethernet-phy@b {
 		reg = <0xb>;
@@ -145,6 +239,7 @@
 };
 
 &mmc {
+	dma-noncoherent;
 	bus-width = <4>;
 	disable-wp;
 	cap-sd-highspeed;
@@ -186,5 +281,9 @@
 };
 
 &syscontroller {
+	status = "okay";
+};
+
+&wdt1 {
 	status = "okay";
 };
