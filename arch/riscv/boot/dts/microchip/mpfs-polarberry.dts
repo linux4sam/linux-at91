@@ -10,6 +10,10 @@
 	model = "Sundance PolarBerry";
 	compatible = "sundance,polarberry", "microchip,mpfs";
 
+	soc {
+		dma-ranges = <0 0 0 0 0x40 0>;
+	};
+
 	aliases {
 		ethernet0 = &mac1;
 		serial0 = &mmuart0;
@@ -85,5 +89,9 @@
 };
 
 &syscontroller {
+	status = "okay";
+};
+
+&wdt1 {
 	status = "okay";
 };
