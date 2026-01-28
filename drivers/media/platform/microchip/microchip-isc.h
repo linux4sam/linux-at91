@@ -88,7 +88,7 @@ struct isc_format {
 #define GAM_RENABLE	BIT(9)
 #define VHXS_ENABLE	BIT(10)
 #define CSC_ENABLE	BIT(11)
-#define CBC_ENABLE	BIT(12)
+#define CBHS_ENABLE	BIT(12)
 #define SUB422_ENABLE	BIT(13)
 #define SUB420_ENABLE	BIT(14)
 
@@ -139,6 +139,8 @@ struct isc_ctrls {
 
 	u32 brightness;
 	u32 contrast;
+	u32 hue;
+	u32 saturation;
 	u8 gamma_index;
 #define ISC_WB_NONE	0
 #define ISC_WB_AUTO	1
@@ -149,13 +151,15 @@ struct isc_ctrls {
 	u32 gain[HIST_BAYER];
 	s32 offset[HIST_BAYER];
 
-	u32 hist_entry[HIST_ENTRIES];
+	u32 hist_entry[HIST_BAYER][HIST_ENTRIES];
 	u32 hist_count[HIST_BAYER];
 	u8 hist_id;
 	u8 hist_stat;
 #define HIST_MIN_INDEX		0
 #define HIST_MAX_INDEX		1
 	u32 hist_minmax[HIST_BAYER][2];
+	u32 channel_avg[HIST_BAYER];      /* Average pixel intensity per channel */
+	u32 total_pixels[HIST_BAYER];     /* Total pixels per channel */
 };
 
 #define ISC_PIPE_LINE_NODE_NUM	15
@@ -193,6 +197,23 @@ enum isc_scaler_pads {
 	ISC_SCALER_PAD_SINK	= 0,
 	ISC_SCALER_PAD_SOURCE	= 1,
 	ISC_SCALER_PADS_NUM	= 2,
+};
+
+/* Video device node structure */
+struct isc_vdev_node {
+	struct video_device vdev;
+	struct vb2_queue buf_queue;
+	struct mutex vlock; /* lock for video node */
+	struct media_pad pad;
+};
+
+/* Statistics device structure */
+struct isc_stats {
+	struct isc_device *isc;
+	struct isc_vdev_node vnode;
+	struct list_head stat;
+	spinlock_t lock; /* lock for buffers */
+	struct v4l2_format vdev_fmt;
 };
 
 /*
@@ -336,7 +357,22 @@ struct isc_device {
 		struct v4l2_ctrl	*b_off_ctrl;
 		struct v4l2_ctrl	*gr_off_ctrl;
 		struct v4l2_ctrl	*gb_off_ctrl;
+		struct v4l2_ctrl        *cc_rr;
+		struct v4l2_ctrl        *cc_rg;
+		struct v4l2_ctrl        *cc_rb;
+		struct v4l2_ctrl        *cc_or;
+		struct v4l2_ctrl        *cc_gr;
+		struct v4l2_ctrl        *cc_gg;
+		struct v4l2_ctrl        *cc_gb;
+		struct v4l2_ctrl        *cc_og;
+		struct v4l2_ctrl        *cc_br;
+		struct v4l2_ctrl        *cc_bg;
+		struct v4l2_ctrl        *cc_bb;
+		struct v4l2_ctrl        *cc_ob;
 	};
+
+	/* Statistics device */
+	struct isc_stats stats;
 
 #define GAMMA_ENTRIES	64
 	/* pointer to the defined gamma table */
@@ -394,6 +430,10 @@ int isc_scaler_link(struct isc_device *isc);
 int isc_scaler_init(struct isc_device *isc);
 int isc_mc_init(struct isc_device *isc, u32 ver);
 void isc_mc_cleanup(struct isc_device *isc);
+int isc_stats_register(struct isc_device *isc);
+void isc_stats_unregister(struct isc_device *isc);
+void isc_stats_isr(struct isc_stats *stats);
+bool isc_stats_active(struct isc_stats *stats);
 
 struct isc_format *isc_find_format_by_code(struct isc_device *isc,
 					   unsigned int code, int *index);

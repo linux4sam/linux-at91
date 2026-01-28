@@ -32,7 +32,7 @@
 #include "microchip-isc-regs.h"
 #include "microchip-isc.h"
 
-#define ISC_IS_FORMAT_RAW(mbus_code) \
+#define ISC_IS_FORMAT_RAW(mbus_code)		\
 	(((mbus_code) & 0xf000) == 0x3000)
 
 #define ISC_IS_FORMAT_GREY(mbus_code) \
@@ -262,6 +262,10 @@ static void isc_set_histogram(struct isc_device *isc, bool enable)
 	struct isc_ctrls *ctrls = &isc->ctrls;
 
 	if (enable) {
+		/* Initialize histogram data storage for clean start */
+		memset(ctrls->total_pixels, 0, sizeof(ctrls->total_pixels));
+		memset(ctrls->hist_minmax, 0, sizeof(ctrls->hist_minmax));
+
 		regmap_write(regmap, ISC_HIS_CFG + isc->offsets.his,
 			     ISC_HIS_CFG_MODE_GR |
 			     (isc->config.sd_format->cfa_baycfg
@@ -271,10 +275,10 @@ static void isc_set_histogram(struct isc_device *isc, bool enable)
 			     ISC_HIS_CTRL_EN);
 		regmap_write(regmap, ISC_INTEN, ISC_INT_HISDONE);
 		ctrls->hist_id = ISC_HIS_CFG_MODE_GR;
+		ctrls->hist_stat = HIST_ENABLED;
 		isc_update_profile(isc);
 		regmap_write(regmap, ISC_CTRLEN, ISC_CTRL_HISREQ);
 
-		ctrls->hist_stat = HIST_ENABLED;
 	} else {
 		regmap_write(regmap, ISC_INTDIS, ISC_INT_HISDONE);
 		regmap_write(regmap, ISC_HIS_CTRL + isc->offsets.his,
@@ -314,8 +318,7 @@ static int isc_configure(struct isc_device *isc)
 	 * The current implemented histogram is available for RAW R, B, GB, GR
 	 * channels. We need to check if sensor is outputting RAW BAYER
 	 */
-	if (isc->ctrls.awb &&
-	    ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code))
+	if (ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code))
 		isc_set_histogram(isc, true);
 	else
 		isc_set_histogram(isc, false);
@@ -787,7 +790,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				WB_ENABLE | GAM_ENABLES | DPC_BLCENABLE |
-				CC_ENABLE;
+				DPC_GDCENABLE | CBHS_ENABLE | CC_ENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
 		}
@@ -797,7 +800,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				CSC_ENABLE | GAM_ENABLES | WB_ENABLE |
-				SUB420_ENABLE | SUB422_ENABLE | CBC_ENABLE |
+				SUB420_ENABLE | SUB422_ENABLE | CBHS_ENABLE |
 				DPC_BLCENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
@@ -808,7 +811,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				CSC_ENABLE | WB_ENABLE | GAM_ENABLES |
-				SUB422_ENABLE | CBC_ENABLE | DPC_BLCENABLE;
+				SUB422_ENABLE | CBHS_ENABLE | DPC_BLCENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
 		}
@@ -820,7 +823,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				CSC_ENABLE | WB_ENABLE | GAM_ENABLES |
-				SUB422_ENABLE | CBC_ENABLE | DPC_BLCENABLE;
+				SUB422_ENABLE | CBHS_ENABLE | DPC_BLCENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
 		}
@@ -831,7 +834,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				CSC_ENABLE | WB_ENABLE | GAM_ENABLES |
-				CBC_ENABLE | DPC_BLCENABLE;
+				CBHS_ENABLE | DPC_BLCENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
 		}
@@ -1222,7 +1225,7 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 	struct regmap *regmap = isc->regmap;
 	struct isc_ctrls *ctrls = &isc->ctrls;
 	u32 *hist_count = &ctrls->hist_count[ctrls->hist_id];
-	u32 *hist_entry = &ctrls->hist_entry[0];
+	u32 *hist_entry = &ctrls->hist_entry[ctrls->hist_id][0];
 	u32 i;
 
 	*min = 0;
@@ -1231,30 +1234,88 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 	regmap_bulk_read(regmap, ISC_HIS_ENTRY + isc->offsets.his_entry,
 			 hist_entry, HIST_ENTRIES);
 
-	*hist_count = 0;
-	/*
-	 * we deliberately ignore the end of the histogram,
-	 * the most white pixels
-	 */
-	for (i = 1; i < HIST_ENTRIES; i++) {
-		if (*hist_entry && !*min)
-			*min = i;
-		if (*hist_entry)
-			*max = i;
-		*hist_count += i * (*hist_entry++);
+	/* Calculate total pixels */
+	u32 total_pixels = 0;
+
+	for (i = 0; i < HIST_ENTRIES; i++)
+		total_pixels += hist_entry[i];
+
+	/* Handle empty histogram case */
+	if (total_pixels == 0) {
+		*hist_count = 0;
+		ctrls->channel_avg[ctrls->hist_id] = 256; /* Default middle value */
+		ctrls->total_pixels[ctrls->hist_id] = 0;
+		*min = 1;
+		*max = HIST_ENTRIES - 1;
+		dev_dbg(isc->dev, "isc wb: no pixels in histogram for channel %u", ctrls->hist_id);
+		return;
 	}
+
+	/* Smart outlier rejection - skip bottom/top 2% */
+	u32 dark_threshold = total_pixels / 50;   /* Bottom 2% */
+	u32 bright_threshold = total_pixels / 50; /* Top 2% */
+	u32 cumulative = 0;
+
+	/* Find effective minimum (skip dark noise) */
+	*min = 1;
+	for (i = 1; i < HIST_ENTRIES; i++) {
+		cumulative += hist_entry[i];
+		if (cumulative > dark_threshold) {
+			*min = i;
+			break;
+		}
+	}
+
+	/* Find effective maximum (skip bright saturation) */
+	cumulative = 0;
+	*max = HIST_ENTRIES - 1;
+	for (i = HIST_ENTRIES - 1; i > *min; i--) {
+		cumulative += hist_entry[i];
+		if (cumulative > bright_threshold) {
+			*max = i;
+			break;
+		}
+	}
+
+	/* Ensure reasonable range */
+	if (*max <= *min) {
+		*min = HIST_ENTRIES / 4;
+		*max = (HIST_ENTRIES * 3) / 4;
+	}
+
+	/* Calculate both pixel count and weighted average for useful range */
+	*hist_count = 0;
+	u64 weighted_sum = 0;
+
+	for (i = *min; i <= *max; i++) {
+		u32 pixel_count = hist_entry[i];
+		*hist_count += pixel_count;
+		weighted_sum += (u64)i * pixel_count;
+	}
+
+	/* Store total useful pixels for this channel */
+	ctrls->total_pixels[ctrls->hist_id] = *hist_count;
+
+	/* Calculate channel average */
+	if (*hist_count > 0)
+		ctrls->channel_avg[ctrls->hist_id] =
+			div64_u64(weighted_sum, *hist_count);
+	else
+		/* Default middle value */
+		ctrls->channel_avg[ctrls->hist_id] = 256;
 
 	if (!*min)
 		*min = 1;
 
-	dev_dbg(isc->dev, "isc wb: hist_id %u, hist_count %u",
-		ctrls->hist_id, *hist_count);
+	dev_dbg(isc->dev,
+		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u",
+		ctrls->hist_id, ctrls->channel_avg[ctrls->hist_id],
+		*hist_count, *min, *max, total_pixels);
 }
 
 static void isc_wb_update(struct isc_ctrls *ctrls)
 {
 	struct isc_device *isc = container_of(ctrls, struct isc_device, ctrls);
-	u32 *hist_count = &ctrls->hist_count[0];
 	u32 c, offset[4];
 	u64 avg = 0;
 	/* We compute two gains, stretch gain and grey world gain */
@@ -1265,10 +1326,10 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 	 * them towards the green channel.
 	 * Thus we want to keep Green as fixed and adjust only Red/Blue
 	 * Compute the average of the both green channels first
+	 * Use channel averages for Grey World algorithm
 	 */
-	avg = (u64)hist_count[ISC_HIS_CFG_MODE_GR] +
-		(u64)hist_count[ISC_HIS_CFG_MODE_GB];
-	avg >>= 1;
+	avg = (ctrls->channel_avg[ISC_HIS_CFG_MODE_GR] +
+			ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
 
 	dev_dbg(isc->dev, "isc wb: green components average %llu\n", avg);
 
@@ -1277,12 +1338,37 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		return;
 
 	for (c = ISC_HIS_CFG_MODE_GR; c <= ISC_HIS_CFG_MODE_B; c++) {
+		u32 hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];
+		u32 hist_max = ctrls->hist_minmax[c][HIST_MAX_INDEX];
+		u32 channel_avg = ctrls->channel_avg[c];
+		u32 total_pixels = ctrls->total_pixels[c];
+
 		/*
 		 * the color offset is the minimum value of the histogram.
 		 * we stretch this color to the full range by substracting
 		 * this value from the color component.
 		 */
-		offset[c] = ctrls->hist_minmax[c][HIST_MIN_INDEX];
+		if (hist_min > 5 && hist_min < 60 && total_pixels > 1000) {
+			/*
+			 * Basic adaptive black level offset correction
+			 * (Simplified version for kernel fallback)
+			 */
+			if (hist_min > 20)
+				/* Conservative for high levels */
+				offset[c] = hist_min - 4;
+			else if (hist_min > 10)
+				/* Moderate correction */
+				offset[c] = hist_min - 2;
+			else
+				/* Gentle correction */
+				offset[c] = hist_min - 1;
+
+			offset[c] = max(1U, offset[c]);  /* Ensure minimum of 1 */
+		} else {
+			/* Use default behavior for edge cases */
+			offset[c] = hist_min;
+		}
+
 		/*
 		 * The offset is always at least 1. If the offset is 1, we do
 		 * not need to adjust it, so our result must be zero.
@@ -1310,23 +1396,21 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		 * decimals
 		 */
 		s_gain[c] = (HIST_ENTRIES << 9) /
-			(ctrls->hist_minmax[c][HIST_MAX_INDEX] -
-			ctrls->hist_minmax[c][HIST_MIN_INDEX] + 1);
+			(hist_max - hist_min + 1);
 
 		/*
-		 * Now we have to compute the gain w.r.t. the average.
-		 * Add/lose gain to the component towards the average.
-		 * If it happens that the component is zero, use the
-		 * fixed point value : 1.0 gain.
+		 * Grey World gain using channel averages
+		 * This is much more accurate than using hist_count
 		 */
-		if (hist_count[c])
-			gw_gain[c] = div_u64(avg << 9, hist_count[c]);
+		if (channel_avg > 0 && total_pixels > 1000)
+			gw_gain[c] = div64_u64((avg << 9), channel_avg);
 		else
 			gw_gain[c] = 1 << 9;
 
 		dev_dbg(isc->dev,
-			"isc wb: component %d, s_gain %u, gw_gain %u\n",
-			c, s_gain[c], gw_gain[c]);
+			"isc wb: component %d, black_level=%u, avg=%u, s_gain=%u, gw_gain=%u",
+			c, hist_min, channel_avg, s_gain[c], gw_gain[c]);
+
 		/* multiply both gains and adjust for decimals */
 		ctrls->gain[c] = s_gain[c] * gw_gain[c];
 		ctrls->gain[c] >>= 9;
@@ -1334,8 +1418,9 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		/* make sure we are not out of range */
 		ctrls->gain[c] = clamp_val(ctrls->gain[c], 0, GENMASK(12, 0));
 
-		dev_dbg(isc->dev, "isc wb: component %d, final gain %u\n",
-			c, ctrls->gain[c]);
+		dev_dbg(isc->dev,
+			"isc wb: component %d, final gain %u, offset %d\n",
+			c, ctrls->gain[c], ctrls->offset[c]);
 	}
 }
 
@@ -1365,7 +1450,16 @@ static void isc_awb_work(struct work_struct *w)
 	if (hist_id != ISC_HIS_CFG_MODE_B) {
 		hist_id++;
 	} else {
-		isc_wb_update(ctrls);
+		/* All 4 channels processed - notify userspace */
+		if (isc_stats_active(&isc->stats))
+			isc_stats_isr(&isc->stats);
+		else
+			dev_info(isc->dev, "No active userspace listeners\n");
+
+		/* Continue with AWB processing only if AWB is enabled */
+		if (ctrls->awb != ISC_WB_NONE)
+			isc_wb_update(ctrls);
+
 		hist_id = ISC_HIS_CFG_MODE_GR;
 	}
 
@@ -1414,7 +1508,7 @@ static void isc_awb_work(struct work_struct *w)
 	mutex_lock(&isc->awb_mutex);
 
 	/* streaming is not active anymore */
-	if (isc->stop) {
+	if (isc->stop && !isc_stats_active(&isc->stats)) {
 		mutex_unlock(&isc->awb_mutex);
 		return;
 	}
@@ -1424,7 +1518,7 @@ static void isc_awb_work(struct work_struct *w)
 	mutex_unlock(&isc->awb_mutex);
 
 	/* if awb has been disabled, we don't need to start another histogram */
-	if (ctrls->awb)
+	if (ctrls->hist_stat == HIST_ENABLED)
 		regmap_write(regmap, ISC_CTRLEN, ISC_CTRL_HISREQ);
 
 	pm_runtime_put_sync(isc->dev);
@@ -1435,6 +1529,7 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct isc_device *isc = container_of(ctrl->handler,
 					     struct isc_device, ctrls.handler);
 	struct isc_ctrls *ctrls = &isc->ctrls;
+	struct regmap *regmap = isc->regmap;
 
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
@@ -1442,9 +1537,19 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_BRIGHTNESS:
 		ctrls->brightness = ctrl->val & ISC_CBC_BRIGHT_MASK;
+		regmap_write(regmap, ISC_CBC_BRIGHT + isc->offsets.cbc, ctrls->brightness);
 		break;
 	case V4L2_CID_CONTRAST:
 		ctrls->contrast = ctrl->val & ISC_CBC_CONTRAST_MASK;
+		regmap_write(regmap, ISC_CBC_CONTRAST + isc->offsets.cbc, ctrls->contrast);
+		break;
+	case V4L2_CID_HUE:
+		ctrls->hue = ctrl->val & ISC_CBCHS_HUE_MASK;
+		regmap_write(regmap, ISC_CBCHS_HUE, ctrls->hue);
+		break;
+	case V4L2_CID_SATURATION:
+		ctrls->saturation = ctrl->val & ISC_CBCHS_SAT_MASK;
+		regmap_write(regmap, ISC_CBCHS_SAT, ctrls->saturation);
 		break;
 	case V4L2_CID_GAMMA:
 		ctrls->gamma_index = ctrl->val;
@@ -1452,6 +1557,10 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 	default:
 		return -EINVAL;
 	}
+
+	mutex_lock(&isc->awb_mutex);
+	isc_update_profile(isc);
+	mutex_unlock(&isc->awb_mutex);
 
 	return 0;
 }
@@ -1568,6 +1677,165 @@ static int isc_g_volatile_awb_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int isc_cc_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct isc_device *isc = container_of(ctrl->handler,
+					     struct isc_device, ctrls.handler);
+	struct regmap *regmap = isc->regmap;
+
+	dev_dbg(isc->dev, "id = 0x%x; val = 0x%x", ctrl->id, ctrl->val);
+
+	switch (ctrl->id) {
+	case ISC_CID_CC_RR:
+		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_RG:
+		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_RB:
+		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OR:
+		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_GR:
+		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_GG:
+		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_GB:
+		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OG:
+		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_BR:
+		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_BG:
+		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	case ISC_CID_CC_BB:
+		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(11, 0), ctrl->val);
+		break;
+	case ISC_CID_CC_OB:
+		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(27, 16),
+				   (ctrl->val & GENMASK(11, 0)) << 16);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int isc_cc_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct isc_device *isc = container_of(ctrl->handler,
+					     struct isc_device, ctrls.handler);
+	struct regmap *regmap = isc->regmap;
+	unsigned int reg;
+
+	switch (ctrl->id) {
+	case ISC_CID_CC_RR:
+		regmap_read(regmap, ISC_CC_RR_RG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_RG:
+		regmap_read(regmap, ISC_CC_RR_RG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_RB:
+		regmap_read(regmap, ISC_CC_RB_OR, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OR:
+		regmap_read(regmap, ISC_CC_RB_OR, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_GR:
+		regmap_read(regmap, ISC_CC_GR_GG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_GG:
+		regmap_read(regmap, ISC_CC_GR_GG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_GB:
+		regmap_read(regmap, ISC_CC_GB_OG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OG:
+		regmap_read(regmap, ISC_CC_GB_OG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_BR:
+		regmap_read(regmap, ISC_CC_BR_BG, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_BG:
+		regmap_read(regmap, ISC_CC_BR_BG, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	case ISC_CID_CC_BB:
+		regmap_read(regmap, ISC_CC_BB_OB, &reg);
+		ctrl->val = sign_extend32(reg & GENMASK(11, 0), 11);
+		break;
+	case ISC_CID_CC_OB:
+		regmap_read(regmap, ISC_CC_BB_OB, &reg);
+		ctrl->val = sign_extend32((reg & GENMASK(27, 16)) >> 16, 11);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	dev_dbg(isc->dev, "id = 0x%x; val = 0x%x", ctrl->id, ctrl->val);
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops isc_cc_ops = {
+	.s_ctrl = isc_cc_s_ctrl,
+	.g_volatile_ctrl = isc_cc_g_volatile_ctrl,
+};
+
+#define ISC_CTRL_CC(_name, _id, _name_str) \
+	static const struct v4l2_ctrl_config _name = { \
+		.ops = &isc_cc_ops, \
+		.id = _id, \
+		.name = _name_str, \
+		.type = V4L2_CTRL_TYPE_INTEGER, \
+		.flags = V4L2_CTRL_FLAG_SLIDER, \
+		.min = -2048, \
+		.max = 2047, \
+		.step = 1, \
+		.def = 0, \
+	}
+
+ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR");
+ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG");
+
+ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB");
+ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR");
+
+ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR");
+ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG");
+
+ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB");
+ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG");
+
+ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR");
+ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG");
+
+ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB");
+ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB");
+
 static const struct v4l2_ctrl_ops isc_awb_ops = {
 	.s_ctrl = isc_s_awb_ctrl,
 	.g_volatile_ctrl = isc_g_volatile_awb_ctrl,
@@ -1580,8 +1848,8 @@ static const struct v4l2_ctrl_ops isc_awb_ops = {
 		.name = _name_str, \
 		.type = V4L2_CTRL_TYPE_INTEGER, \
 		.flags = V4L2_CTRL_FLAG_SLIDER, \
-		.min = -4095, \
-		.max = 4095, \
+		.min = -8191, \
+		.max = 8191, \
 		.step = 1, \
 		.def = 0, \
 	}
@@ -1629,8 +1897,9 @@ static int isc_ctrl_init(struct isc_device *isc)
 	ctrls->brightness = 0;
 
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_BRIGHTNESS, -1024, 1023, 1, 0);
-	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_GAMMA, 0, isc->gamma_max, 1,
-			  isc->gamma_max);
+	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HUE, -180, 180, 1, 0);
+	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_SATURATION, 0, 100, 1, 16);
+	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_GAMMA, 0, isc->gamma_max, 1, 1);
 	isc->awb_ctrl = v4l2_ctrl_new_std(hdl, &isc_awb_ops,
 					  V4L2_CID_AUTO_WHITE_BALANCE,
 					  0, 1, 1, 1);
@@ -1656,6 +1925,20 @@ static int isc_ctrl_init(struct isc_device *isc)
 	isc->b_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_b_off_ctrl, NULL);
 	isc->gr_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gr_off_ctrl, NULL);
 	isc->gb_off_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gb_off_ctrl, NULL);
+
+	/* Color correction control */
+	isc->cc_rr = v4l2_ctrl_new_custom(hdl, &isc_cc_rr_ctrl, NULL);
+	isc->cc_rg = v4l2_ctrl_new_custom(hdl, &isc_cc_rg_ctrl, NULL);
+	isc->cc_rb = v4l2_ctrl_new_custom(hdl, &isc_cc_rb_ctrl, NULL);
+	isc->cc_or = v4l2_ctrl_new_custom(hdl, &isc_cc_or_ctrl, NULL);
+	isc->cc_gr = v4l2_ctrl_new_custom(hdl, &isc_cc_gr_ctrl, NULL);
+	isc->cc_gg = v4l2_ctrl_new_custom(hdl, &isc_cc_gg_ctrl, NULL);
+	isc->cc_gb = v4l2_ctrl_new_custom(hdl, &isc_cc_gb_ctrl, NULL);
+	isc->cc_og = v4l2_ctrl_new_custom(hdl, &isc_cc_og_ctrl, NULL);
+	isc->cc_br = v4l2_ctrl_new_custom(hdl, &isc_cc_br_ctrl, NULL);
+	isc->cc_bg = v4l2_ctrl_new_custom(hdl, &isc_cc_bg_ctrl, NULL);
+	isc->cc_bb = v4l2_ctrl_new_custom(hdl, &isc_cc_bb_ctrl, NULL);
+	isc->cc_ob = v4l2_ctrl_new_custom(hdl, &isc_cc_ob_ctrl, NULL);
 
 	/*
 	 * The cluster is in auto mode with autowhitebalance enabled
@@ -1827,6 +2110,13 @@ static int isc_async_complete(struct v4l2_async_notifier *notifier)
 		goto isc_async_complete_err;
 	}
 
+	/* Register statistics device */
+	ret = isc_stats_register(isc);
+	if (ret) {
+		dev_err(isc->dev, "Failed to register stats device: %d\n", ret);
+		goto isc_async_complete_unregister_device;
+	}
+
 	ret = isc_scaler_link(isc);
 	if (ret < 0)
 		goto isc_async_complete_unregister_device;
@@ -1951,6 +2241,7 @@ void isc_mc_cleanup(struct isc_device *isc)
 {
 	media_entity_cleanup(&isc->video_dev.entity);
 	media_device_cleanup(&isc->mdev);
+	isc_stats_unregister(isc);
 }
 EXPORT_SYMBOL_GPL(isc_mc_cleanup);
 
