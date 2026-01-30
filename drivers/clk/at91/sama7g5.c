@@ -576,7 +576,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 9, },
 	  .pp_count = 1,
-	  .pp_chg_id = 3, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "csi_gclk",
 	  .id = 33,
@@ -720,7 +720,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "i2smcc1_gclk",
 	  .id = 58,
@@ -728,7 +728,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "mcan0_gclk",
 	  .id = 61,
@@ -900,7 +900,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n = "spdiftx_gclk",
 	  .id = 85,
@@ -908,7 +908,7 @@ static const struct {
 	  .pp = { PLL_IDS_TO_ARR_ENTRY(SYS, DIV0), PLL_IDS_TO_ARR_ENTRY(AUDIO, DIV0), },
 	  .pp_mux_table = { 5, 9, },
 	  .pp_count = 2,
-	  .pp_chg_id = 4, },
+	  .pp_chg_id = INT_MIN, },
 
 	{ .n  = "tcb0_ch0_gclk",
 	  .id = 88,
@@ -1019,6 +1019,7 @@ static void __init sama7g5_pmc_setup(struct device_node *np)
 
 	parent_data.name = main_xtal_name;
 	parent_data.fw_name = main_xtal_name;
+	parent_data.hw = main_xtal_hw;
 	main_osc_hw = at91_clk_register_main_osc(regmap, "main_osc", NULL,
 						 &parent_data, bypass);
 	if (IS_ERR(main_osc_hw))

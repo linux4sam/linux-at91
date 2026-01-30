@@ -45,6 +45,7 @@
 /* SAMA7D65 */
 #define PMC_MCK3		(PMC_MAIN + 13)
 #define PMC_MCK5		(PMC_MAIN + 14)
+#define PMC_GPUPLL		(PMC_MAIN + 15)
 
 #ifndef AT91_PMC_MOSCS
 #define AT91_PMC_MOSCS		0		/* MOSCS Flag */

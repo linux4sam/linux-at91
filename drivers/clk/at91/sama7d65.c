@@ -307,6 +307,7 @@ static struct sama7d65_pll {
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
+			.eid = PMC_GPUPLL,
 		},
 	},
 
@@ -629,6 +630,7 @@ static struct {
 	{ .n = "flex8_clk",	.p = PCK_PARENT_HW_MCK9, .id = 42, },
 	{ .n = "flex9_clk",	.p = PCK_PARENT_HW_MCK9, .id = 43, },
 	{ .n = "flex10_clk",	.p = PCK_PARENT_HW_MCK9, .id = 44, },
+	{ .n = "gpu_clk",	.p = PCK_PARENT_HW_MCK3, .id = 45, },
 	{ .n = "gmac0_clk",	.p = PCK_PARENT_HW_MCK6, .id = 46, },
 	{ .n = "gmac1_clk",	.p = PCK_PARENT_HW_MCK6, .id = 47, },
 	{ .n = "gmac0_tsu_clk",	.p = PCK_PARENT_HW_MCK1, .id = 49, },
@@ -806,6 +808,14 @@ static const struct {
 	  .pp_mux_table = { 8, },
 	  .pp_count = 1,
 	  .pp_chg_id = INT_MIN, },
+
+	{ .n  = "gpu_gclk",
+	  .id = 45,
+	  .r = { .max = 533000001 },
+	  .pp = { PLL_IDS_TO_ARR_ENTRY(GPU, DIV0), },
+	  .pp_mux_table = { 7, },
+	  .pp_count = 1,
+	  .pp_chg_id = 4, },
 
 	{ .n  = "gmac0_gclk",
 	  .id = 46,
@@ -1143,6 +1153,7 @@ static void __init sama7d65_pmc_setup(struct device_node *np)
 
 	parent_data.name = main_xtal_name;
 	parent_data.fw_name = main_xtal_name;
+	parent_data.hw = main_xtal_hw;
 	main_osc_hw = at91_clk_register_main_osc(regmap, "main_osc", NULL,
 						 &parent_data, bypass);
 	if (IS_ERR(main_osc_hw))
