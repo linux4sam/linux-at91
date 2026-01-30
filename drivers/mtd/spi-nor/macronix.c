@@ -25,6 +25,132 @@
 		   SPI_MEM_OP_NO_DUMMY,				\
 		   SPI_MEM_OP_DATA_OUT(ndata, buf, 0))
 
+#define SPINOR_OP_READ_CR2		0x71	/* Read Configuration Register 2 */
+#define SPINOR_OP_WRITE_CR2		0x72	/* Write Configuration Register 2 */
+#define SPINOR_OP_MX_DTR_RD		0xee	/* Octa DTR Read Opcode */
+
+#define SPINOR_REG_CR2_MODE_ADDR	0	/* Address of Mode Enable in CR2 */
+#define SPINOR_REG_CR2_DTR_OPI_ENABLE	BIT(1)	/* DTR OPI Enable */
+#define SPINOR_REG_CR2_SPI		0	/* SPI Enable */
+
+/**
+ * Macronix SPI NOR flash operations.
+ */
+#define SPI_NOR_MX_READ_CR2_OP(ndummy, buf, ndata)			\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_READ_CR2, 0),		\
+		   SPI_MEM_OP_ADDR(4, SPINOR_REG_CR2_MODE_ADDR, 0),	\
+		   SPI_MEM_OP_DUMMY(ndummy, 0),				\
+		   SPI_MEM_OP_DATA_IN(ndata, buf, 0))
+
+#define SPI_NOR_MX_WRITE_CR2_OP(buf, ndata)				\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRITE_CR2, 0),		\
+		   SPI_MEM_OP_ADDR(4, SPINOR_REG_CR2_MODE_ADDR, 0),	\
+		   SPI_MEM_OP_NO_DUMMY,					\
+		   SPI_MEM_OP_DATA_OUT(ndata, buf, 0))
+
+static int spi_nor_macronix_read_cr2(struct spi_nor *nor, u8 ndummy, void *sr,
+				     unsigned int nbytes)
+{
+	struct spi_mem_op op = SPI_NOR_MX_READ_CR2_OP(ndummy, sr, nbytes);
+
+	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+	return spi_mem_exec_op(nor->spimem, &op);
+}
+
+static int spi_nor_macronix_write_cr2(struct spi_nor *nor, const void *sr,
+				      unsigned int nbytes)
+{
+	struct spi_mem_op op = SPI_NOR_MX_WRITE_CR2_OP(sr, nbytes);
+	int ret;
+
+	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+	ret = spi_nor_write_enable(nor);
+	if (ret)
+		return ret;
+	return spi_mem_exec_op(nor->spimem, &op);
+}
+
+static int spi_nor_macronix_octal_dtr_en(struct spi_nor *nor)
+{
+	u8 *buf = nor->bouncebuf;
+	int i, ret;
+
+	buf[0] = SPINOR_REG_CR2_DTR_OPI_ENABLE;
+	ret = spi_nor_macronix_write_cr2(nor, buf, 1);
+	if (ret)
+		return ret;
+
+	/* Read flash ID to make sure the switch was successful. */
+	ret = spi_nor_read_id(nor, 4, 4, buf, SNOR_PROTO_8_8_8_DTR);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < nor->info->id->len; i++)
+		if (buf[i * 2] != nor->info->id->bytes[i])
+			return -EINVAL;
+	return 0;
+}
+
+static int spi_nor_macronix_octal_dtr_dis(struct spi_nor *nor)
+{
+	u8 *buf = nor->bouncebuf;
+	int ret;
+
+	/*
+	 * One byte transactions are not allowed in 8D-8D-8D mode. mx66lm1g45g
+	 * requires that undefined register addresses to keep their value
+	 * unchanged. Its second CR2 byte value is not defined. Read the second
+	 * byte value of CR2 so that we can write it back when disabling
+	 * Octal DTR mode.
+	 */
+	ret = spi_nor_macronix_read_cr2(nor, 4, buf, 2);
+	if (ret)
+		return ret;
+	/* Keep the value of buf[1] unchanged.*/
+	buf[0] = SPINOR_REG_CR2_SPI;
+
+	ret = spi_nor_macronix_write_cr2(nor, buf, 2);
+	if (ret)
+		return ret;
+
+	ret = spi_nor_read_id(nor, 0, 0, buf, SNOR_PROTO_1_1_1);
+	if (ret)
+		return ret;
+
+	if (memcmp(buf, nor->info->id, nor->info->id->len)) {
+		dev_dbg(nor->dev, "Failed to disable 8D-8D-8D mode.\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int spi_nor_macronix_set_octal_dtr(struct spi_nor *nor, bool enable)
+{
+	return enable ? spi_nor_macronix_octal_dtr_en(nor) :
+			spi_nor_macronix_octal_dtr_dis(nor);
+}
+
+static int mx66lm1g45g_late_init(struct spi_nor *nor)
+{
+	nor->params->set_octal_dtr = spi_nor_macronix_set_octal_dtr;
+
+	/* Set the Fast Read settings. */
+	nor->params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+	spi_nor_set_read_settings(&nor->params->reads[SNOR_CMD_READ_8_8_8_DTR],
+				  0, 20, SPINOR_OP_MX_DTR_RD,
+				  SNOR_PROTO_8_8_8_DTR);
+
+	nor->cmd_ext_type = SPI_NOR_EXT_INVERT;
+	nor->params->rdsr_dummy = 4;
+	nor->params->rdsr_addr_nbytes = 4;
+
+	return 0;
+}
+
+static struct spi_nor_fixups mx66lm1g45g_fixups = {
+	.late_init = mx66lm1g45g_late_init,
+};
+
 static int
 mx25l25635_post_bfpt_fixups(struct spi_nor *nor,
 			    const struct sfdp_parameter_header *bfpt_header,
@@ -229,6 +355,13 @@ static const struct flash_info macronix_nor_parts[] = {
 		/* MX25L3255E */
 		.id = SNOR_ID(0xc2, 0x9e, 0x16),
 		.fixups = &mx25l3255e_fixups,
+	}, {
+		.id = SNOR_ID(0xc2, 0x85, 0x3b),
+		.name = "mx66lm1g45g",
+		.size = SZ_128M,
+		.no_sfdp_flags = SPI_NOR_SKIP_SFDP | SECT_4K | SPI_NOR_OCTAL_DTR_READ | SPI_NOR_OCTAL_DTR_PP | SPI_NOR_DTR_BSWAP16,
+		.fixup_flags = SPI_NOR_4B_OPCODES | SPI_NOR_IO_MODE_EN_VOLATILE | SPI_NOR_SOFT_RESET,
+		.fixups = &mx66lm1g45g_fixups,
 	},
 	/*
 	 * This spares us of adding new flash entries for flashes that can be

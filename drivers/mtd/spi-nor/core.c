@@ -108,6 +108,9 @@ void spi_nor_spimem_setup_op(const struct spi_nor *nor,
 		op->dummy.dtr = true;
 		op->data.dtr = true;
 
+		if (spi_nor_protocol_is_dtr_bswap16(proto))
+			op->data.swap16 = true;
+
 		/* 2 bytes per clock cycle in DTR mode. */
 		op->dummy.nbytes *= 2;
 
@@ -458,7 +461,7 @@ int spi_nor_read_sr(struct spi_nor *nor, u8 *sr)
 	if (nor->spimem) {
 		struct spi_mem_op op = SPI_NOR_RDSR_OP(sr);
 
-		if (nor->reg_proto == SNOR_PROTO_8_8_8_DTR) {
+		if (spi_nor_protocol_is_octal_dtr(nor->reg_proto)) {
 			op.addr.nbytes = nor->params->rdsr_addr_nbytes;
 			op.dummy.nbytes = nor->params->rdsr_dummy;
 			/*
@@ -2805,7 +2808,7 @@ static void spi_nor_no_sfdp_init_params(struct spi_nor *nor)
 	struct spi_nor_flash_parameter *params = nor->params;
 	struct spi_nor_erase_map *map = &params->erase_map;
 	const struct flash_info *info = nor->info;
-	const u8 no_sfdp_flags = info->no_sfdp_flags;
+	const u16 no_sfdp_flags = nor->info->no_sfdp_flags;
 	u8 i, erase_mask;
 
 	if (no_sfdp_flags & SPI_NOR_DUAL_READ) {
@@ -2845,6 +2848,9 @@ static void spi_nor_no_sfdp_init_params(struct spi_nor *nor)
 		spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP_8_8_8_DTR],
 					SPINOR_OP_PP, SNOR_PROTO_8_8_8_DTR);
 	}
+
+	if (no_sfdp_flags & SPI_NOR_DTR_BSWAP16)
+		nor->flags |= SNOR_F_SWAP16;
 
 	/*
 	 * Sector Erase settings. Sort Erase Types in ascending order, with the
@@ -2921,6 +2927,22 @@ static void spi_nor_init_fixup_flags(struct spi_nor *nor)
 
 	if (fixup_flags & SPI_NOR_IO_MODE_EN_VOLATILE)
 		nor->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+
+	if (fixup_flags & SPI_NOR_SOFT_RESET)
+		nor->flags |= SNOR_F_SOFT_RESET;
+}
+
+static void spi_nor_set_dtr_bswap16_ops(struct spi_nor *nor)
+{
+	struct spi_nor_flash_parameter *params = nor->params;
+	u32 mask = SNOR_HWCAPS_READ_8_8_8_DTR | SNOR_HWCAPS_PP_8_8_8_DTR;
+
+	if ((params->hwcaps.mask & mask) == mask) {
+		params->reads[SNOR_CMD_READ_8_8_8_DTR].proto |=
+			SNOR_PROTO_IS_DTR_BSWAP16;
+		params->page_programs[SNOR_CMD_PP_8_8_8_DTR].proto |=
+			SNOR_PROTO_IS_DTR_BSWAP16;
+	}
 }
 
 /**
@@ -2960,6 +2982,9 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 		params->set_4byte_addr_mode = spi_nor_set_4byte_addr_mode_brwr;
 
 	spi_nor_init_fixup_flags(nor);
+
+	if (nor->flags & SNOR_F_SWAP16)
+		spi_nor_set_dtr_bswap16_ops(nor);
 
 	/*
 	 * NOR protection support. When locking_ops are not provided, we pick
@@ -3149,8 +3174,8 @@ static int spi_nor_set_octal_dtr(struct spi_nor *nor, bool enable)
 	if (!nor->params->set_octal_dtr)
 		return 0;
 
-	if (!(nor->read_proto == SNOR_PROTO_8_8_8_DTR &&
-	      nor->write_proto == SNOR_PROTO_8_8_8_DTR))
+	if (!(spi_nor_protocol_is_octal_dtr(nor->read_proto) &&
+	      spi_nor_protocol_is_octal_dtr(nor->write_proto)))
 		return 0;
 
 	if (!(nor->flags & SNOR_F_IO_MODE_EN_VOLATILE))
@@ -3257,7 +3282,7 @@ static int spi_nor_init(struct spi_nor *nor)
 		spi_nor_try_unlock_all(nor);
 
 	if (nor->addr_nbytes == 4 &&
-	    nor->read_proto != SNOR_PROTO_8_8_8_DTR &&
+	    !spi_nor_protocol_is_octal_dtr(nor->read_proto) &&
 	    !(nor->flags & SNOR_F_4B_OPCODES))
 		return spi_nor_set_4byte_addr_mode(nor, true);
 
