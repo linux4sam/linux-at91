@@ -96,6 +96,8 @@
 #define C_CIBAUD(tty)	_C_FLAG((tty), CIBAUD)
 #define C_CRTSCTS(tty)	_C_FLAG((tty), CRTSCTS)
 #define C_CMSPAR(tty)	_C_FLAG((tty), CMSPAR)
+#define C_PARMD(tty)	_C_FLAG((tty), PARMD)
+#define C_SENDA(tty)	_C_FLAG((tty), SENDA)
 
 #define L_ISIG(tty)	_L_FLAG((tty), ISIG)
 #define L_ICANON(tty)	_L_FLAG((tty), ICANON)
