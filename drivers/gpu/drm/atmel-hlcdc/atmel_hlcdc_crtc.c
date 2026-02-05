@@ -99,9 +99,75 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 		drm_connector_list_iter_end(&iter);
 	}
 
-	ret = clk_prepare_enable(crtc->dc->hlcdc->sys_clk);
-	if (ret)
-		return;
+	if (crtc->dc->hlcdc->lvds_pll_clk) {
+		ret = clk_prepare_enable(crtc->dc->hlcdc->lvds_pll_clk);
+		if (ret)
+			return;
+	} else {
+		ret = clk_prepare_enable(crtc->dc->hlcdc->sys_clk);
+		if (ret)
+			return;
+	}
+
+	if (crtc->dc->hlcdc->lvds_pll_clk) {
+		cfg |= ATMEL_XLCDC_CLKBYP;
+		mask |= ATMEL_XLCDC_CLKBYP;
+	} else {
+		prate = clk_get_rate(crtc->dc->hlcdc->sys_clk);
+		mode_rate = adj->crtc_clock * 1000;
+		if (!crtc->dc->desc->fixed_clksrc) {
+			prate *= 2;
+			if (crtc->dc->desc->is_xlcdc) {
+				cfg |= ATMEL_XLCDC_CLKBYP;
+				mask |= ATMEL_XLCDC_CLKBYP;
+			} else {
+				cfg |= ATMEL_HLCDC_CLKSEL;
+				mask |= ATMEL_HLCDC_CLKSEL;
+			}
+		}
+
+		div = DIV_ROUND_UP(prate, mode_rate);
+		if (div < 2) {
+			div = 2;
+		} else if (ATMEL_HLCDC_CLKDIV(div) & ~ATMEL_HLCDC_CLKDIV_MASK) {
+			/* The divider ended up too big, try a lower base rate. */
+			if (crtc->dc->desc->is_xlcdc)
+				cfg &= ~ATMEL_XLCDC_CLKBYP;
+			else
+				cfg &= ~ATMEL_HLCDC_CLKSEL;
+
+			prate /= 2;
+			div = DIV_ROUND_UP(prate, mode_rate);
+			if (ATMEL_HLCDC_CLKDIV(div) & ~ATMEL_HLCDC_CLKDIV_MASK)
+				div = ATMEL_HLCDC_CLKDIV_MASK;
+		} else {
+			int div_low = prate / mode_rate;
+
+			/*
+			 * Its better to use a higher Pixel clock
+			 * frequency than requested, instead of a lower.
+			 * So, go with that.
+			 */
+
+			if (div_low >= 2 &&
+			    ((prate / div_low >= mode_rate) &&
+			     (prate / div < mode_rate))) {
+				div = div_low;
+			} else {
+				if (crtc->dc->desc->is_xlcdc) {
+					cfg |= ATMEL_XLCDC_CLKBYP;
+					mask |= ATMEL_XLCDC_CLKBYP;
+				}
+			}
+		}
+		cfg |= ATMEL_HLCDC_CLKDIV(div);
+	}
+
+	if (connector &&
+	    connector->display_info.bus_flags & DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE)
+		cfg |= ATMEL_HLCDC_CLKPOL;
+
+	regmap_update_bits(regmap, ATMEL_HLCDC_CFG(0), mask, cfg);
 
 	vm.vfront_porch = adj->crtc_vsync_start - adj->crtc_vdisplay;
 	vm.vback_porch = adj->crtc_vtotal - adj->crtc_vsync_end;
@@ -122,46 +188,6 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 	regmap_write(regmap, ATMEL_HLCDC_CFG(4),
 		     (adj->crtc_hdisplay - 1) |
 		     ((adj->crtc_vdisplay - 1) << 16));
-
-	prate = clk_get_rate(crtc->dc->hlcdc->sys_clk);
-	mode_rate = adj->crtc_clock * 1000;
-	if (!crtc->dc->desc->fixed_clksrc) {
-		prate *= 2;
-		cfg |= ATMEL_HLCDC_CLKSEL;
-		mask |= ATMEL_HLCDC_CLKSEL;
-	}
-
-	div = DIV_ROUND_UP(prate, mode_rate);
-	if (div < 2) {
-		div = 2;
-	} else if (ATMEL_HLCDC_CLKDIV(div) & ~ATMEL_HLCDC_CLKDIV_MASK) {
-		/* The divider ended up too big, try a lower base rate. */
-		cfg &= ~ATMEL_HLCDC_CLKSEL;
-		prate /= 2;
-		div = DIV_ROUND_UP(prate, mode_rate);
-		if (ATMEL_HLCDC_CLKDIV(div) & ~ATMEL_HLCDC_CLKDIV_MASK)
-			div = ATMEL_HLCDC_CLKDIV_MASK;
-	} else {
-		int div_low = prate / mode_rate;
-
-		if (div_low >= 2 &&
-		    (10 * (prate / div_low - mode_rate) <
-		     (mode_rate - prate / div)))
-			/*
-			 * At least 10 times better when using a higher
-			 * frequency than requested, instead of a lower.
-			 * So, go with that.
-			 */
-			div = div_low;
-	}
-
-	cfg |= ATMEL_HLCDC_CLKDIV(div);
-
-	if (connector &&
-	    connector->display_info.bus_flags & DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE)
-		cfg |= ATMEL_HLCDC_CLKPOL;
-
-	regmap_update_bits(regmap, ATMEL_HLCDC_CFG(0), mask, cfg);
 
 	state = drm_crtc_state_to_atmel_hlcdc_crtc_state(c->state);
 	cfg = state->output_mode << 8;
@@ -186,7 +212,10 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 			   ATMEL_XLCDC_DPI : ATMEL_HLCDC_MODE_MASK),
 			   cfg);
 
-	clk_disable_unprepare(crtc->dc->hlcdc->sys_clk);
+	if (crtc->dc->hlcdc->lvds_pll_clk)
+		clk_disable_unprepare(crtc->dc->hlcdc->lvds_pll_clk);
+	else
+		clk_disable_unprepare(crtc->dc->hlcdc->sys_clk);
 }
 
 static enum drm_mode_status
@@ -214,35 +243,39 @@ static void atmel_hlcdc_crtc_atomic_disable(struct drm_crtc *c,
 		regmap_write(regmap, ATMEL_HLCDC_DIS, ATMEL_XLCDC_CM);
 		if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 					     !(status & ATMEL_XLCDC_CM),
-					     10, 1000))
+					     100, 100000))
 			dev_warn(dev->dev, "Atmel LCDC status register CMSTS timeout\n");
 
 		regmap_write(regmap, ATMEL_HLCDC_DIS, ATMEL_XLCDC_SD);
 		if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 					     status & ATMEL_XLCDC_SD,
-					     10, 1000))
+					     100, 100000))
 			dev_warn(dev->dev, "Atmel LCDC status register SDSTS timeout\n");
 	}
 
 	regmap_write(regmap, ATMEL_HLCDC_DIS, ATMEL_HLCDC_DISP);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     !(status & ATMEL_HLCDC_DISP),
-				    10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register DISPSTS timeout\n");
 
 	regmap_write(regmap, ATMEL_HLCDC_DIS, ATMEL_HLCDC_SYNC);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     !(status & ATMEL_HLCDC_SYNC),
-				    10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register LCDSTS timeout\n");
 
 	regmap_write(regmap, ATMEL_HLCDC_DIS, ATMEL_HLCDC_PIXEL_CLK);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     !(status & ATMEL_HLCDC_PIXEL_CLK),
-				    10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register CLKSTS timeout\n");
 
-	clk_disable_unprepare(crtc->dc->hlcdc->sys_clk);
+	if (crtc->dc->hlcdc->lvds_pll_clk)
+		clk_disable_unprepare(crtc->dc->hlcdc->lvds_pll_clk);
+	else
+		clk_disable_unprepare(crtc->dc->hlcdc->sys_clk);
+
 	pinctrl_pm_select_sleep_state(dev->dev);
 
 	pm_runtime_allow(dev->dev);
@@ -255,45 +288,67 @@ static void atmel_hlcdc_crtc_atomic_enable(struct drm_crtc *c,
 {
 	struct drm_device *dev = c->dev;
 	struct atmel_hlcdc_crtc *crtc = drm_crtc_to_atmel_hlcdc_crtc(c);
+	struct drm_display_mode *adj = &c->state->adjusted_mode;
 	struct regmap *regmap = crtc->dc->hlcdc->regmap;
 	unsigned int status;
+	int ret;
 
 	pm_runtime_get_sync(dev->dev);
 
 	pm_runtime_forbid(dev->dev);
 
 	pinctrl_pm_select_default_state(dev->dev);
-	clk_prepare_enable(crtc->dc->hlcdc->sys_clk);
+
+	if (crtc->dc->hlcdc->lvds_pll_clk) {
+		/* If the LVDS interface is used, fetch the pixel clock
+		 * from the panel and set the clock rate.
+		 * Here LVDS PLL clock is 7 times the pixel clock.
+		 */
+		ret = clk_set_rate(crtc->dc->hlcdc->lvds_pll_clk,
+				   (adj->clock * 7 * 1000));
+		if (ret) {
+			dev_err(c->dev->dev, "failed to set clk rate for lvds pll: %d\n", ret);
+			return;
+		}
+
+		ret = clk_prepare_enable(crtc->dc->hlcdc->lvds_pll_clk);
+		if (ret)
+			return;
+	} else {
+		ret = clk_prepare_enable(crtc->dc->hlcdc->sys_clk);
+		if (ret)
+			return;
+	}
 
 	regmap_write(regmap, ATMEL_HLCDC_EN, ATMEL_HLCDC_PIXEL_CLK);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     status & ATMEL_HLCDC_PIXEL_CLK,
-				     10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register CLKSTS timeout\n");
 
 	regmap_write(regmap, ATMEL_HLCDC_EN, ATMEL_HLCDC_SYNC);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     status & ATMEL_HLCDC_SYNC,
-				     10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register LCDSTS timeout\n");
 
 	regmap_write(regmap, ATMEL_HLCDC_EN, ATMEL_HLCDC_DISP);
 	if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 				     status & ATMEL_HLCDC_DISP,
-				     10, 1000))
+				     100, 100000))
 		dev_warn(dev->dev, "Atmel LCDC status register DISPSTS timeout\n");
 
 	if (crtc->dc->desc->is_xlcdc) {
 		regmap_write(regmap, ATMEL_HLCDC_EN, ATMEL_XLCDC_CM);
 		if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 					     status & ATMEL_XLCDC_CM,
-					     10, 1000))
+					     100, 100000))
 			dev_warn(dev->dev, "Atmel LCDC status register CMSTS timeout\n");
 
 		regmap_write(regmap, ATMEL_HLCDC_EN, ATMEL_XLCDC_SD);
 		if (regmap_read_poll_timeout(regmap, ATMEL_HLCDC_SR, status,
 					     !(status & ATMEL_XLCDC_SD),
-					     10, 1000))
+					     100, 100000))
 			dev_warn(dev->dev, "Atmel LCDC status register SDSTS timeout\n");
 	}
 
@@ -374,6 +429,34 @@ static int atmel_hlcdc_connector_output_mode(struct drm_connector_state *state)
 	 */
 	if (encoder->encoder_type == DRM_MODE_ENCODER_DSI)
 		return atmel_xlcdc_connector_output_dsi(encoder, info);
+	else if (encoder->encoder_type == DRM_MODE_ENCODER_LVDS) {
+		switch (atmel_hlcdc_encoder_get_bus_fmt(encoder)) {
+		case 0:
+			break;
+		case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+		case MEDIA_BUS_FMT_RGB666_1X18:
+			return ATMEL_HLCDC_RGB666_OUTPUT;
+		case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+		case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:
+		default:
+			return ATMEL_HLCDC_RGB888_OUTPUT;
+		}
+
+		for (j = 0; j < info->num_bus_formats; j++) {
+			switch (info->bus_formats[j]) {
+			case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+			case MEDIA_BUS_FMT_RGB666_1X18:
+				supported_fmts |= ATMEL_HLCDC_RGB666_OUTPUT;
+				break;
+			case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+			case MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA:
+			default:
+				supported_fmts |= ATMEL_HLCDC_RGB888_OUTPUT;
+				break;
+			}
+		}
+		return supported_fmts;
+	}
 
 	switch (atmel_hlcdc_encoder_get_bus_fmt(encoder)) {
 	case 0:

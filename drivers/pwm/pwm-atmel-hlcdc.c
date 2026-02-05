@@ -20,11 +20,15 @@
 #define ATMEL_HLCDC_PWMPOL		BIT(4)
 #define ATMEL_HLCDC_PWMPS_MASK		GENMASK(2, 0)
 #define ATMEL_HLCDC_PWMPS_MAX		0x6
+#define ATMEL_XLCDC_PWMPS_MASK		GENMASK(3, 0)
+#define ATMEL_XLCDC_PWMPS_MAX		0xF
 #define ATMEL_HLCDC_PWMPS(x)		((x) & ATMEL_HLCDC_PWMPS_MASK)
 
+#define ATMEL_XLCDC_PWMPS(x)		((x) & ATMEL_XLCDC_PWMPS_MASK)
 struct atmel_hlcdc_pwm_errata {
 	bool slow_clk_erratum;
 	bool div1_clk_erratum;
+	bool is_xlcdc;
 };
 
 struct atmel_hlcdc_pwm {
@@ -45,6 +49,10 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	struct atmel_hlcdc *hlcdc = atmel->hlcdc;
 	unsigned int status;
 	int ret;
+	bool is_xlcdc = false;
+
+	if (atmel->errata)
+		is_xlcdc = atmel->errata->is_xlcdc;
 
 	if (state->enabled) {
 		struct clk *new_clk = hlcdc->slow_clk;
@@ -66,7 +74,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		/* Errata: cannot use slow clk on some IP revisions */
 		if ((atmel->errata && atmel->errata->slow_clk_erratum) ||
 		    clk_period_ns > state->period) {
-			new_clk = hlcdc->sys_clk;
+			new_clk = hlcdc->periph_clk;
 			clk_freq = clk_get_rate(new_clk);
 			if (!clk_freq)
 				return -EINVAL;
@@ -75,7 +83,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			do_div(clk_period_ns, clk_freq);
 		}
 
-		for (pres = 0; pres <= ATMEL_HLCDC_PWMPS_MAX; pres++) {
+		for (pres = 0; pres <= (is_xlcdc ? ATMEL_XLCDC_PWMPS_MAX : ATMEL_HLCDC_PWMPS_MAX); pres++) {
 		/* Errata: cannot divide by 1 on some IP revisions */
 			if (!pres && atmel->errata &&
 			    atmel->errata->div1_clk_erratum)
@@ -85,10 +93,13 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 				break;
 		}
 
-		if (pres > ATMEL_HLCDC_PWMPS_MAX)
+		if (pres > (is_xlcdc ? ATMEL_XLCDC_PWMPS_MAX : ATMEL_HLCDC_PWMPS_MAX))
 			return -EINVAL;
 
-		pwmcfg = ATMEL_HLCDC_PWMPS(pres);
+		if (is_xlcdc)
+			pwmcfg = ATMEL_XLCDC_PWMPS(pres);
+		else
+			pwmcfg = ATMEL_HLCDC_PWMPS(pres);
 
 		if (new_clk != atmel->cur_clk) {
 			u32 gencfg = 0;
@@ -101,7 +112,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			clk_disable_unprepare(atmel->cur_clk);
 			atmel->cur_clk = new_clk;
 
-			if (new_clk == hlcdc->sys_clk)
+			if (new_clk == hlcdc->periph_clk)
 				gencfg = ATMEL_HLCDC_CLKPWMSEL;
 
 			ret = regmap_update_bits(hlcdc->regmap,
@@ -130,7 +141,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 		ret = regmap_update_bits(hlcdc->regmap, ATMEL_HLCDC_CFG(6),
 					 ATMEL_HLCDC_PWMCVAL_MASK |
-					 ATMEL_HLCDC_PWMPS_MASK |
+					 (is_xlcdc ? ATMEL_XLCDC_PWMPS_MASK : ATMEL_HLCDC_PWMPS_MASK) |
 					 ATMEL_HLCDC_PWMPOL,
 					 pwmcfg);
 		if (ret)
@@ -177,6 +188,10 @@ static const struct atmel_hlcdc_pwm_errata atmel_hlcdc_pwm_at91sam9x5_errata = {
 
 static const struct atmel_hlcdc_pwm_errata atmel_hlcdc_pwm_sama5d3_errata = {
 	.div1_clk_erratum = true,
+};
+
+static const struct atmel_hlcdc_pwm_errata atmel_hlcdc_pwm_sama7d65_errata = {
+	.is_xlcdc = true,
 };
 
 static int atmel_hlcdc_pwm_suspend(struct device *dev)
@@ -234,6 +249,9 @@ static const struct of_device_id atmel_hlcdc_dt_ids[] = {
 		.data = &atmel_hlcdc_pwm_sama5d3_errata,
 	},
 	{	.compatible = "microchip,sam9x60-hlcdc", },
+	{	.compatible = "microchip,sama7d65-xlcdc",
+		.data = &atmel_hlcdc_pwm_sama7d65_errata,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, atmel_hlcdc_dt_ids);

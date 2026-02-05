@@ -219,6 +219,14 @@ config DRM_MICROCHIP_LVDS_SERIALIZER
 	help
 	  Support for Microchip's LVDS serializer.
 
+config DRM_MICROCHIP_DW_MIPI_DSI
+	tristate "Microchip specific extensions for Synopsys DW MIPI DSI"
+	depends on DRM_ATMEL_HLCDC
+	select DRM_DW_MIPI_DSI
+	help
+	  This selects support for Microchip's SoC specific extensions
+	  for the Synopsys DesignWare dsi driver.
+
 config DRM_NWL_MIPI_DSI
 	tristate "Northwest Logic MIPI DSI Host controller"
 	depends on DRM

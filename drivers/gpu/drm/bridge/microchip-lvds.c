@@ -11,6 +11,7 @@
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#include <linux/media-bus-format.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of_graph.h>
 #include <linux/pinctrl/devinfo.h>
@@ -41,9 +42,11 @@
 
 /* Bitfields in LVDSC_CFGR (Configuration Register) */
 #define LVDSC_CFGR_PIXSIZE_24BITS	0
+#define LVDSC_CFGR_PIXSIZE_18BITS	1
 #define LVDSC_CFGR_DEN_POL_HIGH		0
 #define LVDSC_CFGR_DC_UNBALANCED	0
 #define LVDSC_CFGR_MAPPING_JEIDA	BIT(6)
+#define LVDSC_CFGR_MAPPING_VESA		0
 
 /*Bitfields in LVDSC_SR */
 #define LVDSC_SR_CS	BIT(0)
@@ -58,12 +61,19 @@ struct mchp_lvds {
 	struct clk *pclk;
 	struct drm_panel *panel;
 	struct drm_bridge bridge;
+	struct drm_connector connector;
 	struct drm_bridge *panel_bridge;
 };
 
 static inline struct mchp_lvds *bridge_to_lvds(struct drm_bridge *bridge)
 {
 	return container_of(bridge, struct mchp_lvds, bridge);
+}
+
+static inline struct mchp_lvds *
+drm_connector_to_mchp_lvds(struct drm_connector *connector)
+{
+	return container_of(connector, struct mchp_lvds, connector);
 }
 
 static inline u32 lvds_readl(struct mchp_lvds *lvds, u32 offset)
@@ -79,6 +89,11 @@ static inline void lvds_writel(struct mchp_lvds *lvds, u32 offset, u32 val)
 static void lvds_serialiser_on(struct mchp_lvds *lvds)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(LVDS_POLL_TIMEOUT_MS);
+	struct drm_connector *connector = &lvds->connector;
+
+	/* default to jeida-24 */
+	u32 bus_formats = MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA;
+	u8 map, pix_size;
 
 	/* The LVDSC registers can only be written if WPEN is cleared */
 	lvds_writel(lvds, LVDSC_WPMR, (LVDSC_WPMR_WPKEY_PSSWD &
@@ -93,24 +108,107 @@ static void lvds_serialiser_on(struct mchp_lvds *lvds)
 		usleep_range(1000, 2000);
 	}
 
+	if (connector && connector->display_info.num_bus_formats)
+		bus_formats = connector->display_info.bus_formats[0];
+
 	/* Configure the LVDSC */
-	lvds_writel(lvds, LVDSC_CFGR, (LVDSC_CFGR_MAPPING_JEIDA |
-				LVDSC_CFGR_DC_UNBALANCED |
-				LVDSC_CFGR_DEN_POL_HIGH |
-				LVDSC_CFGR_PIXSIZE_24BITS));
+	switch (bus_formats) {
+	case MEDIA_BUS_FMT_RGB666_1X7X3_SPWG:
+		map = LVDSC_CFGR_MAPPING_JEIDA;
+		pix_size = LVDSC_CFGR_PIXSIZE_18BITS;
+		break;
+	case MEDIA_BUS_FMT_RGB888_1X7X4_SPWG:
+		map = LVDSC_CFGR_MAPPING_VESA;
+		pix_size = LVDSC_CFGR_PIXSIZE_24BITS;
+		break;
+	default:
+		map = LVDSC_CFGR_MAPPING_JEIDA;
+		pix_size = LVDSC_CFGR_PIXSIZE_24BITS;
+		break;
+	}
+
+	lvds_writel(lvds, LVDSC_CFGR, (map | LVDSC_CFGR_DC_UNBALANCED |
+		    LVDSC_CFGR_DEN_POL_HIGH | pix_size));
 
 	/* Enable the LVDS serializer */
 	lvds_writel(lvds, LVDSC_CR, LVDSC_CR_SER_EN);
 }
+
+static int mchp_lvds_connector_get_modes(struct drm_connector *connector)
+{
+	struct mchp_lvds *lvds = drm_connector_to_mchp_lvds(connector);
+
+	return drm_panel_get_modes(lvds->panel, connector);
+}
+
+static const struct drm_connector_helper_funcs
+mchp_lvds_connector_helper_funcs = {
+	.get_modes = mchp_lvds_connector_get_modes,
+};
+
+static const struct drm_connector_funcs panel_bridge_connector_funcs = {
+	.reset = drm_atomic_helper_connector_reset,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.destroy = drm_connector_cleanup,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+};
 
 static int mchp_lvds_attach(struct drm_bridge *bridge,
 			    struct drm_encoder *encoder,
 			    enum drm_bridge_attach_flags flags)
 {
 	struct mchp_lvds *lvds = bridge_to_lvds(bridge);
+	struct drm_connector *connector = &lvds->connector;
+	int ret;
 
-	return drm_bridge_attach(encoder, lvds->panel_bridge,
-				 bridge, flags);
+	ret = drm_bridge_attach(encoder, lvds->panel_bridge,
+				bridge, flags);
+
+	if (ret < 0)
+		return ret;
+
+	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
+		return 0;
+
+	if (!bridge->encoder) {
+		dev_err(lvds->dev, "Missing encoder\n");
+		return -ENODEV;
+	}
+
+	drm_connector_helper_add(connector,
+				 &mchp_lvds_connector_helper_funcs);
+
+	ret = drm_connector_init(bridge->dev, connector,
+				 &panel_bridge_connector_funcs,
+				 DRM_MODE_CONNECTOR_LVDS);
+	if (ret) {
+		dev_err(lvds->dev, "Failed to initialize connector %d\n", ret);
+		return ret;
+	}
+
+	drm_panel_bridge_set_orientation(connector, bridge);
+
+	ret = drm_connector_attach_encoder(&lvds->connector, bridge->encoder);
+	if (ret) {
+		dev_err(lvds->dev, "Failed to attach connector to encoder %d\n", ret);
+		drm_connector_cleanup(connector);
+		return ret;
+	}
+
+	if (bridge->dev->registered) {
+		if (connector->funcs->reset)
+			connector->funcs->reset(connector);
+
+		ret = drm_connector_register(connector);
+		if (ret) {
+			dev_err(lvds->dev, "Failed to attach connector to register %d\n", ret);
+			drm_connector_cleanup(connector);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 static void mchp_lvds_enable(struct drm_bridge *bridge)
@@ -207,10 +305,9 @@ static int mchp_lvds_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id mchp_lvds_dt_ids[] = {
-	{
-		.compatible = "microchip,sam9x75-lvds",
-	},
-	{},
+	{ .compatible = "microchip,sam9x75-lvds" },
+	{ .compatible = "microchip,sama7d65-lvds" },
+	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mchp_lvds_dt_ids);
 
