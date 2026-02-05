@@ -1167,6 +1167,26 @@
 			};
 		};
 
+		xisc: xisc@f8048000 {
+			compatible = "microchip,sama7g5-isc";
+			reg = <0xf8048000 0x2000>;
+			interrupts = <43 IRQ_TYPE_LEVEL_HIGH 7>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 43>;
+			clock-names = "hclock";
+			#clock-cells = <0>;
+			clock-output-names = "isc-mck";
+			status = "disabled";
+
+			port {
+				xisc_in: endpoint {
+					bus-width = <14>;
+					hsync-active = <1>;
+					vsync-active = <1>;
+					remote-endpoint = <&csi2dc_out>;
+				};
+			};
+		};
+
 		sfr: sfr@f8050000 {
 			compatible = "microchip,sam9x60-sfr", "syscon";
 			reg = <0xf8050000 0x400>;
@@ -1179,6 +1199,73 @@
 			clock-names = "pclk", "refclk";
 			microchip,sfr = <&sfr>;
 			status = "disabled";
+		};
+
+		csi2host: csi2host@f8058000 {
+			compatible = "snps,dw-csi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xf8058000 0x7FF>;
+			interrupts = <53 IRQ_TYPE_LEVEL_HIGH 7>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 53>, <&pmc PMC_TYPE_GCK 55>;
+			clock-names = "perclk", "phyclk";
+			assigned-clocks = <&pmc PMC_TYPE_GCK 55>;
+			assigned-clock-rates = <26600000>;
+			snps,output-type = <1>;
+			phys = <&csi_dphy>;
+			status = "disabled";
+
+			port@1 {
+				reg = <1>;
+				csi2host_in: endpoint {
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				csi2host_out: endpoint {
+				};
+			};
+		};
+
+		csi_dphy: dphy@f8058040 {
+			compatible = "snps,dw-dphy-rx";
+			#phy-cells = <0>;
+			bus-width = <8>;
+			snps,dphy-frequency = <900000>;
+			snps,phy_type = <0>;
+			reg = <0xf8058040 0x20>;
+			status = "disabled";
+		};
+
+		csi2dc: csi2dc@f805c000 {
+			compatible = "microchip,sama7g5-csi2dc";
+			reg = <0xf805c000 0x500>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 52>, <&xisc>;
+			clock-names = "pclk", "scck";
+			assigned-clocks = <&xisc>;
+			assigned-clock-rates = <266000000>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					csi2dc_in: endpoint {
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					csi2dc_out: endpoint {
+						bus-width = <14>;
+						hsync-active = <1>;
+						vsync-active = <1>;
+						remote-endpoint = <&xisc_in>;
+					};
+				};
+			};
 		};
 
 		lvds_controller: lvds-controller@f8060000 {
