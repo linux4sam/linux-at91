@@ -21,13 +21,13 @@
 	compatible = "microchip,sama7d65-curiosity", "microchip,sama7d65",
 		     "microchip,sama7d6", "microchip,sama7";
 
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
-
 	aliases {
 		serial0 = &uart6;
 		i2c1 = &i2c10;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
 	};
 
 	gpio-keys {
@@ -66,43 +66,6 @@
 		};
 	};
 
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_key_gpio_default>;
-
-		button {
-			label = "PB_USER";
-			gpios = <&pioa PIN_PC10 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_PROG1>;
-			wakeup-source;
-		};
-	};
-
-	leds {
-		compatible = "gpio-leds";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_led_gpio_default>;
-
-		led0: led-red {
-			color = <LED_COLOR_ID_RED>;
-			gpios = <&pioa PIN_PB17 GPIO_ACTIVE_HIGH>; /* Conflict with pwm. */
-		};
-
-		led1: led-green {
-			color = <LED_COLOR_ID_GREEN>;
-			gpios = <&pioa PIN_PB15 GPIO_ACTIVE_HIGH>; /* Conflict with pwm. */
-		};
-
-		led2: led-blue {
-			color = <LED_COLOR_ID_BLUE>;
-			function = LED_FUNCTION_HEARTBEAT;
-			gpios = <&pioa PIN_PA21 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
-		};
-	};
-
 	memory@60000000 {
 		device_type = "memory";
 		reg = <0x60000000 0x40000000>;
@@ -115,36 +78,6 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
-};
-
-&can1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can1_default>;
-	status = "okay";
-};
-
-&can2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can2_default>;
-	status = "okay";
-};
-
-&can3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can3_default>;
-	status = "okay";
-};
-
-&dma0 {
-	status = "okay";
-};
-
-&dma1 {
-	status = "okay";
-};
-
-&dma2 {
-	status = "okay";
 };
 
 &adc {
@@ -224,26 +157,6 @@
 &flx10 {
 	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
 	status = "okay";
-};
-
-&gmac0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gmac0_default
-		     &pinctrl_gmac0_mdio_default
-		     &pinctrl_gmac0_txck_default
-		     &pinctrl_gmac0_phy_irq>;
-	phy-mode = "rgmii-id";
-	nvmem-cells = <&eeprom0_eui48>;
-	nvmem-cell-names = "mac-address";
-	status = "okay";
-
-	ethernet-phy@7 {
-		reg = <0x7>;
-		interrupt-parent = <&pioa>;
-		interrupts = <PIN_PC1 IRQ_TYPE_LEVEL_LOW>;
-	};
 };
 
 &i2c10 {
@@ -719,10 +632,6 @@
 &rtt {
 	atmel,rtt-rtc-time-reg = <&gpbr 0x0>;
 	status = "disabled";
-};
-
-&rtt {
-	atmel,rtt-rtc-time-reg = <&gpbr 0x0>;
 };
 
 &sdmmc1 {
