@@ -3,6 +3,7 @@
 DTC_FLAGS_at91-sam9x60_curiosity := -@
 DTC_FLAGS_at91-sam9x60ek := -@
 DTC_FLAGS_at91-sam9x75_curiosity := -@
+DTC_FLAGS_at91-sam9x75eb := -@
 DTC_FLAGS_at91-sama5d27_som1_ek := -@
 DTC_FLAGS_at91-sama5d27_wlsom1_ek := -@
 DTC_FLAGS_at91-sama5d29_curiosity := -@
@@ -63,7 +64,8 @@ dtb-$(CONFIG_SOC_SAM9X60) += \
 	at91-sam9x60_curiosity.dtb \
 	at91-sam9x60ek.dtb
 dtb-$(CONFIG_SOC_SAM9X7) += \
-	at91-sam9x75_curiosity.dtb
+	at91-sam9x75_curiosity.dtb \
+	at91-sam9x75eb.dtb
 dtb-$(CONFIG_SOC_SAM_V7) += \
 	at91-kizbox2-2.dtb \
 	at91-kizbox3-hs.dtb \
