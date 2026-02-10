@@ -315,6 +315,14 @@
 			status = "disabled";
 		};
 
+		gpu: gpu@f0018000 {
+			compatible = "microchip,sam9x7-gfx2d";
+			reg = <0xf0018000 0x100>;
+			interrupts = <36 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 36>;
+			status = "disabled";
+		};
+
 		i2s: i2s@f001c000 {
 			compatible = "microchip,sam9x7-i2smcc", "microchip,sam9x60-i2smcc";
 			reg = <0xf001c000 0x100>;
@@ -1162,6 +1170,15 @@
 		sfr: sfr@f8050000 {
 			compatible = "microchip,sam9x60-sfr", "syscon";
 			reg = <0xf8050000 0x400>;
+		};
+
+		dsi: dsi@f8054000 {
+			compatible = "microchip,sam9x75-mipi-dsi";
+			reg = <0xf8054000 0x200>;
+			clocks = <&pmc PMC_TYPE_PERIPHERAL 54>, <&pmc PMC_TYPE_GCK 55>;
+			clock-names = "pclk", "refclk";
+			microchip,sfr = <&sfr>;
+			status = "disabled";
 		};
 
 		lvds_controller: lvds-controller@f8060000 {
