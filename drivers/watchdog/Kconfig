@@ -217,6 +217,18 @@ config DA9052_WATCHDOG
 	  Alternatively say M to compile the driver as a module,
 	  which will be called da9052_wdt.
 
+config MPFS_WATCHDOG
+	tristate "Microchip PolarFire SoC Watchdog"
+	depends on ARCH_MICROCHIP_POLARFIRE || COMPILE_TEST
+	select WATCHDOG_CORE
+	help
+	  Support for the watchdog in the PolarFire SoC. Watchdog trigger
+	  cause system reset.
+
+	  Say Y here to include support for the PolarFire watchdog.
+	  Alternatively say M to compile the driver as a module,
+	  which will be called mpfs_wdt.
+
 config DA9055_WATCHDOG
 	tristate "Dialog Semiconductor DA9055 Watchdog"
 	depends on MFD_DA9055 || COMPILE_TEST
