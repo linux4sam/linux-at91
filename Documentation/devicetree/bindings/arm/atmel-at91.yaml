@@ -218,6 +218,13 @@ properties:
           - const: microchip,sama7d6
           - const: microchip,sama7
 
+      - description: Microchip SAMA7D65 Curiosity Pro Board
+        items:
+          - const: microchip,sama7d65-curiosity-pro
+          - const: microchip,sama7d65
+          - const: microchip,sama7d6
+          - const: microchip,sama7
+
       - items:
           - const: microchip,sama7g5ek # SAMA7G5 Evaluation Kit
           - const: microchip,sama7g5
