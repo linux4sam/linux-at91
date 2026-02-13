@@ -48,5 +48,6 @@ obj-y += loongson/
 obj-$(CONFIG_CRYPTO_DEV_AMLOGIC_GXL) += amlogic/
 obj-y += intel/
 obj-y += starfive/
+obj-y += microchip/
 obj-y += cavium/
 obj-y += ti/
