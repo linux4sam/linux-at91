@@ -219,6 +219,17 @@ config MCHP_SBI_IPC_MBOX
 	  To compile this driver as a module, choose M here. the
 	  module will be called mailbox-mchp-ipc-sbi.
 
+config MIV_IHC
+	tristate "Mi-V Inter-hart Communication (IHC) driver"
+	depends on RISCV_SBI
+	depends on SOC_MICROCHIP_POLARFIRE || COMPILE_TEST
+	help
+	  This driver adds support for the inter-hart
+	  communication mailbox controller driver.
+
+	  To compile this driver as a module, choose M here. the
+	  module will be called mailbox-miv-ihc.
+
 	  If unsure, say N.
 
 config QCOM_APCS_IPC
