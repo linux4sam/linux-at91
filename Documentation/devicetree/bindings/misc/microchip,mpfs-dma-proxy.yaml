@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/microchip,mpfs-dma-proxy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip PolarFire SoC DMA proxy
+
+description:
+  Userspace DMA interface, Exposing the platform DMA on PolarFire SoC
+
+maintainers:
+  - Shravan Chippa <shravan.chippa@microchip.com>
+
+properties:
+  compatible:
+    const: microchip,mpfs-dma-proxy
+
+  dmas:
+    minItems: 1
+    maxItems: 4
+
+  dma-names:
+    items:
+      - const: dma-proxy0
+      - const: dma-proxy1
+      - const: dma-proxy2
+      - const: dma-proxy3
+    minItems: 1
+
+required:
+  - compatible
+  - dmas
+  - dma-names
+
+additionalProperties: false
+
+examples:
+  - |
+
+    mpfs_dma_proxy: mpfs-dma-proxy {
+        compatible = "microchip,mpfs-dma-proxy";
+        dmas = <&pdma 3>;
+        dma-names = "dma-proxy0";
+    };
