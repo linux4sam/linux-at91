@@ -638,13 +638,6 @@ error:
 			       AT91_TWI_THRCLR | AT91_TWI_LOCKCLR);
 	}
 
-	/*
-	 * some faulty I2C slave devices might hold SDA down;
-	 * we can send a bus clear command, hoping that the pins will be
-	 * released
-	 */
-	i2c_recover_bus(&dev->adapter);
-
 	return ret;
 }
 
@@ -715,7 +708,17 @@ static int at91_twi_xfer(struct i2c_adapter *adap, struct i2c_msg *msg, int num)
 	ret = at91_do_twi_transfer(dev);
 	i2c_put_dma_safe_msg_buf(dma_buf, m_start, !ret);
 
-	ret = (ret < 0) ? ret : num;
+	if (ret < 0) {
+		/*
+		 * some faulty I2C slave devices might hold SDA down;
+		 * we can send a bus clear command, hoping that the pins will be
+		 * released
+		 */
+		i2c_recover_bus(&dev->adapter);
+	} else {
+		ret = num;
+	}
+
 out:
 	pm_runtime_put_autosuspend(dev->dev);
 
