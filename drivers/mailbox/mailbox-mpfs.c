@@ -315,6 +315,7 @@ static int mpfs_mbox_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Registering MPFS mailbox controller failed\n");
 		return ret;
 	}
+
 	dev_info(&pdev->dev, "Registered MPFS mailbox controller driver\n");
 
 	return 0;
