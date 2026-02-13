@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/microchip,yuv2h264.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip H.264 Encoder IP
+
+maintainers:
+  - Shravan Chippa <shravan.chippa@microchip.com>
+
+description: |
+  The Microchip H.264 encoder IP used for encode H.264 frame from
+  yuv422 frames and stream the video data through AXI streaming
+  or native interface to video DMA node.
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - microchip,yuv2h264-rtl-v1
+
+  reg:
+    maxItems: 1
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      "#address-cells":
+        const: 1
+
+      "#size-cells":
+        const: 0
+
+      port@0:
+        type: object
+        description: The Input/sink port node properties.
+        properties:
+          reg:
+            description: Input/sink port number.
+            const: 0
+
+          endpoint:
+            type: object
+
+            properties:
+              remote-endpoint: true
+
+            required:
+              - remote-endpoint
+
+            additionalProperties: false
+
+        required:
+          - reg
+          - endpoint
+
+        additionalProperties: false
+
+    patternProperties:
+      "port@1":
+        type: object
+        description: The Output/source port node properties.
+        properties:
+          reg:
+            description: Output/source port number.
+
+          endpoint:
+            type: object
+
+            properties:
+              remote-endpoint: true
+
+            required:
+              - remote-endpoint
+
+            additionalProperties: false
+
+        required:
+          - reg
+          - endpoint
+
+        additionalProperties: false
+
+    required:
+      - "#address-cells"
+      - "#size-cells"
+      - port@0
+      - port@1
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/media/microchip-common.h>
+
+    yuv2h264_0: h264-video-0@50020000 {
+        compatible = "microchip,yuv2h264-rtl-v1";
+        reg = <0x50020000 0x10000>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                /* Sink port */
+                reg = <0>;
+                h264_0_in: endpoint {
+                    remote-endpoint = <&yuv420_0_out>;
+                };
+            };
+            port@1 {
+                /* Source port */
+                reg = <1>;
+                h264_0_out: endpoint {
+                    remote-endpoint = <&video_dma_in>;
+                };
+            };
+        };
+    };
+...
