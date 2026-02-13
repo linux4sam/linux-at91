@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/dma/microchip,mpfs-fpga-dma.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip FPGA soft DMA controller core
+
+maintainers:
+  - Conor Dooley <conor.dooley@microchip.com>
+
+allOf:
+  - $ref: dma-controller.yaml#
+
+properties:
+  "#dma-cells":
+    const: 1
+
+  compatible:
+    const: microchip,mpfs-fpga-dma
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+required:
+  - "#dma-cells"
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    dma: dma-controller@60020000 {
+        compatible = "microchip,mpfs-fpga-dma";
+        reg = <0x60020000 0x1000>;
+        interrupt-parent = <&plic>;
+        interrupts = <120>;
+        status = "disabled";
+    };
+
+...

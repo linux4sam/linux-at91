@@ -164,4 +164,11 @@ config UIO_DFL
 	    opae-sdk/tools/libopaeuio/
 
 	  If you compile this as a module, it will be called uio_dfl.
+
+config UIO_MICROCHIP_DMA
+	tristate "Generic driver for Microchip Fabric DMA controller"
+	depends on UIO
+	help
+	  Userspace I/O interface for the Microchip Fabric DMA controller.
+	  If compiled as a module, it will be called uio-microchip-dma.
 endif
