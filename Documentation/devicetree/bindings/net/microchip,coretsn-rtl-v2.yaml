@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/microchip,coretsn-rtl-v2.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Time Sensitive Network Device
+
+description: |
+  The Microchip CoreTSN IP implements the following
+  Time Sensitive Networking protocols for Ethernet.
+  Traffic Shaping (IEEE 802.1Qbv)
+  Frame Preemption (IEEE 802.3br and IEEE 802.1Qbu)
+  Stream Filtering and Policing (IEEE 802.1Qci)
+
+maintainers:
+  - Pallela Venkat Karthik <pallela.karthik@microchip.com>
+
+properties:
+  compatible:
+    enum:
+      - microchip,coretsn-rtl-v2
+
+  reg:
+    description:
+      Address and length of the IO space.
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: Clock for AXI register slave interface.
+      - description: Clock for CoreTSN IP.
+
+  clock-names:
+    items:
+      - const: apb
+      - const: core
+
+required:
+  - compatible
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    tsn@40000000 {
+        compatible = "microchip,coretsn-rtl-v2";
+        reg = <0x40000000 0x1000>;
+        clocks = <&clkcfg 30>, <&tsnclk>;
+        clock-names = "apb", "core";
+    };

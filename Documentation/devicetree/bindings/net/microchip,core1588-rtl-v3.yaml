@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/microchip,core1588-rtl-v3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip Core1588 PTP (Timestamping).
+
+description: |
+  Microchip core1588 PTP provides  precision timing functionality
+  along with capability for time and fine adjustment. This IP is provided
+  for use with Microchip CoreTSE(Triple Speed Ethernet) MAC with HW
+  timestamping capability.
+
+maintainers:
+  - Praveen Kumar Vattipalli <praveen.kumar@micorchip.com>
+
+properties:
+  compatible:
+    enum:
+      - microchip,core1588-rtl-v3
+
+  reg:
+    description:
+      Address and length of the IO space.
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: Clock for Timestamping unit.
+
+  clock-names:
+    items:
+      - const: tsu
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    PTP@40002000 {
+        compatible = "microchip,core1588-rtl-v3";
+        reg = <0x40002000 0x1000>;
+        clock-names = "tsu";
+        clocks = <&ptpclk>;
+        status = "okay";
+    };

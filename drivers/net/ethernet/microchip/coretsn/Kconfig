@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+
+config MICROCHIP_CORETSN
+	tristate "Microchip Time Sensitive Networking support"
+	default n
+	depends on HAS_IOMEM
+	help
+	  This driver supports TSN Configuration Support for
+	  Microchip CORETSN devices.
+	  This driver supports the TSN specifications
+	  Traffic Shaping (IEEE 802.1Qbv)
+	  Frame Preemption (IEEE 802.3br and IEEE 802.1Qbu)
+	  Stream Filtering and Policing (IEEE 802.1Qci)
+
+	  To compile this driver as a module, choose M here.
+	  The module will be called microchip-tsn.
+
