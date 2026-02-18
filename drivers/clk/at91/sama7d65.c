@@ -94,6 +94,10 @@ static const struct clk_pll_layout pll_layout_divio = {
 };
 
 /*
+ * PLLs output ranges:
+ * - Min: fCOREPLLCK = 600 MHz, PMC_PLL_CTRL0.DIVPMC = 255
+ * - Max: refer to PLL Electrical Characteristics in the product datasheet.
+ *
  * CPU PLL output range.
  * Notice: The upper limit has been setup to 1000000002 due to hardware
  * block which cannot output exactly 1GHz.
@@ -102,17 +106,32 @@ static const struct clk_range cpu_pll_outputs[] = {
 	{ .min = 2343750, .max = 1000000002 },
 };
 
-/* PLL output range. */
-static const struct clk_range pll_outputs[] = {
-	{ .min = 2343750, .max = 1200000000 },
+static const struct clk_range ddr_pll_outputs[] = {
+	{ .min = 2343750, .max = 533000001 },
 };
 
-/*
- * Min: fCOREPLLCK = 600 MHz, PMC_PLL_CTRL0.DIVPMC = 255
- * Max: fCOREPLLCK = 800 MHz, PMC_PLL_CTRL0.DIVPMC = 0
- */
+static const struct clk_range gpu_pll_outputs[] = {
+	{ .min = 2343750, .max = 533000001 },
+};
+
+static const struct clk_range sys_pll_outputs[] = {
+	{ .min = 2343750, .max = 416000000 },
+};
+
+static const struct clk_range baud_pll_outputs[] = {
+	{ .min = 2343750, .max = 300000000 },
+};
+
+static const struct clk_range audio_pll_outputs[] = {
+	{ .min = 2343750, .max = 300000000 },
+};
+
+static const struct clk_range eth_pll_outputs[] = {
+	{ .min = 2343750, .max = 250000000 },
+};
+
 static const struct clk_range lvdspll_outputs[] = {
-	{ .min = 16406250, .max = 800000000 },
+	{ .min = 2343750, .max = 630000000 },
 };
 
 static const struct clk_range upll_outputs[] = {
@@ -124,37 +143,73 @@ static const struct clk_range core_outputs[] = {
 	{ .min = 600000000, .max = 1200000000 },
 };
 
-static const struct clk_range lvdspll_core_outputs[] = {
-	{ .min = 600000000, .max = 1200000000 },
-};
-
 static const struct clk_range upll_core_outputs[] = {
 	{ .min = 600000000, .max = 1200000000 },
 };
 
 /* CPU PLL characteristics. */
 static const struct clk_pll_characteristics cpu_pll_characteristics = {
-	.input = { .min = 12000000, .max = 50000000 },
+	.input = { .min = 10000000, .max = 50000000 },
 	.num_output = ARRAY_SIZE(cpu_pll_outputs),
 	.output = cpu_pll_outputs,
 	.core_output = core_outputs,
 	.acr = UL(0x00070010),
 };
 
-/* PLL characteristics. */
-static const struct clk_pll_characteristics pll_characteristics = {
-	.input = { .min = 12000000, .max = 50000000 },
-	.num_output = ARRAY_SIZE(pll_outputs),
-	.output = pll_outputs,
+/* PLLs characteristics. */
+static const struct clk_pll_characteristics ddr_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(ddr_pll_outputs),
+	.output = ddr_pll_outputs,
+	.core_output = core_outputs,
+	.acr = UL(0x00070010),
+};
+
+static const struct clk_pll_characteristics gpu_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(gpu_pll_outputs),
+	.output = gpu_pll_outputs,
+	.core_output = core_outputs,
+	.acr = UL(0x00070010),
+};
+
+static const struct clk_pll_characteristics sys_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(sys_pll_outputs),
+	.output = sys_pll_outputs,
+	.core_output = core_outputs,
+	.acr = UL(0x00070010),
+};
+
+static const struct clk_pll_characteristics baud_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(baud_pll_outputs),
+	.output = baud_pll_outputs,
+	.core_output = core_outputs,
+	.acr = UL(0x00070010),
+};
+
+static const struct clk_pll_characteristics audio_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(audio_pll_outputs),
+	.output = audio_pll_outputs,
+	.core_output = core_outputs,
+	.acr = UL(0x00070010),
+};
+
+static const struct clk_pll_characteristics eth_pll_characteristics = {
+	.input = { .min = 10000000, .max = 50000000 },
+	.num_output = ARRAY_SIZE(eth_pll_outputs),
+	.output = eth_pll_outputs,
 	.core_output = core_outputs,
 	.acr = UL(0x00070010),
 };
 
 static const struct clk_pll_characteristics lvdspll_characteristics = {
-	.input = { .min = 12000000, .max = 50000000 },
+	.input = { .min = 10000000, .max = 50000000 },
 	.num_output = ARRAY_SIZE(lvdspll_outputs),
 	.output = lvdspll_outputs,
-	.core_output = lvdspll_core_outputs,
+	.core_output = core_outputs,
 	.acr = UL(0x00070010),
 };
 
@@ -239,7 +294,7 @@ static struct sama7d65_pll {
 			.n = "syspll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAINCK,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &sys_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			/*
 			 * This feeds syspll_divpmcck which may feed critical parts
@@ -253,7 +308,7 @@ static struct sama7d65_pll {
 			.n = "syspll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &sys_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			/*
 			 * This may feed critical parts of the systems like timers.
@@ -269,7 +324,7 @@ static struct sama7d65_pll {
 			.n = "ddrpll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAINCK,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &ddr_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			/*
 			 * This feeds ddrpll_divpmcck which feeds DDR. It should not
@@ -282,7 +337,7 @@ static struct sama7d65_pll {
 			.n = "ddrpll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &ddr_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			/* This feeds DDR. It should not be disabled. */
 			.f = CLK_IS_CRITICAL | CLK_SET_RATE_GATE,
@@ -294,7 +349,7 @@ static struct sama7d65_pll {
 			.n = "gpupll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAINCK,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &gpu_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			.f = CLK_SET_RATE_GATE,
 		},
@@ -303,7 +358,7 @@ static struct sama7d65_pll {
 			.n = "gpupll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &gpu_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
@@ -316,7 +371,7 @@ static struct sama7d65_pll {
 			.n = "baudpll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAINCK,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &baud_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			.f = CLK_SET_RATE_GATE,
 		},
@@ -325,7 +380,7 @@ static struct sama7d65_pll {
 			.n = "baudpll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &baud_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
@@ -338,7 +393,7 @@ static struct sama7d65_pll {
 			.n = "audiopll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAIN_XTAL,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &audio_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			.f = CLK_SET_RATE_GATE,
 		},
@@ -347,7 +402,7 @@ static struct sama7d65_pll {
 			.n = "audiopll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &audio_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
@@ -358,7 +413,7 @@ static struct sama7d65_pll {
 			.n = "audiopll_diviock",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divio,
-			.c = &pll_characteristics,
+			.c = &audio_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
@@ -371,7 +426,7 @@ static struct sama7d65_pll {
 			.n = "ethpll_fracck",
 			.p = SAMA7D65_PLL_PARENT_MAIN_XTAL,
 			.l = &pll_layout_frac,
-			.c = &pll_characteristics,
+			.c = &eth_pll_characteristics,
 			.t = PLL_TYPE_FRAC,
 			.f = CLK_SET_RATE_GATE,
 		},
@@ -380,7 +435,7 @@ static struct sama7d65_pll {
 			.n = "ethpll_divpmcck",
 			.p = SAMA7D65_PLL_PARENT_FRACCK,
 			.l = &pll_layout_divpmc,
-			.c = &pll_characteristics,
+			.c = &eth_pll_characteristics,
 			.t = PLL_TYPE_DIV,
 			.f = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE |
 			     CLK_SET_RATE_PARENT,
