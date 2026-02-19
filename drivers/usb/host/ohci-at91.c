@@ -24,10 +24,12 @@
 #include <linux/module.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of.h>
+#include <linux/phy/phy.h>
 #include <linux/regmap.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <soc/at91/atmel-sfr.h>
+#include <soc/at91/sama7-sfr.h>
 
 #include "ohci.h"
 
@@ -39,6 +41,12 @@
 #define hcd_to_ohci_at91_priv(h) \
 	((struct ohci_at91_priv *)hcd_to_ohci(h)->priv)
 
+struct at91_ohci_cfg {
+	unsigned int ohciicr;
+};
+
+static const struct of_device_id at91_ohci_dt_ids[];
+
 #define AT91_MAX_USBH_PORTS	3
 struct at91_usbh_data {
 	struct gpio_desc *vbus_pin[AT91_MAX_USBH_PORTS];
@@ -47,6 +55,7 @@ struct at91_usbh_data {
 	u8 overcurrent_supported;
 	u8 overcurrent_status[AT91_MAX_USBH_PORTS];
 	u8 overcurrent_changed[AT91_MAX_USBH_PORTS];
+	struct ohci_at91_priv *ohci_at91;
 };
 
 struct ohci_at91_priv {
@@ -57,6 +66,8 @@ struct ohci_at91_priv {
 	bool wakeup;		/* Saved wake-up state for resume */
 	struct regmap *sfr_regmap;
 	u32 suspend_smc_id;
+	const struct at91_ohci_cfg *cfg;
+	struct phy *phy[AT91_MAX_USBH_PORTS];
 };
 /* interface and function clocks; sometimes also an AHB clock */
 
@@ -72,8 +83,14 @@ static const struct ohci_driver_overrides ohci_at91_drv_overrides __initconst = 
 
 static void at91_start_clock(struct ohci_at91_priv *ohci_at91)
 {
+	int i;
+
 	if (ohci_at91->clocked)
 		return;
+
+	at91_for_each_port(i) {
+		phy_power_on(ohci_at91->phy[i]);
+	}
 
 	clk_set_rate(ohci_at91->fclk, 48000000);
 	clk_prepare_enable(ohci_at91->hclk);
@@ -84,12 +101,19 @@ static void at91_start_clock(struct ohci_at91_priv *ohci_at91)
 
 static void at91_stop_clock(struct ohci_at91_priv *ohci_at91)
 {
+	int i;
+
 	if (!ohci_at91->clocked)
 		return;
 
 	clk_disable_unprepare(ohci_at91->fclk);
 	clk_disable_unprepare(ohci_at91->iclk);
 	clk_disable_unprepare(ohci_at91->hclk);
+
+	at91_for_each_port(i) {
+		phy_power_off(ohci_at91->phy[i]);
+	}
+
 	ohci_at91->clocked = false;
 }
 
@@ -153,11 +177,12 @@ static struct regmap *at91_dt_syscon_sfr(void)
 	struct regmap *regmap;
 
 	regmap = syscon_regmap_lookup_by_compatible("atmel,sama5d2-sfr");
-	if (IS_ERR(regmap)) {
+	if (IS_ERR(regmap))
 		regmap = syscon_regmap_lookup_by_compatible("microchip,sam9x60-sfr");
-		if (IS_ERR(regmap))
-			regmap = NULL;
-	}
+	if (IS_ERR(regmap))
+		regmap = syscon_regmap_lookup_by_compatible("microchip,sama7g5-sfr");
+	if (IS_ERR(regmap))
+		regmap = NULL;
 
 	return regmap;
 }
@@ -186,8 +211,10 @@ static int usb_hcd_at91_probe(const struct hc_driver *driver,
 	struct usb_hcd *hcd;
 	struct ohci_at91_priv *ohci_at91;
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
+	struct device_node *np = dev->of_node;
 	struct resource *res;
-	int irq;
+	int i, irq;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -205,6 +232,15 @@ static int usb_hcd_at91_probe(const struct hc_driver *driver,
 	}
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
+
+	match = of_match_node(at91_ohci_dt_ids, np);
+	if (match && match->data) {
+		ohci_at91->cfg = match->data;
+	} else {
+		dev_err(dev, "failed to match compatible node\n");
+		retval = PTR_ERR(match);
+		goto err;
+	}
 
 	ohci_at91->iclk = devm_clk_get(dev, "ohci_clk");
 	if (IS_ERR(ohci_at91->iclk)) {
@@ -233,7 +269,22 @@ static int usb_hcd_at91_probe(const struct hc_driver *driver,
 			dev_dbg(dev, "failed to find sfr node\n");
 	}
 
+	at91_for_each_port(i) {
+		ohci_at91->phy[i] =  devm_of_phy_get_by_index(dev, np, i);
+
+		/* The phy is optional */
+		if (IS_ERR(ohci_at91->phy[i]) &&
+		   (PTR_ERR(ohci_at91->phy[i]) == -ENODEV)) {
+			dev_dbg(dev, "Optional PHY %d missing\n", i);
+			ohci_at91->phy[i] = NULL;
+		}
+
+		phy_init(ohci_at91->phy[i]);
+		phy_set_mode(ohci_at91->phy[i], PHY_MODE_USB_HOST);
+	}
+
 	board = hcd->self.controller->platform_data;
+	board->ohci_at91 = ohci_at91;
 	ohci = hcd_to_ohci(hcd);
 	ohci->num_ports = board->ports;
 	at91_start_hc(pdev);
@@ -330,7 +381,7 @@ static int ohci_at91_port_suspend(struct ohci_at91_priv *ohci_at91, u8 set)
 		if (res.a0)
 			return -EINVAL;
 	} else if (regmap) {
-		ret = regmap_read(regmap, AT91_SFR_OHCIICR, &regval);
+		ret = regmap_read(regmap, ohci_at91->cfg->ohciicr, &regval);
 		if (ret)
 			return ret;
 
@@ -339,7 +390,7 @@ static int ohci_at91_port_suspend(struct ohci_at91_priv *ohci_at91, u8 set)
 		else
 			regval &= ~AT91_OHCIICR_USB_SUSPEND;
 
-		regmap_write(regmap, AT91_SFR_OHCIICR, regval);
+		regmap_write(regmap, ohci_at91->cfg->ohciicr, regval);
 	}
 
 	return 0;
@@ -519,8 +570,17 @@ static irqreturn_t ohci_hcd_at91_overcurrent_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static const struct at91_ohci_cfg at91rm9200_cfg = {
+	.ohciicr = AT91_SFR_OHCIICR,
+};
+
+static const struct at91_ohci_cfg sama7g5_cfg = {
+	.ohciicr = SAMA7_SFR_OHCIICR,
+};
+
 static const struct of_device_id at91_ohci_dt_ids[] = {
-	{ .compatible = "atmel,at91rm9200-ohci" },
+	{ .compatible = "atmel,at91rm9200-ohci", .data = &at91rm9200_cfg },
+	{ .compatible = "microchip,sama7g5-ohci", .data = &sama7g5_cfg },
 	{ /* sentinel */ }
 };
 
@@ -661,6 +721,15 @@ ohci_hcd_at91_drv_resume(struct device *dev)
 {
 	struct usb_hcd	*hcd = dev_get_drvdata(dev);
 	struct ohci_at91_priv *ohci_at91 = hcd_to_ohci_at91_priv(hcd);
+	int i;
+
+	at91_for_each_port(i) {
+		if (!ohci_at91->phy[i])
+			continue;
+
+		phy_init(ohci_at91->phy[i]);
+		phy_set_mode(ohci_at91->phy[i], PHY_MODE_USB_HOST);
+	}
 
 	ohci_at91_port_suspend(ohci_at91, 0);
 

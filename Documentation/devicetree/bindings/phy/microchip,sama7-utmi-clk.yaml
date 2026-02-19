@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/microchip,sama7-utmi-clk.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip SAMA7 UTMI Clock
+
+maintainers:
+  - Cristian Birsan <cristian.birsan@microchip.com>
+
+properties:
+  "#clock-cells":
+    const: 1
+
+  compatible:
+    enum:
+      - microchip,sama7g5-utmi-clk
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    maxItems: 1
+
+  sfr-phandle:
+    maxItems: 1
+    description: phandle to Special Function Registers (SFR) node
+
+  resets:
+    maxItems: 3
+    minItems: 3
+
+  reset-names:
+    maxItems: 3
+    minItems: 3
+
+required:
+  - "#clock-cells"
+  - compatible
+  - sfr-phandle
+  - clocks
+  - clock-names
+  - resets
+  - reset-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/at91.h>
+    #include <dt-bindings/reset/sama7g5-reset.h>
+
+    utmi_clk: utmi-clk {
+      compatible = "microchip,sama7g5-utmi-clk";
+      sfr-phandle = <&sfr>;
+      #clock-cells = <1>;
+      clocks = <&pmc PMC_TYPE_CORE PMC_UTMI>;
+      clock-names = "utmi_clk";
+      resets = <&reset_controller SAMA7G5_RESET_USB_PHY1>,
+               <&reset_controller SAMA7G5_RESET_USB_PHY2>,
+               <&reset_controller SAMA7G5_RESET_USB_PHY3>;
+      reset-names = "usb0_reset", "usb1_reset", "usb2_reset";
+    };

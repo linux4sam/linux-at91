@@ -8,6 +8,7 @@
 #define __LINUX_USB_GADGET_USBA_UDC_H__
 
 #include <linux/gpio/consumer.h>
+#include <linux/phy/phy.h>
 
 /* USB register offsets */
 #define USBA_CTRL				0x0000
@@ -73,6 +74,10 @@
 /* Bitfields in USBA_TST */
 #define USBA_SPEED_CFG_OFFSET			0
 #define USBA_SPEED_CFG_SIZE			2
+#define USBA_SPEED_CFG_NORMAL			0
+#define USBA_SPEED_CFG_HIGH			2
+#define USBA_SPEED_CFG_FULL			3
+#define USBA_SPEED_CFG_MASK			3
 #define USBA_TST_J_MODE				(1 <<  2)
 #define USBA_TST_K_MODE				(1 <<  3)
 #define USBA_TST_PKT_MODE			(1 <<  4)
@@ -357,6 +362,7 @@ struct usba_udc {
 	struct dentry *debugfs_root;
 #endif
 
+	struct phy *phy;
 	struct regmap *pmc;
 };
 
