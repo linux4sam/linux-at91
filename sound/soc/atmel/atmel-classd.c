@@ -262,10 +262,10 @@ static int atmel_classd_component_probe(struct snd_soc_component *component)
 				<< CLASSD_MR_NOVR_VAL_SHIFT);
 			break;
 		default:
-			val |= (CLASSD_MR_NOVR_VAL_10NS
+			val |= (CLASSD_MR_NOVR_VAL_20NS
 				<< CLASSD_MR_NOVR_VAL_SHIFT);
 			dev_warn(component->dev,
-				"non-overlapping value %d is invalid, the default value 10 is specified\n",
+				"non-overlapping value %d is invalid, the default value 20 is specified\n",
 				pdata->non_overlap_time);
 			break;
 		}

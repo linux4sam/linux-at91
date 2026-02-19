@@ -599,6 +599,10 @@ static inline int snd_pcm_suspend_all(struct snd_pcm *pcm)
 }
 #endif
 int snd_pcm_kernel_ioctl(struct snd_pcm_substream *substream, unsigned int cmd, void *arg);
+struct snd_pcm_runtime *snd_pcm_runtime_alloc(void);
+void snd_pcm_runtime_free(struct snd_pcm_runtime *runtime);
+void snd_pcm_runtime_set(struct snd_pcm_substream *substream,
+			 struct snd_pcm_hw_params *params);
 int snd_pcm_open_substream(struct snd_pcm *pcm, int stream, struct file *file,
 			   struct snd_pcm_substream **rsubstream);
 void snd_pcm_release_substream(struct snd_pcm_substream *substream);
@@ -1118,6 +1122,9 @@ int snd_pcm_hw_rule_add(struct snd_pcm_runtime *runtime,
 			int var,
 			snd_pcm_hw_rule_func_t func, void *private,
 			int dep, ...);
+
+int snd_pcm_hw_constraints_init(struct snd_pcm_substream *substream);
+int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream);
 
 /**
  * snd_pcm_hw_constraint_single() - Constrain parameter to a single value

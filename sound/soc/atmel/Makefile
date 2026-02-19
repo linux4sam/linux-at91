@@ -8,6 +8,7 @@ snd-soc-mchp-i2s-mcc-y := mchp-i2s-mcc.o
 snd-soc-mchp-spdiftx-y := mchp-spdiftx.o
 snd-soc-mchp-spdifrx-y := mchp-spdifrx.o
 snd-soc-mchp-pdmc-y := mchp-pdmc.o
+snd-soc-mchp-asrc-y := mchp-asrc.o mchp-asrc-dma.o
 
 # pdc and dma need to both be built-in if any user of
 # ssc is built-in.
@@ -23,6 +24,7 @@ obj-$(CONFIG_SND_MCHP_SOC_I2S_MCC) += snd-soc-mchp-i2s-mcc.o
 obj-$(CONFIG_SND_MCHP_SOC_SPDIFTX) += snd-soc-mchp-spdiftx.o
 obj-$(CONFIG_SND_MCHP_SOC_SPDIFRX) += snd-soc-mchp-spdifrx.o
 obj-$(CONFIG_SND_MCHP_SOC_PDMC) += snd-soc-mchp-pdmc.o
+obj-$(CONFIG_SND_MCHP_SOC_ASRC) += snd-soc-mchp-asrc.o
 
 # AT91 Machine Support
 snd-soc-sam9g20-wm8731-y := sam9g20_wm8731.o
@@ -32,6 +34,7 @@ snd-atmel-soc-classd-y := atmel-classd.o
 snd-atmel-soc-pdmic-y := atmel-pdmic.o
 snd-atmel-soc-tse850-pcm5142-y := tse850-pcm5142.o
 snd-soc-mikroe-proto-y := mikroe-proto.o
+snd-soc-mchp-asrc-card-objs := mchp-asrc-card.o
 
 obj-$(CONFIG_SND_AT91_SOC_SAM9G20_WM8731) += snd-soc-sam9g20-wm8731.o
 obj-$(CONFIG_SND_ATMEL_SOC_WM8904) += snd-atmel-soc-wm8904.o
@@ -40,3 +43,4 @@ obj-$(CONFIG_SND_ATMEL_SOC_CLASSD) += snd-atmel-soc-classd.o
 obj-$(CONFIG_SND_ATMEL_SOC_PDMIC) += snd-atmel-soc-pdmic.o
 obj-$(CONFIG_SND_ATMEL_SOC_TSE850_PCM5142) += snd-atmel-soc-tse850-pcm5142.o
 obj-$(CONFIG_SND_SOC_MIKROE_PROTO) += snd-soc-mikroe-proto.o
+obj-$(CONFIG_SND_MCHP_SOC_ASRC_CARD) += snd-soc-mchp-asrc-card.o

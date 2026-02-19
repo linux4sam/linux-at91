@@ -86,6 +86,9 @@
 #define SPDIFRX_MR_SBMODE_ALWAYS_LOAD	(0 << 8)
 #define SPDIFRX_MR_SBMODE_DISCARD	(1 << 8)
 
+/* Receiver direct access enable. */
+#define SPDIFRX_MR_RXDIRECT		BIT(12)
+
 /* Consecutive Preamble Error Threshold Automatic Restart */
 #define SPDIFRX_MR_AUTORST_MASK			GENMASK(24, 24)
 #define SPDIFRX_MR_AUTORST_NOACTION		(0 << 24)
@@ -135,6 +138,7 @@ static bool mchp_spdifrx_readable_reg(struct device *dev, unsigned int reg)
 	case SPDIFRX_IMR:
 	case SPDIFRX_ISR:
 	case SPDIFRX_RSR:
+	case SPDIFRX_RHR:
 	case SPDIFRX_CHSR(0, 0):
 	case SPDIFRX_CHSR(0, 1):
 	case SPDIFRX_CHSR(0, 2):
@@ -199,6 +203,7 @@ static bool mchp_spdifrx_volatile_reg(struct device *dev, unsigned int reg)
 	case SPDIFRX_IMR:
 	case SPDIFRX_ISR:
 	case SPDIFRX_RSR:
+	case SPDIFRX_RHR:
 	case SPDIFRX_CHSR(0, 0):
 	case SPDIFRX_CHSR(0, 1):
 	case SPDIFRX_CHSR(0, 2):
@@ -286,6 +291,14 @@ struct mchp_spdifrx_mixer_control {
 };
 
 /**
+ * struct mchp_spdifrx_soc: SPDIFRX SoC specific data
+ * @direct_path_avail: specify if ASRC direct path is available
+ */
+struct mchp_spdifrx_soc {
+	bool direct_path_avail;
+};
+
+/**
  * struct mchp_spdifrx_dev: MCHP SPDIFRX device data structure
  * @capture: DAI DMA configuration data
  * @control: mixer controls
@@ -295,6 +308,7 @@ struct mchp_spdifrx_mixer_control {
  * @pclk: peripheral clock
  * @gclk: generic clock
  * @trigger_enabled: true if enabled though trigger() ops
+ * @direct_path: specify if ASRC direct path is enabled
  */
 struct mchp_spdifrx_dev {
 	struct snd_dmaengine_dai_dma_data	capture;
@@ -305,6 +319,8 @@ struct mchp_spdifrx_dev {
 	struct clk				*pclk;
 	struct clk				*gclk;
 	unsigned int				trigger_enabled;
+	const struct mchp_spdifrx_soc		*soc;
+	bool direct_path;
 };
 
 static void mchp_spdifrx_channel_status_read(struct mchp_spdifrx_dev *dev,
@@ -388,6 +404,8 @@ static int mchp_spdifrx_trigger(struct snd_pcm_substream *substream, int cmd,
 				struct snd_soc_dai *dai)
 {
 	struct mchp_spdifrx_dev *dev = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_pcm_runtime *be = snd_soc_substream_to_rtd(substream);
+	u32 tmp;
 	int ret = 0;
 
 	switch (cmd) {
@@ -395,26 +413,65 @@ static int mchp_spdifrx_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		mutex_lock(&dev->mlock);
-		/* Enable overrun interrupts */
-		regmap_write(dev->regmap, SPDIFRX_IER, SPDIFRX_IR_OVERRUN);
+			if (!dev->direct_path) {
+			/* Enable overrun interrupts */
+			regmap_write(dev->regmap, SPDIFRX_IER, SPDIFRX_IR_OVERRUN);
+
+			dev->trigger_enabled = true;
+		} else if (dev->direct_path &&
+			  !be->dai_link->no_pcm) {
+			/*
+			 * In case we previously run with direct path
+			 * enabled when stream was closed overrun has
+			 * been raised and RHR is full now. For direct
+			 * path this is not an issue but now, as we
+			 * start with DMA we need to clear the RHR
+			 * buffer (by reading it) until no overrun
+			 * IRQs are reported in ISR and also need to
+			 * read WPSR.
+			 */
+			regmap_read(dev->regmap, SPDIFRX_ISR, &tmp);
+			while (tmp & SPDIFRX_IR_RXRDY) {
+				regmap_read(dev->regmap, SPDIFRX_RHR,
+					    &tmp);
+				regmap_read(dev->regmap, SPDIFRX_ISR,
+					    &tmp);
+			}
+			regmap_read(dev->regmap, SPDIFRX_WPSR, &tmp);
+			/*
+			 * Do not enable overrun interrupts if direct
+			 * path is enabled and we are BE for a DPCM
+			 * (ASRC). This is a workaround for direct path
+			 * to avoid interrupt storming when closing
+			 * stream. This is safe for runtime as overruns
+			 * cannot happen at runtime for direct path but
+			 * only when closing an audio IP part of audio
+			 * chain.
+			 */
+			regmap_write(dev->regmap, SPDIFRX_IER,
+				     SPDIFRX_IR_OVERRUN);
+		}
 
 		/* Enable receiver. */
 		regmap_update_bits(dev->regmap, SPDIFRX_MR, SPDIFRX_MR_RXEN_MASK,
 				   SPDIFRX_MR_RXEN_ENABLE);
-		dev->trigger_enabled = true;
+
 		mutex_unlock(&dev->mlock);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		mutex_lock(&dev->mlock);
-		/* Disable overrun interrupts */
-		regmap_write(dev->regmap, SPDIFRX_IDR, SPDIFRX_IR_OVERRUN);
+		if (!dev->direct_path ||
+		    (dev->direct_path && !be->dai_link->no_pcm)) {
+			/* Disable overrun interrupts */
+			regmap_write(dev->regmap, SPDIFRX_IDR, SPDIFRX_IR_OVERRUN);
 
-		/* Disable receiver. */
-		regmap_update_bits(dev->regmap, SPDIFRX_MR, SPDIFRX_MR_RXEN_MASK,
-				   SPDIFRX_MR_RXEN_DISABLE);
-		dev->trigger_enabled = false;
+			/* Disable receiver. */
+			regmap_update_bits(dev->regmap, SPDIFRX_MR, SPDIFRX_MR_RXEN_MASK,
+					   SPDIFRX_MR_RXEN_DISABLE);
+			dev->trigger_enabled = false;
+		}
 		mutex_unlock(&dev->mlock);
 		break;
 	default:
@@ -429,6 +486,7 @@ static int mchp_spdifrx_hw_params(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
 	struct mchp_spdifrx_dev *dev = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	u32 mr = 0;
 	int ret;
 
@@ -471,6 +529,13 @@ static int mchp_spdifrx_hw_params(struct snd_pcm_substream *substream,
 		dev_err(dev->dev, "PCM already running\n");
 		ret = -EBUSY;
 		goto unlock;
+	}
+
+	if (dev->direct_path) {
+		if (rtd->dai_link->no_pcm)
+			mr |= SPDIFRX_MR_RXDIRECT;
+		else
+			mr &= ~SPDIFRX_MR_RXDIRECT;
 	}
 
 	/* GCLK is enabled by runtime PM. */
@@ -1022,9 +1087,22 @@ static const struct snd_soc_component_driver mchp_spdifrx_component = {
 	.legacy_dai_naming	= 1,
 };
 
+static const struct mchp_spdifrx_soc mchp_sama7d65_spdifrx_soc_data = {
+	.direct_path_avail = true,
+};
+
+static const struct mchp_spdifrx_soc mchp_sama7g54_spdifrx_soc_data = {
+	.direct_path_avail = false,
+};
+
 static const struct of_device_id mchp_spdifrx_dt_ids[] = {
 	{
 		.compatible = "microchip,sama7g5-spdifrx",
+		.data = &mchp_sama7g54_spdifrx_soc_data,
+	},
+	{
+		.compatible = "microchip,sama7d65-spdifrx",
+		.data = &mchp_sama7d65_spdifrx_soc_data,
 	},
 	{ /* sentinel */ }
 };
@@ -1077,6 +1155,7 @@ static int mchp_spdifrx_probe(struct platform_device *pdev)
 	struct mchp_spdifrx_dev *dev;
 	struct resource *mem;
 	struct regmap *regmap;
+	struct device_node *np;
 	void __iomem *base;
 	int irq;
 	int err;
@@ -1125,6 +1204,8 @@ static int mchp_spdifrx_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	dev->soc = device_get_match_data(&pdev->dev);
+
 	/*
 	 * Signal control need a valid rate on gclk. hw_params() configures
 	 * it propertly but requesting signal before any hw_params() has been
@@ -1163,6 +1244,13 @@ static int mchp_spdifrx_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "fail to register dai\n");
 		goto pm_runtime_suspend;
 	}
+
+	/*Check if we have direct path disabled*/
+	np = of_find_node_with_property(NULL, "microchip,disable-direct-path");
+	if (!np && dev->soc->direct_path_avail)
+		dev->direct_path = true;
+	else
+		of_node_put(np);
 
 	regmap_read(regmap, SPDIFRX_VERSION, &vers);
 	dev_info(&pdev->dev, "hw version: %#lx\n", vers & SPDIFRX_VERSION_MASK);

@@ -20,6 +20,7 @@ properties:
       - enum:
           - atmel,at91rm9200-ssc
           - atmel,at91sam9g45-ssc
+          - microchip,sama7d65-ssc
       - items:
           - enum:
               - microchip,sam9x7-ssc

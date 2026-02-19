@@ -65,7 +65,7 @@ properties:
       - 10
       - 15
       - 20
-    default: 10
+    default: 20
     description:
       Set non-overlapping time, the unit is nanosecond(ns).
       Non-overlapping will be disabled if not specified.
@@ -101,5 +101,5 @@ examples:
         pinctrl-0 = <&pinctrl_classd_default>;
         atmel,model = "classd @ SAMA5D2-Xplained";
         atmel,pwm-type = "diff";
-        atmel,non-overlap-time = <10>;
+        atmel,non-overlap-time = <20>;
     };
