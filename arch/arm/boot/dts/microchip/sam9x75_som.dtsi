@@ -1,0 +1,354 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * sam9x75_som.dtsi - Device Tree file for Microchip SAM9X75 SOM
+ *
+ * Copyright (C) 2025 Microchip Technology Inc. and its subsidiaries
+ *
+ * Author: Romain Sioen <romain.sioen@microchip.com>
+ */
+
+#include "sam9x7.dtsi"
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "Microchip SAM9X75 SOM";
+	compatible = "microchip,sam9x7", "atmel,at91sam9";
+
+	aliases {
+		i2c0 = &i2c6;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@20000000 {
+		device_type = "memory";
+		reg = <0x20000000 0x20000000>;
+	};
+};
+
+&dbgu {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dbgu>;
+	status = "okay";
+};
+
+&dma0 {
+	status = "okay";
+};
+
+&ebi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ebi_addr_nand &pinctrl_ebi_data_0_7>;
+	status = "okay";
+
+	nand_controller: nand-controller {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_nand_oe_we &pinctrl_nand_cs &pinctrl_nand_rb>;
+		status = "okay";
+
+		nand@2 {
+			reg = <0x2 0x0 0x800000>;
+			rb-gpios = <&pioD 14 GPIO_ACTIVE_HIGH>;
+			cs-gpios = <&pioD 4 GPIO_ACTIVE_HIGH>;
+			nand-bus-width = <8>;
+			nand-ecc-mode = "hw";
+			nand-ecc-strength = <8>;
+			nand-ecc-step-size = <512>;
+			nand-on-flash-bbt;
+			label = "atmel_nand";
+		};
+	};
+};
+
+&flx6 {
+	atmel,flexcom-mode = <ATMEL_FLEXCOM_MODE_TWI>;
+	status = "okay";
+};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flx6_twi_default>;
+	i2c-analog-filter;
+	i2c-digital-filter;
+	i2c-digital-filter-width-ns = <35>;
+	status = "okay";
+
+	pmic@5b {
+		compatible = "microchip,mcp16502";
+		reg = <0x5b>;
+
+		regulators {
+			vdd_3v3: VDD_IO {
+				regulator-name = "VDD_IO";
+				regulator-min-microvolt = <3000000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-mode = <4>;
+				};
+			};
+
+			vddioddr: VDD_DDR {
+				regulator-name = "VDD_DDR";
+				regulator-min-microvolt = <1283000>;
+				regulator-max-microvolt = <1450000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcore: VDD_CORE {
+				regulator-name = "VDD_CORE";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1210000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-mode = <4>;
+				};
+			};
+
+			vddcpu: VDD_OTHER {
+				regulator-name = "VDD_OTHER";
+				regulator-min-microvolt = <1700000>;
+				regulator-max-microvolt = <3600000>;
+				regulator-initial-mode = <2>;
+				regulator-allowed-modes = <2>, <4>;
+				regulator-ramp-delay = <3125>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+					regulator-mode = <4>;
+				};
+
+				regulator-state-mem {
+					regulator-mode = <4>;
+				};
+			};
+
+			vldo1: LDO1 {
+				regulator-name = "LDO1";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+
+				regulator-state-standby {
+					regulator-on-in-suspend;
+				};
+			};
+		};
+	};
+};
+
+&gmac {
+	phy-mode = "rgmii-id";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_macb0_rgmii>;
+	magic-packet;
+	status = "okay";
+
+	ethernet-phy@7 {
+		reg = <0x7>;
+	};
+};
+
+&main_xtal {
+	clock-frequency = <24000000>;
+};
+
+&pinctrl {
+	dbgu {
+		pinctrl_dbgu: dbgu {
+			atmel,pins = <AT91_PIOA 26 AT91_PERIPH_A AT91_PINCTRL_PULL_UP
+				      AT91_PIOA 27 AT91_PERIPH_A AT91_PINCTRL_NONE>;
+		};
+	};
+
+	ebi {
+		pinctrl_ebi_data_0_7: ebi-data-lsb-0 {
+			atmel,pins =
+				<AT91_PIOD 6 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 7 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 8 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 9 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 10 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 11 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 12 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 13 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)>;
+		};
+
+		pinctrl_ebi_addr_nand: ebi-addr-0 {
+			atmel,pins =
+				<AT91_PIOD 2 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 3 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)>;
+		};
+	};
+
+	qspi {
+		pinctrl_qspi: pinctrl-qspi {
+			atmel,pins =
+				<AT91_PIOB 19 AT91_PERIPH_A AT91_PINCTRL_SLEWRATE_DIS
+				 AT91_PIOB 20 AT91_PERIPH_A AT91_PINCTRL_SLEWRATE_DIS
+				 AT91_PIOB 21 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 22 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 23 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOB 24 AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)>;
+		};
+	};
+
+	flexcom {
+		pinctrl_flx6_twi_default: flx6-twi-default {
+			atmel,pins =
+				<AT91_PIOA 24 AT91_PERIPH_A AT91_PINCTRL_PULL_UP
+				 AT91_PIOA 25 AT91_PERIPH_A AT91_PINCTRL_PULL_UP>;
+		};
+	};
+
+	macb0 {
+		pinctrl_macb0_rgmii: macb0_rgmii-0 {
+			atmel,pins =
+				<AT91_PIOB 13 AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_TX0   */
+				 AT91_PIOB 14 AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_TX1   */
+				 AT91_PIOB 4  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_TX2   */
+				 AT91_PIOB 5  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_TX3   */
+				 AT91_PIOB 7  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_TXCTL  */
+				 AT91_PIOB 6  AT91_PERIPH_A (AT91_PINCTRL_PULL_UP | AT91_PINCTRL_SLEWRATE_DIS)	/* ETH_TXCK  */
+
+				 AT91_PIOB 11 AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RX0   */
+				 AT91_PIOB 12 AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RX1   */
+				 AT91_PIOB 0  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RX2   */
+				 AT91_PIOB 1  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RX3   */
+				 AT91_PIOB 8  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RXCK   */
+				 AT91_PIOB 3  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_RXCTL */
+
+				 AT91_PIOB 10 AT91_PERIPH_A     AT91_PINCTRL_NONE				/* ETH_MDC   */
+				 AT91_PIOB 9  AT91_PERIPH_A     AT91_PINCTRL_NONE				/* ETH_MDIO  */
+
+				 AT91_PIOB 2  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS				/* ETH_125CK */
+				 AT91_PIOD 5  AT91_PERIPH_A  AT91_PINCTRL_SLEWRATE_DIS>;			/* ETH_INT   */
+		};
+	};
+
+	nand {
+		pinctrl_nand_oe_we: nand-oe-we-0 {
+			atmel,pins =
+				<AT91_PIOD 0 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)
+				 AT91_PIOD 1 AT91_PERIPH_A (AT91_PINCTRL_NONE | AT91_PINCTRL_SLEWRATE_DIS)>;
+		};
+
+		pinctrl_nand_rb: nand-rb-0 {
+			atmel,pins =
+				<AT91_PIOD 14 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP>;
+		};
+
+		pinctrl_nand_cs: nand-cs-0 {
+			atmel,pins =
+				<AT91_PIOD 4 AT91_PERIPH_GPIO AT91_PINCTRL_PULL_UP>;
+		};
+	};
+}; /* pinctrl */
+
+&rtt {
+	atmel,rtt-rtc-time-reg = <&gpbr 0x0>;
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi>;
+	status = "okay";
+
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		m25p,fast-read;
+
+		at91bootstrap@0 {
+			label = "qspi: at91bootstrap";
+			reg = <0x0 0x40000>;
+		};
+
+		bootloader@40000 {
+			label = "qspi: bootloader";
+			reg = <0x40000 0xc0000>;
+		};
+
+		bootloaderenvred@100000 {
+			label = "qspi: bootloader env redundant";
+			reg = <0x100000 0x40000>;
+		};
+
+		bootloaderenv@140000 {
+			label = "qspi: bootloader env";
+			reg = <0x140000 0x40000>;
+		};
+
+		dtb@180000 {
+			label = "qspi: device tree";
+			reg = <0x180000 0x80000>;
+		};
+
+		kernel@200000 {
+			label = "qspi: kernel";
+			reg = <0x200000 0x600000>;
+		};
+	};
+};
+
+&slow_xtal {
+	clock-frequency = <32768>;
+};
+
+&shutdown_controller {
+	debounce-delay-us = <976>;
+	status = "okay";
+
+	input@0 {
+		reg = <0>;
+	};
+};
+
+&trng {
+	status = "okay";
+};
+
+&watchdog {
+	status = "okay";
+};

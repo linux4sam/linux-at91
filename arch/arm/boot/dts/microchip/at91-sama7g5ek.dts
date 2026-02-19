@@ -14,6 +14,7 @@
 #include <dt-bindings/mfd/atmel-flexcom.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/pinctrl/at91.h>
+#include <dt-bindings/sound/microchip,asrc-card.h>
 #include <dt-bindings/sound/microchip,pdmc.h>
 
 / {
@@ -87,12 +88,21 @@
 	};
 
 	sound: sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "sama7g5ek audio";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		simple-audio-card,dai-link@0 {
+		assigned-clocks = <&pmc PMC_TYPE_CORE PMC_AUDIOPMCPLL>;
+		assigned-clock-rates = <196608000>;
+		compatible = "microchip,asrc-card";
+		microchip,model = "mchp-asrc-card @ sama7g5 EK";
+		status = "okay";
+
+		microchip,audio-asrc = <&asrc 0>, <&asrc 1>, <&asrc 2>, <&asrc 3>;
+
+		microchip,dai-link@0 {
 			reg = <0>;
+			microchip,convert-channels = <2>;
+			microchip,convert-rate = <48000>;
+			microchip,convert-sample-format = <MCHP_ASRC_PCM_FORMAT_S24_LE>;
 			cpu {
 				sound-dai = <&spdiftx>;
 			};
@@ -100,8 +110,12 @@
 				sound-dai = <&spdif_out>;
 			};
 		};
-		simple-audio-card,dai-link@1 {
+
+		microchip,dai-link@1 {
 			reg = <1>;
+			microchip,convert-channels = <2>;
+			microchip,convert-rate = <48000>;
+			microchip,convert-sample-format = <MCHP_ASRC_PCM_FORMAT_S24_LE>;
 			cpu {
 				sound-dai = <&spdifrx>;
 			};
@@ -120,6 +134,10 @@
 		#sound-dai-cells = <0>;
 		compatible = "linux,spdif-dit";
 	};
+};
+
+&asrc {
+	status = "okay";
 };
 
 &adc {
@@ -228,6 +246,7 @@
 	status = "okay";
 
 	i2c1: i2c@600 {
+		dmas = <0>, <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c1_default>;
 		i2c-analog-filter;
@@ -432,6 +451,7 @@
 	status = "okay";
 
 	i2c8: i2c@600 {
+		dmas = <0>, <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c8_default>;
 		i2c-analog-filter;
@@ -482,6 +502,7 @@
 	status = "okay";
 
 	i2c9: i2c@600 {
+		dmas = <0>, <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c9_default>;
 		i2c-analog-filter;
@@ -500,6 +521,10 @@
 		pinctrl-0 = <&pinctrl_mikrobus1_spi &pinctrl_mikrobus1_spi_cs>;
 		status = "okay";
 	};
+};
+
+&main_xtal {
+	clock-frequency = <24000000>;
 };
 
 &gmac0 {
@@ -868,7 +893,9 @@
 &sdmmc0 {
 	bus-width = <8>;
 	non-removable;
-	sdhci-caps-mask = <0x0 0x00200000>;
+	mmc-ddr-1_8v;
+	cap-mmc-highspeed;
+	cap-mmc-hw-reset;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vldo1>;
 	pinctrl-names = "default";
@@ -878,8 +905,6 @@
 
 &sdmmc1 {
 	bus-width = <4>;
-	no-1-8-v;
-	sdhci-caps-mask = <0x0 0x00200000>;
 	vmmc-supply = <&vdd_3v3>;
 	vqmmc-supply = <&vdd_3v3>;
 	pinctrl-names = "default";
@@ -890,13 +915,13 @@
 &sdmmc2 {
 	bus-width = <4>;
 	no-1-8-v;
-	sdhci-caps-mask = <0x0 0x00200000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc2_default>;
 };
 
 &shdwc {
 	debounce-delay-us = <976>;
+	microchip,lpm-connection = <&gmac1 &main_xtal>;
 	status = "okay";
 
 	input@0 {
@@ -986,4 +1011,8 @@
 &vddout25 {
 	vin-supply = <&vdd_3v3>;
 	status = "okay";
+};
+
+&slow_xtal {
+	clock-frequency = <32768>;
 };

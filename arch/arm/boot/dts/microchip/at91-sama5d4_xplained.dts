@@ -41,6 +41,7 @@
 
 			i2c0: i2c@f8014000 {
 				i2c-digital-filter;
+				i2c-digital-filter-width-ns = <70>;
 				status = "okay";
 			};
 

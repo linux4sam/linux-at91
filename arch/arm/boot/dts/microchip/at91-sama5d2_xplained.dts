@@ -22,6 +22,8 @@
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;		/* XPRO EXT2 */
+		mmc0 = &sdmmc0;
+		mmc1 = &sdmmc1;
 	};
 
 	chosen {
@@ -63,9 +65,15 @@
 
 		sdmmc0: sdio-host@a0000000 {
 			bus-width = <8>;
+			vmmc-supply = <&vdd_3v3_reg>;
+			vqmmc-supply = <&vdd_3v3_reg>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_sdmmc0_default>;
 			non-removable;
+			no-sd;
+			no-sdio;
+			cap-mmc-hw-reset;
+			cap-mmc-highspeed;
 			mmc-ddr-3_3v;
 			status = "okay";
 		};
@@ -311,7 +319,7 @@
 						active-semi,input-voltage-threshold-microvolt = <6600>;
 						active-semi,precondition-timeout = <40>;
 						active-semi,total-timeout = <3>;
-						status = "okay";
+						status = "disabled";
 					};
 				};
 			};
@@ -687,7 +695,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_classd_default_pfets &pinctrl_classd_default_nfets>;
 				atmel,pwm-type = "diff";
-				atmel,non-overlap-time = <10>;
+				atmel,non-overlap-time = <20>;
 				status = "okay";
 			};
 

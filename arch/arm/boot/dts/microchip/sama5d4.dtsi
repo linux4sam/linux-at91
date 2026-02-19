@@ -104,11 +104,13 @@
 			ranges = <0 0x100000 0x2400>;
 		};
 
-		vdec0: vdec@300000 {
-			compatible = "microchip,sama5d4-vdec";
-			reg = <0x00300000 0x100000>;
+		vdec0: vdec@00300000 {
+			compatible = "on2,sama5d4-g1";
+			reg = <0x00300000 0x1000>;
 			interrupts = <19 IRQ_TYPE_LEVEL_HIGH 4>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 19>;
+			clock-names = "vdec_clk";
+			status = "disabled";
 		};
 
 		usb0: gadget@400000 {
