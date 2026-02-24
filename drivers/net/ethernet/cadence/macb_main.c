@@ -593,6 +593,12 @@ static int macb_usx_pcs_config(struct phylink_pcs *pcs,
 	return 0;
 }
 
+static unsigned int macb_pcs_inband_caps(struct phylink_pcs *pcs,
+					 phy_interface_t interface)
+{
+	return LINK_INBAND_DISABLE | LINK_INBAND_ENABLE;
+}
+
 static void macb_pcs_get_state(struct phylink_pcs *pcs, unsigned int neg_mode,
 			       struct phylink_link_state *state)
 {
@@ -645,6 +651,7 @@ static const struct phylink_pcs_ops macb_phylink_usx_pcs_ops = {
 };
 
 static const struct phylink_pcs_ops macb_phylink_pcs_ops = {
+	.pcs_inband_caps = macb_pcs_inband_caps,
 	.pcs_get_state = macb_pcs_get_state,
 	.pcs_an_restart = macb_pcs_an_restart,
 	.pcs_config = macb_pcs_config,
