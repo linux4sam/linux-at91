@@ -10,7 +10,7 @@
 	compatible = "microchip,mpfs-icicle-prod-reference-rtl-v2507",
 		     "microchip,mpfs-icicle-kit-prod",
 		     "microchip,mpfs-icicle-kit",
-		     "microchip,mpfs-prod",
+			 "microchip,mpfs-prod",
 		     "microchip,mpfs";
 };
 

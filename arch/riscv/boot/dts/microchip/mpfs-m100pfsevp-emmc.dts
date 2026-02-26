@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Original all-in-one devicetree:
+ * Copyright (C) 2021-2023 - Wolfgang Grandegger <wg@aries-embedded.de>
+ * Rewritten to use includes:
+ * Copyright (C) 2022 - Conor Dooley <conor.dooley@microchip.com>
+ */
+/dts-v1/;
+
+#include "mpfs-m100pfsevp.dtsi"
+
+&gpio0 {
+	/* Set to low for eMMC, high for SD-card */
+	mmc-sel-hog {
+		gpio-hog;
+		gpios = <12 0>;
+		output-low;
+	};
+};
+
+&mmc {
+	max-frequency = <50000000>;
+	bus-width = <8>;
+	cap-mmc-highspeed;
+	no-1-8-v;
+	non-removable;
+	disable-wp;
+	status = "okay";
+};
