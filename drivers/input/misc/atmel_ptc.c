@@ -909,7 +909,7 @@ static inline struct atmel_ptc *kobj_to_atmel_ptc(struct kobject *kobj)
 }
 
 static ssize_t atmel_qtm_mb_read(struct file *filp, struct kobject *kobj,
-				 struct bin_attribute *attr,
+				 const struct bin_attribute *attr,
 				 char *buf, loff_t off, size_t count)
 {
 	struct atmel_ptc *ptc = kobj_to_atmel_ptc(kobj);
@@ -923,7 +923,7 @@ static ssize_t atmel_qtm_mb_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t atmel_qtm_mb_write(struct file *filp, struct kobject *kobj,
-				  struct bin_attribute *attr,
+				  const struct bin_attribute *attr,
 				  char *buf, loff_t off, size_t count)
 {
 	struct atmel_ptc *ptc = kobj_to_atmel_ptc(kobj);
@@ -941,7 +941,7 @@ static ssize_t atmel_qtm_mb_write(struct file *filp, struct kobject *kobj,
 
 static BIN_ATTR_RW(atmel_qtm_mb, ATMEL_QTM_MB_SIZE);
 
-static struct bin_attribute *atmel_ptc_qtm_mb_attrs[] = {
+static const struct bin_attribute *atmel_ptc_qtm_mb_attrs[] = {
 	&bin_attr_atmel_qtm_mb,
 	NULL,
 };
