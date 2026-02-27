@@ -32,6 +32,10 @@ properties:
               - microchip,mpfs-icicle-es-reference-rtl-v2507
           - const: microchip,mpfs-icicle-kit
           - const: microchip,mpfs
+      - items:
+          - const: microchip,mpfs-video-kit
+          - const: microchip,mpfs-sev-kit
+          - const: microchip,mpfs
 
       - items:
           - const: microchip,mpfs-disco-kit-reference-rtl-v2507
