@@ -12,7 +12,6 @@ config CRYPTO_DEV_POLARFIRE_SOC
 	select CRYPTO_AKCIPHER
 	select CRYPTO_KPP
 	select CRYPTO_SKCIPHER
-	default y
 	help
 	  Support for Microchip PolarFire SoC User crypto engine.
 	  This module provides acceleration for skcipher functions.
