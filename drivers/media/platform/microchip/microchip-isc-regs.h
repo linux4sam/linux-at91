@@ -268,13 +268,15 @@
 #define ISC_CBC_CONTRAST	0x000003c0
 #define ISC_CBC_CONTRAST_MASK	GENMASK(11, 0)
 
-/* Hue Register */
-#define ISC_CBCHS_HUE	0x4e0
-#define ISC_CBCHS_HUE_MASK	GENMASK(8, 0)
+/* Hue Register — signed 9-bit 2's complement (covers ±180 degrees) */
+#define ISC_CBHS_HUE		0x4e0
+#define ISC_CBHS_HUE_MASK	GENMASK(8, 0)
 
-/* Saturation Register */
-#define ISC_CBCHS_SAT	0x4e4
-#define ISC_CBCHS_SAT_MASK	GENMASK(11, 0)
+/* Saturation Register — unsigned Q4 fixed-point (1.0 = 16, V4L2 range 0–100;
+ * hardware field is 7-bit [6:0], values 101–127 are reserved)
+ */
+#define ISC_CBHS_SAT		0x4e4
+#define ISC_CBHS_SAT_MASK	GENMASK(6, 0)
 
 /* Offset for SUB422 register specific to sama5d2 product */
 #define ISC_SAMA5D2_SUB422_OFFSET	0

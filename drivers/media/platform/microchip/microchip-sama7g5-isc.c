@@ -259,8 +259,8 @@ static void isc_sama7g5_config_cbc(struct isc_device *isc)
 	regmap_write(regmap, ISC_CBC_BRIGHT + isc->offsets.cbc, isc->ctrls.brightness);
 	regmap_write(regmap, ISC_CBC_CONTRAST + isc->offsets.cbc, isc->ctrls.contrast);
 	/* Configure Hue and Saturation as neutral midpoint */
-	regmap_write(regmap, ISC_CBCHS_HUE, 0);
-	regmap_write(regmap, ISC_CBCHS_SAT, (1 << 4));
+	regmap_write(regmap, ISC_CBHS_HUE, 0);
+	regmap_write(regmap, ISC_CBHS_SAT, (1 << 4));
 }
 
 static void isc_sama7g5_config_cc(struct isc_device *isc)
@@ -478,6 +478,7 @@ static int microchip_xisc_probe(struct platform_device *pdev)
 
 	isc->gamma_table = isc_sama7g5_gamma_table;
 	isc->gamma_max = 2;
+	isc->has_cbhs = true;
 
 	if ((of_machine_is_compatible("microchip,sam9x7"))) {
 		isc->max_width = ISC_SAM9X7_MAX_SUPPORT_WIDTH;
