@@ -154,6 +154,9 @@ struct mmc_fixup {
 		.of_compatible = _compatible,	\
 	}
 
+#define MMC_FIXUP_COMPATIBLE(_compatible, _fixup, _data) \
+	SDIO_FIXUP_COMPATIBLE(_compatible, _fixup, _data)
+
 #define cid_rev(hwrev, fwrev, year, month)	\
 	(((u64) hwrev) << 40 |			\
 	 ((u64) fwrev) << 32 |			\

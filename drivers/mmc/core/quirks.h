@@ -210,6 +210,13 @@ static const struct mmc_fixup __maybe_unused sdio_card_init_methods[] = {
 	END_FIXUP
 };
 
+static const struct mmc_fixup __maybe_unused mmc_init_methods[] = {
+	MMC_FIXUP_COMPATIBLE("microchip,sama7g5-sdhci", add_quirk,
+			     MMC_QUIRK_HS_CLK_REVERSED),
+
+	END_FIXUP
+};
+
 static inline bool mmc_fixup_of_compatible_match(struct mmc_card *card,
 						 const char *compatible)
 {
@@ -221,6 +228,8 @@ static inline bool mmc_fixup_of_compatible_match(struct mmc_card *card,
 			return true;
 		}
 	}
+	if (of_device_is_compatible(mmc_dev(card->host)->of_node, compatible))
+		return true;
 
 	return false;
 }

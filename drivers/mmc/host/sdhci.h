@@ -317,6 +317,7 @@
 #define SDHCI_PRESET_FOR_SDR104        0x6C
 #define SDHCI_PRESET_FOR_DDR50 0x6E
 #define SDHCI_PRESET_FOR_HS400 0x74 /* Non-standard */
+#define SDHCI_PRESET_FOR_HS400_AT91	0x244 /* AT91 specific */
 
 /* UHS2 */
 #define SDHCI_PRESET_FOR_UHS2  0x74
@@ -536,6 +537,10 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_USE_32BIT_BLK_CNT			(1<<18)
 /* Issue CMD and DATA reset together */
 #define SDHCI_QUIRK2_ISSUE_CMD_DAT_RESET_TOGETHER	(1<<19)
+/*
+ * AT91 specific HS400 preset register
+ */
+#define SDHCI_QUIRK2_AT91_HS400_PRESET			(1<<20)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

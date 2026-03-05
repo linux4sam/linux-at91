@@ -1547,6 +1547,9 @@ static int mmc_select_timing(struct mmc_card *card)
 	if (!mmc_card_can_ext_csd(card))
 		goto bus_speed;
 
+	if (card->quirks & MMC_QUIRK_HS_CLK_REVERSED)
+		mmc_set_bus_speed(card);
+
 	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400ES) {
 		err = mmc_select_hs400es(card);
 		goto out;
@@ -1670,6 +1673,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card->rca = 1;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
 	}
+
+	/* Fixup init methods */
+	mmc_fixup_device(card, mmc_init_methods);
 
 	/*
 	 * Call the optional HC's init_card function to handle quirks.
