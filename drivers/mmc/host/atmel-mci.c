@@ -40,6 +40,8 @@
 #include <linux/unaligned.h>
 #include <linux/string_choices.h>
 
+#include "../core/pwrseq.h"
+
 #define ATMCI_MAX_NR_SLOTS	2
 
 /*
@@ -2320,6 +2322,7 @@ static int atmci_init_slot(struct atmel_mci *host,
 
 	host->slot[id] = slot;
 	mmc_regulator_get_supply(mmc);
+	mmc_pwrseq_alloc(mmc);
 	ret = mmc_add_host(mmc);
 	if (ret)
 		return ret;
