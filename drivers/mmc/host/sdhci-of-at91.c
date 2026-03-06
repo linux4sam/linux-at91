@@ -751,6 +751,9 @@ static int sdhci_at91_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
 	pm_runtime_use_autosuspend(&pdev->dev);
 
+	/* This host supports Auto CMD12 */
+	host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
+
 	host->quirks2 |= priv->soc_data->quirks2;
 
 	if (priv->soc_data->needs_cal)
