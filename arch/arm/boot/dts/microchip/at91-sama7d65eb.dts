@@ -727,8 +727,9 @@
 			bias-disable;
 		};
 
-		ck_vddsel {
+		ck_wp_vddsel {
 			pinmux = <PIN_PB23__SDMMC1_CK>,
+				 <PIN_PB28__SDMMC1_WP>,
 				 <PIN_PB30__SDMMC1_1V8SEL>;
 			slew-rate = <0>;
 			bias-disable;
@@ -843,7 +844,6 @@
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc1>;
 	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
-	disable-wp;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc1_default &pinctrl_sdmmc1_cd>;
 	status = "okay";
