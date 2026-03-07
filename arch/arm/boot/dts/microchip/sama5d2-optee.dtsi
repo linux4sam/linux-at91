@@ -1,0 +1,404 @@
+
+/ {
+	cpus {
+		cpu@0 {
+			enable-method = "psci";
+			cpu-idle-states = <&psci_standby>;
+		};
+
+		idle-states {
+			entry-method = "psci";
+
+			psci_standby: psci-standby {
+				compatible = "arm,idle-state";
+				idle-state-name = "psci,standby";
+				arm,psci-suspend-param = <0x0>;
+				local-timer-stop;
+				entry-latency-us = <1000>;
+				exit-latency-us = <700>;
+				min-residency-us = <2000>;
+			};
+		};
+	};
+
+	clocks {
+		/* Add dummy fixed-clock for TCB (see below) */
+		clk83m: clk83m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <83000000>;
+		};
+		clk32kfixed: clk32kfixed {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+		};
+	};
+
+	reserved-memory {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		optee_core@20000000 {
+			no-map;
+			reg = <0x20000000 0x00800000>;
+		};
+		optee_shm@21000000 {
+			no-map;
+			reg = <0x21000000 0x00400000>;
+		};
+		scmi0_shmem: scmi0_shmem@21400000 {
+			compatible = "arm,scmi-shmem";
+			no-map;
+			reg = <0x21400000 0x80>;
+		};
+	};
+
+	psci {
+		sys_reset = <0x84000009>;
+		sys_poweroff = <0x84000008>;
+		cpu_on = <0x84000003>;
+		cpu_off = <0x84000002>;
+		cpu_suspend = <0x84000001>;
+		method = "smc";
+		compatible = "arm,psci-1.0", "arm,psci-0.2", "arm,psci";
+	};
+
+	firmware {
+		optee {
+			method = "smc";
+			compatible = "linaro,optee-tz";
+		};
+		scmi0 {
+			compatible = "arm,scmi-smc";
+			shmem = <&scmi0_shmem>;
+			arm,smc-id = <0x2000200>;
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
+
+			scmi0_clock: scmi0_clock@14 {
+				#clock-cells = <0x01>;
+				reg = <0x14>;
+			};
+		};
+	};
+
+	arm_smc_wdt {
+		compatible = "arm,smc-wdt";
+		arm,smc-id = <0x2000500>;
+		timeout-sec = <15>;
+	};
+};
+
+/* Disable clocks controllers as they are handled by OP-TEE */
+&clk32k {
+	status = "disabled";
+};
+
+&pmc {
+	status = "disabled";
+};
+
+&trng {
+	status = "disabled";
+};
+
+&tcb1 {
+	status = "disabled";
+};
+
+&shutdown_controller {
+	status = "disabled";
+};
+
+&reset_controller {
+	status = "disabled";
+};
+
+&securam {
+	status = "disabled";
+};
+
+&sfrbu {
+	status = "disabled";
+};
+
+&pioBU {
+	status = "disabled";
+};
+
+&pit {
+	status = "disabled";
+};
+
+&rtc {
+	status = "disabled";
+};
+
+&watchdog {
+	status = "disabled";
+};
+
+/* Use "syscon-smc" compatible to forward register access to OP-TEE */
+&sfr {
+	compatible = "atmel,sama5d2-sfr", "syscon-smc";
+	arm,smc-id = <0x02000300>;
+};
+
+/*
+ * Use fixed-clock for TCB since SCMI clocks are probed too late for
+ * clocksource
+ */
+&tcb0 {
+	clocks = <&clk83m>, <&clk32kfixed>, <&clk32kfixed>;
+};
+
+/* Replace all clocks with SCMI clocks identifier */
+&can0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_CAN0_CLK &scmi0_clock AT91_SCMI_CLK_GCK_CAN0_GCLK>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-parents;
+	/delete-property/assigned-clock-rates;
+};
+
+&can1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_CAN1_CLK &scmi0_clock AT91_SCMI_CLK_GCK_CAN1_GCLK>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-parents;
+	/delete-property/assigned-clock-rates;
+};
+
+&classd {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_CLASSD_CLK &scmi0_clock AT91_SCMI_CLK_GCK_CLASSD_GCLK>;
+};
+
+&tdes {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_TDES_CLK>;
+};
+
+&pioA {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_PIOA_CLK>;
+};
+
+&adc {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_ADC_CLK>;
+};
+
+&i2c0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_TWI0_CLK>;
+};
+
+&i2c1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_TWI1_CLK>;
+};
+
+&i2c2 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX4_CLK>;
+};
+
+&i2c3 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX1_CLK>;
+};
+
+&i2c4 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX2_CLK>;
+};
+
+&i2c5 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX3_CLK>;
+};
+
+&i2c6 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX4_CLK>;
+};
+
+&flx0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX0_CLK>;
+};
+
+&flx1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX1_CLK>;
+};
+
+&flx2 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX2_CLK>;
+};
+
+&flx3 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX3_CLK>;
+};
+
+&flx4 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX4_CLK>;
+};
+
+&uart0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UART0_CLK>;
+};
+
+&uart1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UART1_CLK>;
+};
+
+&uart2 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UART2_CLK>;
+};
+
+&uart3 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UART3_CLK>;
+};
+
+&uart4 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UART4_CLK>;
+};
+
+&uart5 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX0_CLK>;
+};
+
+&uart6 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX1_CLK>;
+};
+
+&uart7 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX2_CLK>;
+};
+
+&uart8 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX3_CLK>;
+};
+
+&uart9 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX4_CLK>;
+};
+
+&hsmc {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_HSMC_CLK>;
+};
+
+&macb0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_MACB0_CLK &scmi0_clock AT91_SCMI_CLK_PERIPH_MACB0_CLK>;
+};
+
+&spi0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SPI0_CLK>;
+};
+
+&spi1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SPI1_CLK>;
+};
+
+&spi2 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX0_CLK>;
+};
+
+&spi3 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX1_CLK>;
+};
+
+&spi4 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX2_CLK>;
+};
+
+&spi5 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX3_CLK>;
+};
+
+&spi6 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_FLX4_CLK>;
+};
+
+&qspi0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_QSPI0_CLK>;
+};
+
+&qspi1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_QSPI1_CLK>;
+};
+
+&aes {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_AES_CLK>;
+};
+
+&sha {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SHA_CLK>;
+};
+
+&pwm0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_PWM_CLK>;
+};
+
+&pdmic {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_PDMIC_CLK &scmi0_clock AT91_SCMI_CLK_GCK_PDMIC_GCLK>;
+};
+
+&ssc0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SSC0_CLK>;
+};
+
+&isc {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_ISC_CLK &scmi0_clock AT91_SCMI_CLK_SYSTEM_ISCCK &scmi0_clock AT91_SCMI_CLK_GCK_ISC_GCLK>;
+};
+
+&hlcdc {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_LCDC_CLK &scmi0_clock AT91_SCMI_CLK_SYSTEM_LCDCK &scmi0_clock AT91_SCMI_CLK_SCKC_SLOWCK_32K>;
+};
+
+&dma0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_DMA0_CLK>;
+};
+
+&dma1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_DMA1_CLK>;
+};
+
+&ramc0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_SYSTEM_DDRCK &scmi0_clock AT91_SCMI_CLK_PERIPH_MPDDR_CLK>;
+};
+
+&sdmmc0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SDMMC0_HCLK &scmi0_clock AT91_SCMI_CLK_GCK_SDMMC0_GCLK &scmi0_clock AT91_SCMI_CLK_CORE_MAIN>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-parents;
+	/delete-property/assigned-clock-rates;
+};
+
+&sdmmc1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_SDMMC1_HCLK &scmi0_clock AT91_SCMI_CLK_GCK_SDMMC1_GCLK &scmi0_clock AT91_SCMI_CLK_CORE_MAIN>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-parents;
+	/delete-property/assigned-clock-rates;
+};
+
+&usb0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UDPHS_CLK &scmi0_clock AT91_SCMI_CLK_CORE_UTMI>;
+};
+
+&usb1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_UHPHS_CLK &scmi0_clock AT91_SCMI_CLK_PERIPH_UHPHS_CLK &scmi0_clock AT91_SCMI_CLK_SYSTEM_UHPCK>;
+};
+
+&usb2 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_CORE_UTMI &scmi0_clock AT91_SCMI_CLK_PERIPH_UHPHS_CLK>;
+};
+
+&etm {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_CORE_MCK>;
+};
+
+&etb {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_CORE_MCK>;
+};
+
+&ebi {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_CORE_MCK2>;
+};
+
+&i2s0 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_I2S0_CLK &scmi0_clock AT91_SCMI_CLK_GCK_I2S0_GCLK>;
+};
+
+&i2s1 {
+	clocks = <&scmi0_clock AT91_SCMI_CLK_PERIPH_I2S1_CLK &scmi0_clock AT91_SCMI_CLK_GCK_I2S1_GCLK>;
+};
