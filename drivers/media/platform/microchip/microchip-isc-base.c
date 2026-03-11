@@ -841,7 +841,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		break;
 	default:
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code))
-			isc->try_config.bits_pipeline = WB_ENABLE | DPC_BLCENABLE;
+			isc->try_config.bits_pipeline = WB_ENABLE;
 		else
 			isc->try_config.bits_pipeline = 0x0;
 	}
