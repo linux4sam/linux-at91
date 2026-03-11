@@ -609,6 +609,7 @@
 };
 
 &sdmmc2 {
+	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdmmc2_default>;
 	status = "okay";
