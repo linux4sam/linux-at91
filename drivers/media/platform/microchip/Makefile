@@ -15,4 +15,4 @@ obj-$(CONFIG_VIDEO_MICROCHIP_GVPC) += microchip-gvpc.o
 obj-$(CONFIG_VIDEO_MICROCHIP_YUV2H264) += microchip-yuv2h264.o
 obj-$(CONFIG_VIDEO_MICROCHIP_RGB_SCALER) += microchip-rgb-scaler.o
 obj-$(CONFIG_VIDEO_MICROCHIP_IMAGE_ENHANCEMENT) += microchip-image-enhancement.o
-
+obj-$(CONFIG_VIDEO_MICROCHIP_OSD) += microchip-osd.o
