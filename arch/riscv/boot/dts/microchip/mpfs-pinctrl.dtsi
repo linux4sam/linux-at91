@@ -146,7 +146,7 @@
 	ikrd_can1_cfg: ikrd-can1-cfg {
 		can1-pins {
 			pins = <34>, <35>, <36>;
-			function = "spi";
+			function = "can";
 			bias-pull-up;
 			drive-strength = <8>;
 			power-source = <3300000>;
