@@ -534,7 +534,8 @@
 		};
 
 		sdmmc0: mmc@e1204000 {
-			compatible = "microchip,sama7d65-sdhci", "microchip,sam9x60-sdhci";
+			compatible = "microchip,sama7d65-sdhci", "microchip,sama7g5-sdhci",
+				     "microchip,sam9x60-sdhci";
 			reg = <0xe1204000 0x400>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 75>, <&pmc PMC_TYPE_GCK 75>;
@@ -546,7 +547,8 @@
 		};
 
 		sdmmc1: mmc@e1208000 {
-			compatible = "microchip,sama7d65-sdhci", "microchip,sam9x60-sdhci";
+			compatible = "microchip,sama7d65-sdhci", "microchip,sama7g5-sdhci",
+				     "microchip,sam9x60-sdhci";
 			reg = <0xe1208000 0x400>;
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 76>, <&pmc PMC_TYPE_GCK 76>;
@@ -558,7 +560,8 @@
 		};
 
 		sdmmc2: mmc@e120c000 {
-			compatible = "microchip,sama7d65-sdhci", "microchip,sam9x60-sdhci";
+			compatible = "microchip,sama7d65-sdhci", "microchip,sama7g5-sdhci",
+				     "microchip,sam9x60-sdhci";
 			reg = <0xe120c000 0x400>;
 			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pmc PMC_TYPE_PERIPHERAL 77>, <&pmc PMC_TYPE_GCK 77>;
