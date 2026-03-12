@@ -16839,6 +16839,7 @@ F:	drivers/media/platform/microchip/microchip-sama*-isc*
 F:	drivers/staging/media/deprecated/atmel/atmel-isc*
 F:	drivers/staging/media/deprecated/atmel/atmel-sama*-isc*
 F:	include/linux/atmel-isc-media.h
+F:	include/uapi/linux/media/microchip/
 
 MICROCHIP ISI DRIVER
 M:	Eugen Hristev <eugen.hristev@microchip.com>

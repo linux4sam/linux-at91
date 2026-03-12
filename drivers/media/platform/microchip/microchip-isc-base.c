@@ -1190,12 +1190,20 @@ irqreturn_t microchip_isc_interrupt(int irq, void *dev_id)
 	struct isc_device *isc = (struct isc_device *)dev_id;
 	struct regmap *regmap = isc->regmap;
 	u32 isc_intsr, isc_intmask, pending;
+	unsigned int snap_seq;
 	irqreturn_t ret = IRQ_NONE;
 
 	regmap_read(regmap, ISC_INTSR, &isc_intsr);
 	regmap_read(regmap, ISC_INTMASK, &isc_intmask);
 
 	pending = isc_intsr & isc_intmask;
+
+	/*
+	 * Snapshot sequence before DDONE processing increments it.
+	 * Used below to correctly attribute the histogram frame number
+	 * when both DDONE and HISDONE fire in the same IRQ cycle.
+	 */
+	snap_seq = isc->sequence;
 
 	if (likely(pending & ISC_INT_DDONE)) {
 		spin_lock(&isc->dma_queue_lock);
@@ -1225,6 +1233,18 @@ irqreturn_t microchip_isc_interrupt(int irq, void *dev_id)
 	}
 
 	if (pending & ISC_INT_HISDONE) {
+		u8 ch = isc->ctrls.hist_id;
+
+		/*
+		 * If DDONE also fired this cycle, sequence was incremented above
+		 * and the histogram belongs to snap_seq (the frame just DMA'd).
+		 * If HISDONE fires alone, sequence has not changed and the
+		 * histogram belongs to the current isc->sequence.
+		 */
+		isc->ctrls.hist_capture_frame[ch] = (pending & ISC_INT_DDONE) ?
+						     snap_seq : isc->sequence;
+		isc->ctrls.hist_capture_ts[ch] = ktime_get_ns();
+
 		schedule_work(&isc->awb_work);
 		ret = IRQ_HANDLED;
 	}

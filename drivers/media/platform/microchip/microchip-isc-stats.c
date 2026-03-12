@@ -14,51 +14,13 @@
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-vmalloc.h>
+#include <uapi/linux/media/microchip/isc-config.h>
 #include "microchip-isc-regs.h"
 #include "microchip-isc.h"
 
 #define ISC_STATS_DEV_NAME	"microchip-isc_stats"
 #define ISC_STATS_MIN_BUFS	2
 #define ISC_STATS_MAX_BUFS	8
-
-/**
- * struct isc_stat_buffer - Raw histogram statistics buffer structure
- * @frame_number: Sequential frame number from capture
- * @timestamp: Frame capture timestamp in nanoseconds
- * @meas_type: Bitmask of measurement types available (ISC_CIF_ISP_STAT_*)
- * @hist: Array of histogram data for each Bayer channel
- * @hist.hist_bins: Raw 512-bin histogram data from hardware
- * @hist.hist_min: Minimum pixel value observed in channel
- * @hist.hist_max: Maximum pixel value observed in channel
- * @hist.total_pixels: Total number of pixels processed in channel
- * @valid_channels: Bitmask indicating which Bayer channels contain valid data
- * @bayer_pattern: Current Bayer pattern configuration (CFA_BAYCFG_*)
- * @reserved: Padding for future expansion and alignment
- *
- * This structure contains raw, unprocessed histogram data from the ISC
- * hardware for all four Bayer channels (GR, R, GB, B). No algorithmic
- * processing is performed - data is exported directly from hardware
- * registers for userspace processing applications.
- */
-struct isc_stat_buffer {
-	u32 frame_number;
-	u64 timestamp;
-	u32 meas_type;
-
-	struct {
-		u32 hist_bins[HIST_ENTRIES];
-		u32 hist_min;
-		u32 hist_max;
-		u32 total_pixels;
-	} hist[HIST_BAYER];
-
-	u8 valid_channels;
-	u8 bayer_pattern;
-	u16 reserved[2];
-} __packed;
-
-/* Statistics measurement type flags */
-#define ISC_CIF_ISP_STAT_HIST		BIT(0)
 
 static bool isc_stats_in_use(struct isc_stats *stats)
 {
@@ -195,7 +157,7 @@ static int isc_stats_vb2_queue_setup(struct vb2_queue *vq,
 	*num_planes = 1;
 	*num_buffers = clamp_t(u32, *num_buffers, ISC_STATS_MIN_BUFS,
 			       ISC_STATS_MAX_BUFS);
-	sizes[0] = sizeof(struct isc_stat_buffer);
+	sizes[0] = sizeof(struct mchp_isc_stat_buffer);
 
 	dev_dbg(stats->isc->dev, "Stats queue: %u buffers, %u bytes each\n",
 		*num_buffers, sizes[0]);
@@ -219,10 +181,10 @@ static void isc_stats_vb2_buf_queue(struct vb2_buffer *vb)
 
 static int isc_stats_vb2_buf_prepare(struct vb2_buffer *vb)
 {
-	if (vb2_plane_size(vb, 0) < sizeof(struct isc_stat_buffer))
+	if (vb2_plane_size(vb, 0) < sizeof(struct mchp_isc_stat_buffer))
 		return -EINVAL;
 
-	vb2_set_plane_payload(vb, 0, sizeof(struct isc_stat_buffer));
+	vb2_set_plane_payload(vb, 0, sizeof(struct mchp_isc_stat_buffer));
 	return 0;
 }
 
@@ -288,13 +250,13 @@ static int isc_stats_init_vb2_queue(struct vb2_queue *q,
  */
 
 static void isc_stats_fill_data(struct isc_stats *stats,
-				struct isc_stat_buffer *pbuf)
+				struct mchp_isc_stat_buffer *pbuf)
 {
 	struct isc_device *isc = stats->isc;
 	struct isc_ctrls *ctrls = &isc->ctrls;
 	int c;
 
-	pbuf->meas_type |= ISC_CIF_ISP_STAT_HIST;
+	pbuf->meas_type |= MCHP_ISC_STAT_MEAS_HIST;
 
 	/* Copy existing histogram data from AWB work function */
 	for (c = 0; c < HIST_BAYER; c++) {
@@ -304,6 +266,8 @@ static void isc_stats_fill_data(struct isc_stats *stats,
 		pbuf->hist[c].hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];
 		pbuf->hist[c].hist_max = ctrls->hist_minmax[c][HIST_MAX_INDEX];
 		pbuf->hist[c].total_pixels = ctrls->total_pixels[c];
+		pbuf->hist[c].capture_frame = ctrls->hist_capture_frame[c];
+		pbuf->hist[c].capture_ts = ctrls->hist_capture_ts[c];
 	}
 
 	/* Set valid channels - all 4 Bayer channels */
@@ -324,11 +288,11 @@ static void isc_stats_fill_data(struct isc_stats *stats,
 
 static void isc_stats_send_buf(struct isc_stats *stats)
 {
-	struct isc_stat_buffer *cur_stat_buf;
+	struct mchp_isc_stat_buffer *cur_stat_buf;
 	struct isc_buffer *cur_buf = NULL;
 	struct isc_device *isc = stats->isc;
-	unsigned int frame_sequence = isc->sequence;
-	u64 timestamp = ktime_get_ns();
+	unsigned int frame_sequence;
+	u64 timestamp;
 
 	/* Get one empty buffer from userspace */
 	spin_lock(&stats->lock);
@@ -350,17 +314,31 @@ static void isc_stats_send_buf(struct isc_stats *stats)
 		goto error_return_buffer;
 	}
 
+	/*
+	 * The ISC cycles GR->R->GB->B one channel per frame.  B is the last
+	 * channel measured, so its HISDONE snapshot represents the most
+	 * recently completed full four-channel pass.  Use it as the buffer
+	 * frame sequence and timestamp to best reflect when the full set of
+	 * statistics became available.
+	 */
+	frame_sequence = isc->ctrls.hist_capture_frame[ISC_HIS_CFG_MODE_B];
+	timestamp = isc->ctrls.hist_capture_ts[ISC_HIS_CFG_MODE_B];
+	if (!timestamp) {
+		frame_sequence = isc->sequence;
+		timestamp = ktime_get_ns();
+	}
+
 	/* Clear buffer and fill metadata */
 	memset(cur_stat_buf, 0, sizeof(*cur_stat_buf));
 	cur_stat_buf->frame_number = frame_sequence;
-	cur_stat_buf->timestamp = timestamp;
+	cur_stat_buf->timestamp_ns = timestamp;
 
 	/* Fill raw histogram data */
 	isc_stats_fill_data(stats, cur_stat_buf);
 
 	/* Send buffer to userspace */
 	vb2_set_plane_payload(&cur_buf->vb.vb2_buf, 0,
-			      sizeof(struct isc_stat_buffer));
+			      sizeof(struct mchp_isc_stat_buffer));
 	cur_buf->vb.sequence = frame_sequence;
 	cur_buf->vb.vb2_buf.timestamp = timestamp;
 	vb2_buffer_done(&cur_buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
@@ -386,12 +364,12 @@ error_return_buffer:
  */
 
 /**
- * isc_stats_isr() - Process statistics in interrupt context
+ * isc_stats_isr() - Process statistics from the AWB work context
  * @stats: ISC histogram statistics device
  *
- * Called from the ISC interrupt handler when histogram data is ready.
- * Exports raw histogram data to userspace applications that have
- * buffers queued on the statistics device.
+ * Called after a complete histogram cycle is collected for all Bayer
+ * channels. Exports raw histogram data to userspace applications that
+ * have buffers queued on the statistics device.
  */
 void isc_stats_isr(struct isc_stats *stats)
 {
@@ -440,7 +418,8 @@ EXPORT_SYMBOL_GPL(isc_stats_active);
 static void isc_stats_init(struct isc_stats *stats)
 {
 	stats->vdev_fmt.fmt.meta.dataformat = V4L2_META_FMT_ISC_STAT_3A;
-	stats->vdev_fmt.fmt.meta.buffersize = sizeof(struct isc_stat_buffer);
+	stats->vdev_fmt.fmt.meta.buffersize =
+		sizeof(struct mchp_isc_stat_buffer);
 }
 
 /**
