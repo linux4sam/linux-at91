@@ -1211,7 +1211,7 @@ static void __init at91_pm_secure_init(void)
 
 	suspend_mode = soc_pm.data.suspend_mode;
 
-	res = sam_smccc_call(SAMA5_SMC_SIP_SET_SUSPEND_MODE,
+	res = sam_smccc_call(SAM_SMC_SIP_SET_SUSPEND_MODE,
 			     suspend_mode, 0);
 	if (res.a0 == 0) {
 		pr_info("AT91: Secure PM: suspend mode set to %s\n",
@@ -1223,7 +1223,7 @@ static void __init at91_pm_secure_init(void)
 	pr_warn("AT91: Secure PM: %s mode not supported !\n",
 		pm_modes[suspend_mode].pattern);
 
-	res = sam_smccc_call(SAMA5_SMC_SIP_GET_SUSPEND_MODE, 0, 0);
+	res = sam_smccc_call(SAM_SMC_SIP_GET_SUSPEND_MODE, 0, 0);
 	if (res.a0 == 0) {
 		pr_warn("AT91: Secure PM: failed to get default mode\n");
 		soc_pm.data.mode = -1;
@@ -1779,6 +1779,12 @@ void __init sama7_pm_init(void)
 
 	if (!IS_ENABLED(CONFIG_SOC_SAMA7))
 		return;
+
+	if (IS_ENABLED(CONFIG_ATMEL_SECURE_PM)) {
+		pr_warn("AT91: Secure PM: ignoring standby mode\n");
+		at91_pm_secure_init();
+		return;
+	}
 
 	at91_pm_modes_validate(modes, ARRAY_SIZE(modes));
 

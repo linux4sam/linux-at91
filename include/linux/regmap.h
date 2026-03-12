@@ -685,10 +685,16 @@ struct regmap *__regmap_init_spi_avmm(struct spi_device *spi,
 				      const struct regmap_config *config,
 				      struct lock_class_key *lock_key,
 				      const char *lock_name);
+
 struct regmap *__regmap_init_fsi(struct fsi_device *fsi_dev,
 				 const struct regmap_config *config,
 				 struct lock_class_key *lock_key,
 				 const char *lock_name);
+
+struct regmap *__regmap_init_smccc(struct device *dev, u32 regmap_smc_id,
+				   const struct regmap_config *config,
+				   struct lock_class_key *lock_key,
+				   const char *lock_name);
 
 struct regmap *__devm_regmap_init(struct device *dev,
 				  const struct regmap_bus *bus,
@@ -755,11 +761,16 @@ struct regmap *__devm_regmap_init_spi_avmm(struct spi_device *spi,
 					   const struct regmap_config *config,
 					   struct lock_class_key *lock_key,
 					   const char *lock_name);
+
 struct regmap *__devm_regmap_init_fsi(struct fsi_device *fsi_dev,
 				      const struct regmap_config *config,
 				      struct lock_class_key *lock_key,
 				      const char *lock_name);
 
+struct regmap *__devm_regmap_init_smccc(struct device *dev, u32 regmap_smc_id,
+					const struct regmap_config *config,
+					struct lock_class_key *lock_key,
+					const char *lock_name);
 /*
  * Wrapper for regmap_init macros to include a unique lockdep key and name
  * for each call. No-op if CONFIG_LOCKDEP is not set.
@@ -1013,6 +1024,20 @@ bool regmap_ac97_default_volatile(struct device *dev, unsigned int reg);
 #define regmap_init_fsi(fsi_dev, config)				\
 	__regmap_lockdep_wrapper(__regmap_init_fsi, #config, fsi_dev,	\
 				 config)
+
+/*
+ * regmap_init_smccc() - Initialize register map for ARM SMCCC
+ *
+ * @dev: Device that will be interacted with
+ * @smc_id: SMC id to used for calls
+ * @config: Configuration for register map
+ *
+ * The return value will be an ERR_PTR() on error or a valid pointer
+ * to a struct regmap.
+ */
+#define regmap_init_smccc(dev, smc_id, config)			\
+	__regmap_lockdep_wrapper(__regmap_init_smccc, #config,	\
+				 dev, smc_id, config)
 
 /**
  * devm_regmap_init() - Initialise managed register map
@@ -1271,6 +1296,21 @@ bool regmap_ac97_default_volatile(struct device *dev, unsigned int reg);
 #define devm_regmap_init_fsi(fsi_dev, config)				\
 	__regmap_lockdep_wrapper(__devm_regmap_init_fsi, #config,	\
 				 fsi_dev, config)
+
+/*
+ * devm_regmap_init_smccc() - Initialize register map for ARM SMCCC
+ *
+ * @dev: Device that will be interacted with
+ * @smc_id: SMC id to used for calls
+ * @config: Configuration for register map
+ *
+ * The return value will be an ERR_PTR() on error or a valid pointer
+ * to a struct regmap.  The map will be automatically freed by the
+ * device management code.
+ */
+#define devm_regmap_init_smccc(dev, smc_id, config)			\
+	__regmap_lockdep_wrapper(__devm_regmap_init_smccc, #config,	\
+				 dev, smc_id, config)
 
 int regmap_mmio_attach_clk(struct regmap *map, struct clk *clk);
 void regmap_mmio_detach_clk(struct regmap *map);

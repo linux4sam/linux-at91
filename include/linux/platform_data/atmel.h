@@ -7,7 +7,7 @@
 #define __ATMEL_H__
 
 /* FIXME: this needs a better location, but gets stuff building again */
-#ifdef CONFIG_ATMEL_PM
+#if defined(CONFIG_ATMEL_PM) || defined(CONFIG_ATMEL_SECURE_PM)
 extern int at91_suspend_entering_slow_clock(void);
 #else
 static inline int at91_suspend_entering_slow_clock(void)

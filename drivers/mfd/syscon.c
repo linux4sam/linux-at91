@@ -37,7 +37,8 @@ static const struct regmap_config syscon_regmap_config = {
 	.reg_stride = 4,
 };
 
-static struct syscon *of_syscon_register(struct device_node *np, bool check_res)
+static struct syscon *of_syscon_register_mmio(struct device_node *np,
+					      bool check_res)
 {
 	struct clk *clk;
 	struct regmap *regmap;
@@ -165,9 +166,55 @@ err_regmap:
 	return ERR_PTR(ret);
 }
 
+#ifdef CONFIG_REGMAP_SMCCC
+static struct syscon *of_syscon_register_smccc(struct device_node *np)
+{
+	struct syscon *syscon;
+	struct regmap *regmap;
+	u32 reg_io_width = 4, smc_id;
+	int ret;
+	struct regmap_config syscon_config = syscon_regmap_config;
+
+	WARN_ON(!mutex_is_locked(&syscon_list_lock));
+
+	ret = of_property_read_u32(np, "arm,smc-id", &smc_id);
+	if (ret)
+		return ERR_PTR(-ENODEV);
+
+	syscon = kzalloc(sizeof(*syscon), GFP_KERNEL);
+	if (!syscon)
+		return ERR_PTR(-ENOMEM);
+
+	of_property_read_u32(np, "reg-io-width", &reg_io_width);
+
+	syscon_config.name = kasprintf(GFP_KERNEL, "%pOFn@smc%x", np, smc_id);
+	syscon_config.val_bits = reg_io_width * 8;
+
+	regmap = regmap_init_smccc(NULL, smc_id, &syscon_config);
+	if (IS_ERR(regmap)) {
+		ret = PTR_ERR(regmap);
+		goto err_regmap;
+	}
+
+	syscon->regmap = regmap;
+	syscon->np = np;
+
+	list_add_tail(&syscon->list, &syscon_list);
+
+	return syscon;
+
+err_regmap:
+	kfree(syscon_config.name);
+	kfree(syscon);
+
+	return ERR_PTR(ret);
+}
+#endif
+
 static struct regmap *device_node_get_regmap(struct device_node *np,
 					     bool create_regmap,
-					     bool check_res)
+					     bool check_res,
+					     bool use_smccc)
 {
 	struct syscon *entry, *syscon = NULL;
 
@@ -180,10 +227,19 @@ static struct regmap *device_node_get_regmap(struct device_node *np,
 		}
 
 	if (!syscon) {
-		if (create_regmap)
-			syscon = of_syscon_register(np, check_res);
-		else
+		if (create_regmap) {
+			if (use_smccc)
+#ifdef CONFIG_REGMAP_SMCCC
+				syscon = of_syscon_register_smccc(np);
+#else
+				syscon = NULL;
+#endif
+			else
+				syscon = of_syscon_register_mmio(np, check_res);
+
+		} else {
 			syscon = ERR_PTR(-EINVAL);
+		}
 	}
 	mutex_unlock(&syscon_list_lock);
 
@@ -254,7 +310,7 @@ EXPORT_SYMBOL_GPL(of_syscon_register_regmap);
  */
 struct regmap *device_node_to_regmap(struct device_node *np)
 {
-	return device_node_get_regmap(np, true, false);
+	return device_node_get_regmap(np, true, false, false);
 }
 EXPORT_SYMBOL_GPL(device_node_to_regmap);
 
@@ -271,7 +327,9 @@ EXPORT_SYMBOL_GPL(device_node_to_regmap);
  */
 struct regmap *syscon_node_to_regmap(struct device_node *np)
 {
-	return device_node_get_regmap(np, of_device_is_compatible(np, "syscon"), true);
+	bool smc = of_device_is_compatible(np, "syscon-smc");
+
+	return device_node_get_regmap(np, smc || of_device_is_compatible(np, "syscon"), true, smc);
 }
 EXPORT_SYMBOL_GPL(syscon_node_to_regmap);
 

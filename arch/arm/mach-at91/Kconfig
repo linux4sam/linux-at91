@@ -251,7 +251,7 @@ config ATMEL_PM
 
 config ATMEL_SECURE_PM
 	bool "Atmel Secure PM support"
-	depends on SOC_SAMA5D2 && ATMEL_PM
+	depends on (SOC_SAMA5D2 || SOC_SAMA7G5) && ATMEL_PM
 	select ARM_PSCI
 	help
 	  When running under a TEE, the suspend mode must be requested to be set

@@ -13,6 +13,12 @@
 #include <asm/system_misc.h>
 
 #include "generic.h"
+#include "sam_secure.h"
+
+static void __init sama7_secure_cache_init(void)
+{
+	sam_secure_init();
+}
 
 static void __init sama7_dt_device_init(void)
 {
@@ -28,6 +34,7 @@ static const char *const sama7_dt_board_compat[] __initconst = {
 DT_MACHINE_START(sama7_dt, "Microchip SAMA7")
 	/* Maintainer: Microchip */
 	.init_machine	= sama7_dt_device_init,
+	.init_early	= sama7_secure_cache_init,
 	.dt_compat	= sama7_dt_board_compat,
 MACHINE_END
 

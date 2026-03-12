@@ -8,7 +8,7 @@
 #ifndef _AT91_GENERIC_H
 #define _AT91_GENERIC_H
 
-#ifdef CONFIG_PM
+#if defined(CONFIG_ATMEL_PM) || defined(CONFIG_ATMEL_SECURE_PM)
 extern void __init at91rm9200_pm_init(void);
 extern void __init at91sam9_pm_init(void);
 extern void __init sam9x60_pm_init(void);
