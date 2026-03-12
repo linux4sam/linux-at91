@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/math64.h>
 #include <linux/module.h>
+#include <linux/string.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
@@ -202,12 +203,83 @@ static void isc_start_dma(struct isc_device *isc)
 	spin_unlock(&isc->awb_lock);
 }
 
-static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
+/**
+ * isc_lut_to_hw() - Convert a 64-entry 10-bit LUT to ISC register format
+ * @lut:	64-element array of 10-bit output values (0-1023); element i
+ *		is the desired output for input range [i*16 .. (i+1)*16 - 1].
+ * @hw:		64-element output array to receive the packed hardware values.
+ * @bipartite:	true for SAMA7G5 (ISC_GAM_CTRL_BIPART active): delta is stored
+ *		as a Q9 per-step increment (multiply by 32 = 512/16).
+ *		false for SAMA5D2: delta is a plain per-segment increment.
+ *
+ * Each hardware register word packs two fields:
+ *   bits[31:16] = 10-bit output value at the start of segment i
+ *   bits[15:0]  = interpolation delta
+ *
+ * In bipartite mode the hardware uses the delta to linearly interpolate
+ * across all 16 input steps within the segment (Q9 fixed-point: delta/512
+ * per step).  In non-bipartite mode the hardware applies a constant output
+ * across the whole segment.
+ */
+static void isc_lut_to_hw(const u32 *lut, u32 *hw, bool bipartite)
+{
+	unsigned int i;
+	u32 cur, next, delta;
+
+	for (i = 0; i < GAMMA_ENTRIES; i++) {
+		cur  = lut[i];
+		next = (i < GAMMA_ENTRIES - 1) ? lut[i + 1] : 1023;
+
+		/*
+		 * Bipartite (SAMA7G5): delta = per-step increment in Q9
+		 *   = (next - cur) * 512 / 16 = (next - cur) * 32
+		 * Non-bipartite (SAMA5D2): delta = per-segment increment
+		 *   = (next - cur)
+		 */
+		delta = bipartite ? (next - cur) * 32 : (next - cur);
+
+		hw[i] = (cur << 16) | (delta & 0xffff);
+	}
+}
+
+/**
+ * isc_apply_gamma() - Write gamma LUT registers from current ctrls state
+ * @isc: ISC device
+ *
+ * Converts ctrls->gamma_lut_{b,g,r}[] to hardware format via isc_lut_to_hw()
+ * and writes all three ISC_GAM_*ENTRY register banks.  Falls back to the
+ * preset gamma_table when gamma_lut_override is false.
+ *
+ * Must be called before isc_update_profile() whenever the gamma curve changes
+ * mid-stream, since isc_update_profile() only commits whatever is already in
+ * the registers to the active pipeline shadow.
+ */
+static void isc_apply_gamma(struct isc_device *isc)
 {
 	struct regmap *regmap = isc->regmap;
 	struct isc_ctrls *ctrls = &isc->ctrls;
-	u32 val, bay_cfg;
 	const u32 *gamma;
+	u32 hw[GAMMA_ENTRIES];
+
+	if (ctrls->gamma_lut_override) {
+		isc_lut_to_hw(ctrls->gamma_lut_b, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_BENTRY, hw, GAMMA_ENTRIES);
+		isc_lut_to_hw(ctrls->gamma_lut_g, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_GENTRY, hw, GAMMA_ENTRIES);
+		isc_lut_to_hw(ctrls->gamma_lut_r, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_RENTRY, hw, GAMMA_ENTRIES);
+	} else {
+		gamma = &isc->gamma_table[ctrls->gamma_index][0];
+		regmap_bulk_write(regmap, ISC_GAM_BENTRY, gamma, GAMMA_ENTRIES);
+		regmap_bulk_write(regmap, ISC_GAM_GENTRY, gamma, GAMMA_ENTRIES);
+		regmap_bulk_write(regmap, ISC_GAM_RENTRY, gamma, GAMMA_ENTRIES);
+	}
+}
+
+static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
+{
+	struct regmap *regmap = isc->regmap;
+	u32 val, bay_cfg;
 	unsigned int i;
 
 	/* WB-->CFA-->CC-->GAM-->CSC-->CBC-->SUB422-->SUB420 */
@@ -227,10 +299,7 @@ static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
 
 	regmap_write(regmap, ISC_CFA_CFG, bay_cfg | ISC_CFA_CFG_EITPOL);
 
-	gamma = &isc->gamma_table[ctrls->gamma_index][0];
-	regmap_bulk_write(regmap, ISC_GAM_BENTRY, gamma, GAMMA_ENTRIES);
-	regmap_bulk_write(regmap, ISC_GAM_GENTRY, gamma, GAMMA_ENTRIES);
-	regmap_bulk_write(regmap, ISC_GAM_RENTRY, gamma, GAMMA_ENTRIES);
+	isc_apply_gamma(isc);
 
 	isc->config_dpc(isc);
 	isc->config_csc(isc);
@@ -1559,12 +1628,35 @@ out_pm_put:
 	pm_runtime_put_sync(isc->dev);
 }
 
+/*
+ * isc_update_gamma_lut_override() - Evaluate gamma LUT override flag
+ *
+ * Activates the per-channel LUT override only when at least one entry
+ * across any channel is non-zero.  An all-zero write (including the
+ * default initialisation from v4l2_ctrl_handler_setup) disables the
+ * override so the built-in gamma table remains active.
+ */
+static void isc_update_gamma_lut_override(struct isc_ctrls *ctrls)
+{
+	unsigned int i;
+	bool any_nonzero = false;
+
+	for (i = 0; i < GAMMA_ENTRIES && !any_nonzero; i++) {
+		if (ctrls->gamma_lut_b[i] ||
+		    ctrls->gamma_lut_g[i] ||
+		    ctrls->gamma_lut_r[i])
+			any_nonzero = true;
+	}
+	ctrls->gamma_lut_override = any_nonzero;
+}
+
 static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct isc_device *isc = container_of(ctrl->handler,
 					     struct isc_device, ctrls.handler);
 	struct isc_ctrls *ctrls = &isc->ctrls;
 	struct regmap *regmap = isc->regmap;
+	bool apply_gamma = false;
 
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
@@ -1599,12 +1691,39 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_GAMMA:
 		ctrls->gamma_index = ctrl->val;
+		ctrls->gamma_lut_override = false;
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_B_LUT:
+		memcpy(ctrls->gamma_lut_b, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_G_LUT:
+		memcpy(ctrls->gamma_lut_g, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_R_LUT:
+		memcpy(ctrls->gamma_lut_r, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	/*
+	 * isc_apply_gamma() writes gamma LUT registers; it must be called
+	 * under awb_mutex so it does not race with isc_awb_work() which also
+	 * calls isc_update_profile() under the same lock.
+	 */
 	mutex_lock(&isc->awb_mutex);
+	if (apply_gamma)
+		isc_apply_gamma(isc);
 	isc_update_profile(isc);
 	mutex_unlock(&isc->awb_mutex);
 
@@ -1927,6 +2046,28 @@ ISC_CTRL_GAIN(isc_b_gain_ctrl, ISC_CID_B_GAIN, "Blue Component Gain");
 ISC_CTRL_GAIN(isc_gr_gain_ctrl, ISC_CID_GR_GAIN, "Green Red Component Gain");
 ISC_CTRL_GAIN(isc_gb_gain_ctrl, ISC_CID_GB_GAIN, "Green Blue Component Gain");
 
+/*
+ * Per-channel gamma LUT controls (64-element U32 arrays, range 0-1023).
+ * Setting any of these activates the custom tone curve and overrides the
+ * preset V4L2_CID_GAMMA curve.  One macro expands to a static v4l2_ctrl_config.
+ */
+#define ISC_CTRL_GAMMA_LUT(_name, _id, _name_str) \
+	static const struct v4l2_ctrl_config _name = { \
+		.ops  = &isc_ctrl_ops, \
+		.id   = _id, \
+		.name = _name_str, \
+		.type = V4L2_CTRL_TYPE_U32, \
+		.dims = { GAMMA_ENTRIES }, \
+		.min  = 0, \
+		.max  = 1023, \
+		.step = 1, \
+		.def  = 0, \
+	}
+
+ISC_CTRL_GAMMA_LUT(isc_gamma_b_lut_ctrl, ISC_CID_GAMMA_B_LUT, "Blue Gamma LUT");
+ISC_CTRL_GAMMA_LUT(isc_gamma_g_lut_ctrl, ISC_CID_GAMMA_G_LUT, "Green Gamma LUT");
+ISC_CTRL_GAMMA_LUT(isc_gamma_r_lut_ctrl, ISC_CID_GAMMA_R_LUT, "Red Gamma LUT");
+
 static int isc_ctrl_init(struct isc_device *isc)
 {
 	const struct v4l2_ctrl_ops *ops = &isc_ctrl_ops;
@@ -1937,7 +2078,12 @@ static int isc_ctrl_init(struct isc_device *isc)
 	ctrls->hist_stat = HIST_INIT;
 	isc_reset_awb_ctrls(isc);
 
-	ret = v4l2_ctrl_handler_init(hdl, 13);
+	/*
+	 * 30 controls maximum (SAMA7G5 with CBHS):
+	 *   contrast(1) + brightness(1) + hue+saturation(2) + gamma(1) +
+	 *   awb+do_wb(2) + 4×gain + 4×offset + 12×CC + 3×gamma_LUT
+	 */
+	ret = v4l2_ctrl_handler_init(hdl, 30);
 	if (ret < 0)
 		return ret;
 
@@ -1991,6 +2137,11 @@ static int isc_ctrl_init(struct isc_device *isc)
 	isc->cc_bg = v4l2_ctrl_new_custom(hdl, &isc_cc_bg_ctrl, NULL);
 	isc->cc_bb = v4l2_ctrl_new_custom(hdl, &isc_cc_bb_ctrl, NULL);
 	isc->cc_ob = v4l2_ctrl_new_custom(hdl, &isc_cc_ob_ctrl, NULL);
+
+	/* Per-channel gamma LUT controls */
+	isc->gamma_b_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_b_lut_ctrl, NULL);
+	isc->gamma_g_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_g_lut_ctrl, NULL);
+	isc->gamma_r_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_r_lut_ctrl, NULL);
 
 	/*
 	 * The cluster is in auto mode with autowhitebalance enabled

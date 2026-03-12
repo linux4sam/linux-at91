@@ -479,6 +479,7 @@ static int microchip_xisc_probe(struct platform_device *pdev)
 	isc->gamma_table = isc_sama7g5_gamma_table;
 	isc->gamma_max = 2;
 	isc->has_cbhs = true;
+	isc->gamma_bipartite = true;
 
 	if ((of_machine_is_compatible("microchip,sam9x7"))) {
 		isc->max_width = ISC_SAM9X7_MAX_SUPPORT_WIDTH;
