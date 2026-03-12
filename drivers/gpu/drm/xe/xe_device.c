@@ -966,6 +966,7 @@ int xe_device_probe(struct xe_device *xe)
 
 err_unregister_display:
 	xe_display_unregister(xe);
+	drm_dev_unregister(&xe->drm);
 
 	return err;
 }
@@ -973,8 +974,6 @@ err_unregister_display:
 void xe_device_remove(struct xe_device *xe)
 {
 	xe_display_unregister(xe);
-
-	xe_nvm_fini(xe);
 
 	drm_dev_unplug(&xe->drm);
 

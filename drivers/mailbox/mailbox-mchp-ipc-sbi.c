@@ -390,8 +390,8 @@ static int mchp_ipc_get_cluster_aggr_irq(struct mchp_ipc_sbi_mbox *ipc)
 			return ret;
 
 		ipc->cluster_cfg[cpuid].buf_base = devm_kmalloc(ipc->dev,
-								 sizeof(struct mchp_ipc_status),
-								 GFP_KERNEL);
+								sizeof(struct mchp_ipc_status),
+								GFP_KERNEL);
 
 		if (!ipc->cluster_cfg[cpuid].buf_base)
 			return -ENOMEM;

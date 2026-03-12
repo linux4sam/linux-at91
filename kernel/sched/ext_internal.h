@@ -69,7 +69,7 @@ enum scx_exit_flags {
 	 * info communication. The following flag indicates whether ops.init()
 	 * finished successfully.
 	 */
-	SCX_EFLAG_INITIALIZED,
+	SCX_EFLAG_INITIALIZED   = 1LLU << 0,
 };
 
 /*
@@ -986,8 +986,10 @@ enum scx_kick_flags {
 	SCX_KICK_PREEMPT	= 1LLU << 1,
 
 	/*
-	 * Wait for the CPU to be rescheduled. The scx_bpf_kick_cpu() call will
-	 * return after the target CPU finishes picking the next task.
+	 * The scx_bpf_kick_cpu() call will return after the current SCX task of
+	 * the target CPU switches out. This can be used to implement e.g. core
+	 * scheduling. This has no effect if the current task on the target CPU
+	 * is not on SCX.
 	 */
 	SCX_KICK_WAIT		= 1LLU << 2,
 };

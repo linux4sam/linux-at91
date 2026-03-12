@@ -267,12 +267,7 @@ static irqreturn_t dw_hdmi_qp_rk3576_hardirq(int irq, void *dev_id)
 static irqreturn_t dw_hdmi_qp_rk3576_irq(int irq, void *dev_id)
 {
 	struct rockchip_hdmi_qp *hdmi = dev_id;
-	u32 intr_stat, val;
-
-	regmap_read(hdmi->regmap, RK3576_IOC_HDMI_HPD_STATUS, &intr_stat);
-
-	if (!intr_stat)
-		return IRQ_NONE;
+	u32 val;
 
 	val = FIELD_PREP_WM16(RK3576_HDMI_HPD_INT_CLR, 1);
 	regmap_write(hdmi->regmap, RK3576_IOC_MISC_CON0, val);
@@ -597,6 +592,15 @@ static void dw_hdmi_qp_rockchip_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &dw_hdmi_qp_rockchip_ops);
 }
 
+static int __maybe_unused dw_hdmi_qp_rockchip_suspend(struct device *dev)
+{
+	struct rockchip_hdmi_qp *hdmi = dev_get_drvdata(dev);
+
+	dw_hdmi_qp_suspend(dev, hdmi->hdmi);
+
+	return 0;
+}
+
 static int __maybe_unused dw_hdmi_qp_rockchip_resume(struct device *dev)
 {
 	struct rockchip_hdmi_qp *hdmi = dev_get_drvdata(dev);
@@ -612,7 +616,8 @@ static int __maybe_unused dw_hdmi_qp_rockchip_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops dw_hdmi_qp_rockchip_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(NULL, dw_hdmi_qp_rockchip_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(dw_hdmi_qp_rockchip_suspend,
+				dw_hdmi_qp_rockchip_resume)
 };
 
 struct platform_driver dw_hdmi_qp_rockchip_pltfm_driver = {
