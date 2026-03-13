@@ -1464,8 +1464,14 @@ static void isc_awb_work(struct work_struct *w)
 		else
 			dev_info(isc->dev, "No active userspace listeners\n");
 
-		/* Continue with AWB processing only if AWB is enabled */
-		if (ctrls->awb != ISC_WB_NONE)
+		/*
+		 * Run kernel grey-world only when AWB is enabled AND no
+		 * userspace IPA is consuming the stats.  When the IPA is
+		 * active it computes its own WB gains and applies them via
+		 * V4L2 controls; running isc_wb_update() concurrently would
+		 * overwrite those gains every 4 frames and prevent convergence.
+		 */
+		if (ctrls->awb != ISC_WB_NONE && !isc_stats_active(&isc->stats))
 			isc_wb_update(ctrls);
 
 		hist_id = ISC_HIS_CFG_MODE_GR;
@@ -1518,7 +1524,7 @@ static void isc_awb_work(struct work_struct *w)
 	/* streaming is not active anymore */
 	if (isc->stop && !isc_stats_active(&isc->stats)) {
 		mutex_unlock(&isc->awb_mutex);
-		return;
+		goto out_pm_put;
 	}
 
 	isc_update_profile(isc);
@@ -1529,6 +1535,7 @@ static void isc_awb_work(struct work_struct *w)
 	if (ctrls->hist_stat == HIST_ENABLED)
 		regmap_write(regmap, ISC_CTRLEN, ISC_CTRL_HISREQ);
 
+out_pm_put:
 	pm_runtime_put_sync(isc->dev);
 }
 
