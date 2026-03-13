@@ -1805,7 +1805,7 @@ static const struct v4l2_ctrl_ops isc_cc_ops = {
 	.g_volatile_ctrl = isc_cc_g_volatile_ctrl,
 };
 
-#define ISC_CTRL_CC(_name, _id, _name_str) \
+#define ISC_CTRL_CC(_name, _id, _name_str, _def) \
 	static const struct v4l2_ctrl_config _name = { \
 		.ops = &isc_cc_ops, \
 		.id = _id, \
@@ -1815,26 +1815,21 @@ static const struct v4l2_ctrl_ops isc_cc_ops = {
 		.min = -2048, \
 		.max = 2047, \
 		.step = 1, \
-		.def = 0, \
+		.def = _def, \
 	}
 
-ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR");
-ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG");
-
-ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB");
-ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR");
-
-ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR");
-ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG");
-
-ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB");
-ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG");
-
-ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR");
-ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG");
-
-ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB");
-ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB");
+ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR", 256);
+ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG", 0);
+ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB", 0);
+ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR", 0);
+ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR", 0);
+ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG", 256);
+ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB", 0);
+ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG", 0);
+ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR", 0);
+ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG", 0);
+ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB", 256);
+ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB", 0);
 
 static const struct v4l2_ctrl_ops isc_awb_ops = {
 	.s_ctrl = isc_s_awb_ctrl,
