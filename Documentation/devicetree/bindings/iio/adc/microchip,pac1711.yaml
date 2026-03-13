@@ -1,0 +1,214 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/microchip,pac1711.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip PAC1711 Power Monitors with Accumulator
+
+maintainers:
+  - Ariana Lazar <ariana.lazar@microchip.com>
+
+description: |
+  This device is part of the Microchip family of Power Monitors with Accumulator.
+  Datasheet links:
+  [PAC1711]: https://ww1.microchip.com/downloads/aemDocuments/documents/MSLD/ProductDocuments/PAC1711-Data-Sheet-DS20007058.pdf
+  [PAC1721]: https://ww1.microchip.com/downloads/aemDocuments/documents/MSLD/ProductDocuments/PAC1721-Single-Channel-Power-Monitor-with-Accumulator-DS20007088.pdf
+  [PAC1811]: https://ww1.microchip.com/downloads/aemDocuments/documents/MSLD/ProductDocuments/DataSheets/PAC1811-Data-Sheet-DS20007066.pdf
+  [PAC1821]: https://ww1.microchip.com/downloads/aemDocuments/documents/MSLD/ProductDocuments/DataSheets/PAC1821-Data-Sheet-DS20007097.pdf
+
+  PAC1711, PAC1721, PAC1811 and PAC1821 are Single Channel Power Monitors
+  with Accumulator, having 12-bit or 16-bit resolution. The devices PAC1711
+  and PAC1811 can measure up to 42V Full-Scale Range, respectively 9V
+  Full-Scale Range for PAC1721 and PAC1821.
+
+properties:
+  compatible:
+    enum:
+      - microchip,pac1711
+      - microchip,pac1721
+      - microchip,pac1811
+      - microchip,pac1821
+
+  reg:
+    maxItems: 1
+
+  vdd-supply: true
+
+  "#io-channel-cells":
+    const: 1
+
+  interrupts:
+    description:
+      Could be triggered by overvoltage, undervoltage, overcurrent, overpower,
+      undercurrent, step limit, accumulator overflow and accumulator count
+      overflow.
+    minItems: 1
+
+  interrupt-names:
+    items:
+      - enum: [alert0, alert1]
+
+  microchip,gpio0-mode:
+    $ref: /schemas/types.yaml#/definitions/string
+    description:
+      Defines the function of the pin. This a multifunction gpio digital I/O pin
+      which can be configured as alert0 interrupt, GPIO digital input, GPIO
+      digital output or slow. When functions as SLOW pin pulling the pin high
+      overrides the programmed sample rate and results in a sample rate of 8 sps
+      (Slow mode).
+    enum: [alert0, gpio0_input, gpio0_output, slow]
+    default: gpio0_input
+
+  microchip,gpio1-mode:
+    $ref: /schemas/types.yaml#/definitions/string
+    description:
+      Defines the function of the pin. This a multifunction gpio digital I/O pin
+      which can be configured as alert1 interrupt, GPIO digital input, GPIO
+      digital output or slow. When functions as SLOW pin pulling the pin high
+      overrides the programmed sample rate and results in a sample rate of 8 sps
+      (Slow mode).
+    enum: [alert1, gpio1_input, gpio1_output, slow]
+    default: gpio1_input
+
+  powerdown-gpios:
+    description:
+      Active low puts the device in power-down state. When the PWRDN pin is
+      pulled high, measurement and accumulation will resume using the default
+      register settings.
+    maxItems: 1
+
+  shunt-resistor-micro-ohms:
+    description:
+      Value in micro Ohms of the shunt resistor connected between
+      the VSENSEP and VSENSEN inputs, across which the current is measured.
+      Value is needed to compute the scaling of the measured current.
+
+  label:
+    description: Unique name to identify which device this is.
+
+  microchip,vbus-input-range-microvolt:
+    description: |
+      Specifies the voltage range in microvolts chosen for the voltage full
+      scale range (FSR). The range should be set as <minimum, maximum> by
+      hardware design and should not be changed during runtime.
+
+      The VBUS could be configured into the following full scale range:
+        - for PAC1711 or PAC1811:
+            - VBUS has unipolar 0V to 42V FSR (default)
+            - VBUS has bipolar -42V to 42V FSR
+            - VBUS has bipolar -21V to 21V FSR
+        - for PAC1721 or PAC1821:
+            - VBUS has unipolar 0V to 9V FSR (default)
+            - VBUS has bipolar -9V to 9V FSR
+            - VBUS has bipolar -4.5V to 4.5V FSR
+
+  microchip,vsense-input-range-microvolt:
+    description: |
+      Specifies the voltage range in microvolts chosen for the current full
+      scale range (FSR). The current is calculated by dividing the vsense
+      voltage by the value of the shunt resistor. The range should be set as
+      <minimum, maximum> by hardware design and it should not be changed during
+      runtime.
+
+      The VSENSE could be configured into the following full scale range:
+        - VSENSE has unipolar 0 mV to 100 mV FSR (default)
+        - VSENSE has bipolar -100 mV to 100 mV FSR
+        - VSENSE has bipolar -50 mV to 50 mV FSR
+    oneOf:
+      - items:
+          - const: 0
+          - const: 100000
+      - items:
+          - const: -100000
+          - const: 100000
+      - items:
+          - const: -50000
+          - const: 50000
+
+  microchip,accumulation-mode:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: |
+      The Hardware Accumulator may be used to accumulate VPOWER, VSENSE or
+      VBUS values for any channel. By setting the accumulator for a channel
+      to accumulate the VPOWER values gives a measure of accumulated power
+      into a time period, which is equivalent to energy. Setting the
+      accumulator for a channel to accumulate VSENSE values gives a measure
+      of accumulated current, which is equivalent to charge.
+
+      The Hardware Accumulator could be configured as:
+       "vpower" - Accumulator accumulates VPOWER (energy)
+       "vsense" - Accumulator accumulates VSENSE (Coulomb Counter)
+    default: vpower
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+  - shunt-resistor-micro-ohms
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          pattern: "^microchip,pac1[78]11&"
+    then:
+      properties:
+        microchip,vbus-input-range-microvolt:
+          oneOf:
+            - items:
+                - const: 0
+                - const: 42000000
+            - items:
+                - const: -42000000
+                - const: 42000000
+            - items:
+                - const: -21000000
+                - const: 21000000
+          default:
+            items:
+              - const: 0
+              - const: 42000000
+  - if:
+      properties:
+        compatible:
+          pattern: "^microchip,pac1[78]21&"
+    then:
+      properties:
+        microchip,vbus-input-range-microvolt:
+          oneOf:
+            - items:
+                - const: 0
+                - const: 9000000
+            - items:
+                - const: -9000000
+                - const: 9000000
+            - items:
+                - const: -4500000
+                - const: 4500000
+          default:
+            items:
+              - const: 0
+              - const: 9000000
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        power-monitor@40 {
+            compatible = "microchip,pac1711";
+            reg = <0x40>;
+
+            shunt-resistor-micro-ohms = <10000>;
+            label = "VDD3V3";
+            vdd-supply = <&vdd>;
+            microchip,vbus-input-range-microvolt = <(-21000000) 21000000>;
+            microchip,vsense-input-range-microvolt = <(-50000) 50000>;
+            microchip,accumulation-mode = "vpower";
+        };
+    };
+...
