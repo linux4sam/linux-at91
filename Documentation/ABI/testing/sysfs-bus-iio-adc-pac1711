@@ -1,0 +1,25 @@
+What:		/sys/bus/iio/devices/iio:deviceX/in_coulomb_counter_raw
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute is used to read the accumulated voltage measured
+		on the shunt resistor (Coulomb Counter). Units after application
+		of scale are Coulombs. X is the IIO index of the device.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_coulomb_counter_scale
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		If known for a device, scale to be applied to in_current_raw in
+		order to obtain the measured value in Coulombs. X is the IIO
+		index of the device.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_coulomb_counter_en
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute, if available, is used to enable digital
+		accumulation of VSENSE measurements. X is the IIO index of the
+		device.
+
+

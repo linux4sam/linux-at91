@@ -16992,7 +16992,9 @@ MICROCHIP PAC1711 DAC DRIVER
 M:	Ariana Lazar <ariana.lazar@microchip.com>
 L:	linux-iio@vger.kernel.org
 S:	Supported
+F:	Documentation/ABI/testing/sysfs-bus-iio-adc-pac1711
 F:	Documentation/devicetree/bindings/iio/adc/microchip,pac1711.yaml
+F:	drivers/iio/adc/pac1711.c
 
 MICROCHIP PAC1921 POWER/CURRENT MONITOR DRIVER
 M:	Matteo Martelli <matteomartelli3@gmail.com>

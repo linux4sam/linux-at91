@@ -1212,6 +1212,17 @@ config NPCM_ADC
 	  This driver can also be built as a module. If so, the module
 	  will be called npcm_adc.
 
+config PAC1711
+	tristate "Microchip Technology PAC1711 driver"
+	depends on I2C
+	help
+	  Say yes here to build support for Microchip Technology's PAC1711,
+	  PAC1721, PAC1811 and PAC1821 Single-Channel Power Monitors with
+	  Accumulator.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pac1711.
+
 config PAC1921
 	tristate "Microchip Technology PAC1921 driver"
 	depends on I2C
