@@ -1317,7 +1317,7 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 static void isc_wb_update(struct isc_ctrls *ctrls)
 {
 	struct isc_device *isc = container_of(ctrls, struct isc_device, ctrls);
-	u32 c, offset[4];
+	u32 c;
 	u64 avg = 0;
 	/* We compute two gains, stretch gain and grey world gain */
 	u32 s_gain[4], gw_gain[4];
@@ -1345,48 +1345,24 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		u32 total_pixels = ctrls->total_pixels[c];
 
 		/*
-		 * the color offset is the minimum value of the histogram.
-		 * we stretch this color to the full range by substracting
-		 * this value from the color component.
+		 * Convert hist_min (the 2nd-percentile bin from isc_hist_count)
+		 * into a WB offset. hist_min is in the 9-bit histogram domain;
+		 * shifting left 3 maps it to the 12-bit WB register domain.
+		 * Subtracting 1 before scaling maps hist_min = 1 to offset 0
+		 * so a sensor with no residual black produces no correction.
+		 * The result is negated because the hardware subtracts the
+		 * offset from each pixel value.
+		 *
+		 * hist_min = 0 is treated as no black level present; the
+		 * formula would yield a spurious positive offset in that case.
+		 * Require a minimum pixel count so an almost-empty histogram
+		 * does not produce an erroneous correction.
 		 */
-		if (hist_min > 5 && hist_min < 60 && total_pixels > 1000) {
-			/*
-			 * Basic adaptive black level offset correction
-			 * (Simplified version for kernel fallback)
-			 */
-			if (hist_min > 20)
-				/* Conservative for high levels */
-				offset[c] = hist_min - 4;
-			else if (hist_min > 10)
-				/* Moderate correction */
-				offset[c] = hist_min - 2;
-			else
-				/* Gentle correction */
-				offset[c] = hist_min - 1;
-
-			offset[c] = max(1U, offset[c]);  /* Ensure minimum of 1 */
-		} else {
-			/* Use default behavior for edge cases */
-			offset[c] = hist_min;
-		}
-
-		/*
-		 * The offset is always at least 1. If the offset is 1, we do
-		 * not need to adjust it, so our result must be zero.
-		 * the offset is computed in a histogram on 9 bits (0..512)
-		 * but the offset in register is based on
-		 * 12 bits pipeline (0..4096).
-		 * we need to shift with the 3 bits that the histogram is
-		 * ignoring
-		 */
-		ctrls->offset[c] = (offset[c] - 1) << 3;
-
-		/*
-		 * the offset is then taken and converted to 2's complements,
-		 * and must be negative, as we subtract this value from the
-		 * color components
-		 */
-		ctrls->offset[c] = -ctrls->offset[c];
+		if (hist_min && total_pixels >= min_pixels)
+			ctrls->offset[c] = clamp_t(s32,
+				-(((s32)hist_min - 1) << 3), -4096, 4095);
+		else
+			ctrls->offset[c] = 0;
 
 		/*
 		 * the stretch gain is the total number of histogram bins
