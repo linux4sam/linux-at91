@@ -39,6 +39,9 @@
 	(((mbus_code) == MEDIA_BUS_FMT_Y10_1X10) | \
 	(((mbus_code) == MEDIA_BUS_FMT_Y8_1X8)))
 
+/* 4.0 in Q9 fixed-point: cap grey-world correction at 4x. */
+#define ISC_AWB_GW_GAIN_MAX	(4u << 9)
+
 static inline void isc_update_v4l2_ctrls(struct isc_device *isc)
 {
 	struct isc_ctrls *ctrls = &isc->ctrls;
@@ -1319,18 +1322,16 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 	struct isc_device *isc = container_of(ctrls, struct isc_device, ctrls);
 	u32 c;
 	u64 avg = 0;
-	/* We compute two gains, stretch gain and grey world gain */
-	u32 s_gain[4], gw_gain[4];
+	u32 gain, gw_gain, s_gain;
 
 	/*
 	 * According to Grey World, we need to set gains for R/B to normalize
 	 * them towards the green channel.
-	 * Thus we want to keep Green as fixed and adjust only Red/Blue
-	 * Compute the average of the both green channels first
-	 * Use channel averages for Grey World algorithm
+	 * Thus we want to keep Green as fixed and adjust only Red/Blue.
+	 * Compute the average of the both green channels first.
 	 */
 	avg = (ctrls->channel_avg[ISC_HIS_CFG_MODE_GR] +
-			ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
+		ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
 
 	dev_dbg(isc->dev, "isc wb: green components average %llu\n", avg);
 
@@ -1365,39 +1366,33 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 			ctrls->offset[c] = 0;
 
 		/*
-		 * the stretch gain is the total number of histogram bins
-		 * divided by the actual range of color component (Max - Min)
-		 * If we compute gain like this, the actual color component
-		 * will be stretched to the full histogram.
-		 * We need to shift 9 bits for precision, we have 9 bits for
-		 * decimals
+		 * Stretch gain: scale the histogram range [hist_min, hist_max]
+		 * to the full 512-bin span.  Result is in Q9 fixed-point
+		 * (1.0 = 512).
 		 */
-		s_gain[c] = (HIST_ENTRIES << 9) /
-			(hist_max - hist_min + 1);
+		s_gain = (HIST_ENTRIES << 9) / (hist_max - hist_min + 1);
 
 		/*
-		 * Grey World gain using channel averages
-		 * This is much more accurate than using hist_count
+		 * Grey-world gain: scale each channel towards the green
+		 * average.  Require a minimum pixel count so noise-dominated
+		 * channels do not produce wild corrections.
 		 */
 		if (channel_avg > 0 && total_pixels > 1000)
-			gw_gain[c] = div64_u64((avg << 9), channel_avg);
+			gw_gain = div64_u64((avg << 9), channel_avg);
 		else
-			gw_gain[c] = 1 << 9;
+			gw_gain = 1 << 9;
+
+		/* Cap grey-world correction at 4x to avoid over-amplification. */
+		gw_gain = min_t(u32, gw_gain, ISC_AWB_GW_GAIN_MAX);
+
+		/* Combine stretch and grey-world gains; result stays in Q9. */
+		gain = (s_gain * gw_gain) >> 9;
+
+		ctrls->gain[c] = clamp_val(gain, 0, GENMASK(12, 0));
 
 		dev_dbg(isc->dev,
-			"isc wb: component %d, black_level=%u, avg=%u, s_gain=%u, gw_gain=%u",
-			c, hist_min, channel_avg, s_gain[c], gw_gain[c]);
-
-		/* multiply both gains and adjust for decimals */
-		ctrls->gain[c] = s_gain[c] * gw_gain[c];
-		ctrls->gain[c] >>= 9;
-
-		/* make sure we are not out of range */
-		ctrls->gain[c] = clamp_val(ctrls->gain[c], 0, GENMASK(12, 0));
-
-		dev_dbg(isc->dev,
-			"isc wb: component %d, final gain %u, offset %d\n",
-			c, ctrls->gain[c], ctrls->offset[c]);
+			"isc wb: c=%u black=%u avg=%u s_gain=%u gw_gain=%u gain=%u",
+			c, hist_min, channel_avg, s_gain, gw_gain, gain);
 	}
 }
 
