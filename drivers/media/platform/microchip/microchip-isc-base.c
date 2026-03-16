@@ -1251,7 +1251,9 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 		ctrls->total_pixels[ctrls->hist_id] = 0;
 		*min = 1;
 		*max = HIST_ENTRIES - 1;
-		dev_dbg(isc->dev, "isc wb: no pixels in histogram for channel %u", ctrls->hist_id);
+		dev_dbg(isc->dev,
+			"isc wb: no pixels in histogram for channel %u\n",
+			ctrls->hist_id);
 		return;
 	}
 
@@ -1312,7 +1314,7 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 		*min = 1;
 
 	dev_dbg(isc->dev,
-		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u",
+		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u\n",
 		ctrls->hist_id, ctrls->channel_avg[ctrls->hist_id],
 		*hist_count, *min, *max, total_pixels);
 }
@@ -1323,6 +1325,8 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 	u32 c;
 	u64 avg = 0;
 	u32 gain, gw_gain, s_gain;
+	u32 min_pixels;
+	u32 frame_pixels;
 
 	/*
 	 * According to Grey World, we need to set gains for R/B to normalize
@@ -1338,6 +1342,17 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 	/* Green histogram is null, nothing to do */
 	if (!avg)
 		return;
+
+	/*
+	 * Require a minimum pixel count for both black-level offset and
+	 * grey-world gain: 1/64 of the frame area, which equals ~6.25% of
+	 * one Bayer channel's expected pixel count.  This scales with sensor
+	 * resolution and prevents noise-dominated histograms (from very small
+	 * crops or a nearly-empty frame) from producing wild corrections.
+	 * A floor of 64 ensures the guard is non-zero for tiny crops.
+	 */
+	frame_pixels = isc->fmt.fmt.pix.width * isc->fmt.fmt.pix.height;
+	min_pixels = frame_pixels ? max(frame_pixels >> 6, 64u) : 64u;
 
 	for (c = ISC_HIS_CFG_MODE_GR; c <= ISC_HIS_CFG_MODE_B; c++) {
 		u32 hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];
@@ -1377,7 +1392,7 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		 * average.  Require a minimum pixel count so noise-dominated
 		 * channels do not produce wild corrections.
 		 */
-		if (channel_avg > 0 && total_pixels > 1000)
+		if (channel_avg > 0 && total_pixels >= min_pixels)
 			gw_gain = div64_u64((avg << 9), channel_avg);
 		else
 			gw_gain = 1 << 9;
