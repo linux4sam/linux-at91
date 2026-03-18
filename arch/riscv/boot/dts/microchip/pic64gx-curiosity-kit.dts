@@ -117,8 +117,11 @@
 	bus-width = <4>;
 	disable-wp;
 	cap-sd-highspeed;
-	cap-mmc-highspeed;
-	sdhci-caps-mask = <0x00000007 0x00000000>;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-ddr50;
+	sdhci-caps-mask = <0x00000002 0x00000000>;
 	status = "okay";
 };
 
