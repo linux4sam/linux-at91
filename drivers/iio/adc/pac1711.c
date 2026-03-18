@@ -672,8 +672,8 @@ static int pac1711_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec cons
 			    int *val, int *val2, long mask)
 {
 	struct pac1711_chip_info *info = iio_priv(indio_dev);
-	int ret;
 	u64 tmp = 0;
+	int ret;
 
 	ret = pac1711_retrieve_data(info, PAC1711_MIN_UPDATE_WAIT_TIME_US);
 	if (ret)
@@ -712,8 +712,7 @@ static int pac1711_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec cons
 				return -EINVAL;
 			}
 
-			if (info->vbus_mode == PAC1711_FULL_RANGE_BIPOLAR)
-				*val2 = (info->vbus_mode == PAC1711_FULL_RANGE_BIPOLAR) ? 15 : 16;
+			*val2 = (info->vbus_mode == PAC1711_FULL_RANGE_BIPOLAR) ? 15 : 16;
 
 			return IIO_VAL_FRACTIONAL_LOG2;
 		case PAC1711_VSENSE_REG_ADDR:
