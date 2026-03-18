@@ -1,0 +1,17 @@
+What:		/sys/bus/iio/devices/iio:deviceX/slow_alert1_cfg
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		A read/write property used to route, inside the PAC device, a specific ALERT
+		signal to the SLOW/ALERT1 pin. The SLOW/ALERT1 pin must be configured for the
+		ALERT function in order to control the device hardware pin (this is the default
+		functionality of the device hardware pin).
+
+What:		/sys/bus/iio/devices/iio:deviceX/gpio_alert2_cfg
+KernelVersion:	6.18
+Contact:	linux-iio@vger.kernel.org
+Description:
+		A read/write property used to route, inside the PAC device, a specific ALERT
+		signal to the GPIO/ALERT2 hardware pin. The GPIO/ALERT2 pin must be configured
+		for ALERT function in order to control the device hardware pin (this is the
+		default	functionality of the device hardware pin).
