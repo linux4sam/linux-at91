@@ -243,12 +243,17 @@
 	bus-width = <4>;
 	disable-wp;
 	cap-sd-highspeed;
-	cap-mmc-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
-	sd-uhs-sdr104;
-	no-1-8-v;
+	sd-uhs-ddr50;
+	sdhci-caps-mask = <0x00000002 0x00000000>;
+	cdns,phy-input-delay-legacy = <10>;
+	cdns,phy-input-delay-sd-highspeed = <4>;
+	cdns,phy-input-delay-sd-uhs-sdr12 = <8>;
+	cdns,phy-input-delay-sd-uhs-sdr25 = <4>;
+	cdns,phy-input-delay-sd-uhs-sdr50 = <2>;
+	cdns,phy-input-delay-sd-uhs-ddr50 = <0>;
 	status = "okay";
 };
 
