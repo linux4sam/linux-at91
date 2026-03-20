@@ -1247,6 +1247,18 @@ config PAC1934
 	  This driver can also be built as a module. If so, the module
 	  will be called pac1934.
 
+config PAC1944
+	tristate "Microchip Technology PAC1944/PAC1954 driver"
+	depends on I2C
+	help
+	  Say yes here to build support for Microchip Technology's PAC1941,
+	  PAC1941-2, PAC1942, PAC1942-2, PAC1943, PAC1944, PAC1951,
+	  PAC1951-2, PAC1952, PAC1952-2, PAC1953, PAC1954
+	  Single/Multi-Channel Power Monitor with Accumulator.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called pac1944.
+
 config PALMAS_GPADC
 	tristate "TI Palmas General Purpose ADC"
 	depends on MFD_PALMAS
