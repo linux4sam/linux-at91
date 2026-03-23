@@ -169,6 +169,16 @@ struct isc_ctrls {
 	u64 hist_capture_ts[HIST_BAYER];     /* ktime_get_ns() at measurement */
 
 	/*
+	 * Timestamp of the last histogram cycle in which an IPA was actively
+	 * consuming stats (isc_stats_active() returned true).  Used by
+	 * isc_awb_work() to suppress kernel grey-world updates for a brief
+	 * holdoff period after the IPA closes the stats device, preventing
+	 * the kernel AWB from overwriting the IPA's converged WB gains during
+	 * application teardown.
+	 */
+	ktime_t ipa_last_active;
+
+	/*
 	 * Custom per-channel gamma LUT (10-bit output values, 64 entries).
 	 * Set via ISC_CID_GAMMA_{R,G,B}_LUT controls.  When gamma_lut_override
 	 * is true these arrays are converted to hardware format at pipeline

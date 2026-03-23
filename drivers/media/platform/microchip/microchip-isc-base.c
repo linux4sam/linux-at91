@@ -10,6 +10,7 @@
  */
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -1599,21 +1600,37 @@ static void isc_awb_work(struct work_struct *w)
 	if (hist_id != ISC_HIS_CFG_MODE_B) {
 		hist_id++;
 	} else {
-		/* All 4 channels processed - notify userspace */
-		if (isc_stats_active(&isc->stats))
+		bool ipa_active = isc_stats_active(&isc->stats);
+
+		/* All 4 channels processed — forward stats to userspace IPA */
+		if (ipa_active) {
+			ctrls->ipa_last_active = ktime_get();
 			isc_stats_isr(&isc->stats);
-		else
-			dev_info(isc->dev, "No active userspace listeners\n");
+		}
 
 		/*
-		 * Run kernel grey-world only when AWB is enabled AND no
-		 * userspace IPA is consuming the stats.  When the IPA is
-		 * active it computes its own WB gains and applies them via
-		 * V4L2 controls; running isc_wb_update() concurrently would
-		 * overwrite those gains every 4 frames and prevent convergence.
+		 * Run kernel grey-world only when AWB is enabled and no IPA
+		 * is consuming the stats.  A holdoff of 500 ms after the last
+		 * active IPA cycle prevents the kernel AWB from overwriting
+		 * the IPA's converged WB gains during application teardown:
+		 * when mchpcam-still closes the stats device the IPA may still
+		 * have an outstanding histogram cycle in flight.  Without the
+		 * holdoff that final cycle triggers isc_wb_update(), replacing
+		 * the IPA gains with an unconverged kernel grey-world estimate.
+		 *
+		 * 500 ms covers ~15 AWB cycles at 30 fps — sufficient for the
+		 * IPA to complete teardown and for the kernel AWB to observe at
+		 * least one clean histogram cycle before it starts correcting.
 		 */
-		if (ctrls->awb != ISC_WB_NONE && !isc_stats_active(&isc->stats))
-			isc_wb_update(ctrls);
+		if (ctrls->awb != ISC_WB_NONE && !ipa_active) {
+			ktime_t holdoff = ktime_add_ms(ctrls->ipa_last_active,
+						       500);
+			if (ktime_after(ktime_get(), holdoff))
+				isc_wb_update(ctrls);
+			else
+				dev_dbg(isc->dev,
+					"isc wb: holding off kernel AWB, IPA active within 500ms\n");
+		}
 
 		hist_id = ISC_HIS_CFG_MODE_GR;
 	}
