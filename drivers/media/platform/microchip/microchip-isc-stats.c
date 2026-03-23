@@ -373,15 +373,11 @@ error_return_buffer:
  */
 void isc_stats_isr(struct isc_stats *stats)
 {
-	if (!stats) {
-		pr_err("ISC stats: stats is NULL\n");
+	if (WARN_ON_ONCE(!stats))
 		return;
-	}
 
-	if (!stats->isc) {
-		pr_err("ISC stats: stats->isc is NULL\n");
+	if (WARN_ON_ONCE(!stats->isc))
 		return;
-	}
 
 	/* Only send data if userspace is using the device */
 	if (!isc_stats_in_use(stats)) {
