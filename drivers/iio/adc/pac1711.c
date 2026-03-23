@@ -80,8 +80,8 @@
 #define PAC1711_VBUS_SENSE_REG_LEN		2
 
 /*
- * The sum of the measurement registers' dimensions in bytes - from acc_count to
- * vpower in datasheet register description.
+ * The sum of the measurement registers' dimensions in bytes - from ACC_COUNT to
+ * VPOWER in datasheet register description.
  */
 #define PAC1711_MEAS_REG_SNAPSHOT_LEN		23
 
@@ -114,10 +114,22 @@ enum pac1711_fsr {
 	PAC1711_HALF_RANGE_BIPOLAR = 2,
 };
 
-static const int pac1711_vbus_range_tbl[3][2] = {
-	[PAC1711_FULL_RANGE_UNIPOLAR] = { 0, 42000000 },
-	[PAC1711_FULL_RANGE_BIPOLAR] = { -42000000, 42000000 },
-	[PAC1711_HALF_RANGE_BIPOLAR] = { -21000000, 21000000 },
+enum pac1711_voltage_range_idx {
+	PAC1711_VOLTAGE_RANGE_IDX = 0,
+	PAC1721_VOLTAGE_RANGE_IDX = 1,
+};
+
+static const int pac1711_vbus_range_tbl[2][3][2] = {
+	[PAC1711_VOLTAGE_RANGE_IDX] = {
+		[PAC1711_FULL_RANGE_UNIPOLAR] = { 0, 42000000 },
+		[PAC1711_FULL_RANGE_BIPOLAR]  = { -42000000, 42000000 },
+		[PAC1711_HALF_RANGE_BIPOLAR]  = { -21000000, 21000000 },
+	},
+	[PAC1721_VOLTAGE_RANGE_IDX] = {
+		[PAC1711_FULL_RANGE_UNIPOLAR] = { 0, 9000000 },
+		[PAC1711_FULL_RANGE_BIPOLAR]  = { -9000000, 9000000 },
+		[PAC1711_HALF_RANGE_BIPOLAR]  = { -4500000, 4500000 },
+	},
 };
 
 static const int pac1711_vsense_range_tbl[3][2] = {
@@ -231,6 +243,7 @@ struct pac1711_chip_info {
 	u8			accumulation_mode;
 	u8			sample_rate_idx;
 	u8			chip_variant;
+	u8			voltage_range_idx;
 	bool			enable_acc;
 	bool			is_pac18x1_family;
 };
@@ -479,8 +492,23 @@ static ssize_t pac1711_in_power_acc_scale_show(struct device *dev, struct device
 	unsigned int rem;
 	u64 tmp, ref;
 
-	/* Scale constant = (10^3 * 4.2 * 10^9 / 2^(31 or 23)) for mili Watt-second */
-	ref = info->is_pac18x1_family ? (u64)1958 : (u64)500680;
+	/**
+	 * For PAC1711/PAC1811 the scale constant = (10^3 * 4.2 * 10^9 / 2^(31 or 23))
+	 * for mili Watt-second
+	 *
+	 * For PAC1721/PAC1821 the scale constant = (10^3 * 0.9 * 10^9 / 2^(31 or 23))
+	 * for mili Watt-second
+	 */
+	switch (info->voltage_range_idx) {
+	case PAC1711_VOLTAGE_RANGE_IDX:
+		ref = info->is_pac18x1_family ? (u64)1958 : (u64)500680;
+		break;
+	case PAC1721_VOLTAGE_RANGE_IDX:
+		ref = info->is_pac18x1_family ? (u64)419 : (u64)107288;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	if ((info->vsense_mode == PAC1711_FULL_RANGE_UNIPOLAR &&
 	     info->vbus_mode == PAC1711_FULL_RANGE_UNIPOLAR)  ||
@@ -853,30 +881,56 @@ static int pac1711_chip_identify(struct iio_dev *indio_dev, struct pac1711_chip_
 		dev_info(&client->dev, "cannot read product ID reg\n");
 
 	info->chip_variant = chip_rev_info[0];
-	indio_dev->name = pac1711_chip_features.name;
 	switch (info->chip_variant) {
 	case PAC_PRODUCT_ID_1711:
+		info->is_pac18x1_family = false;
+		info->voltage_range_idx = PAC1711_VOLTAGE_RANGE_IDX;
+		indio_dev->name = pac1711_chip_features.name;
+		break;
 	case PAC_PRODUCT_ID_1721:
 		info->is_pac18x1_family = false;
-		return 0;
+		info->voltage_range_idx = PAC1721_VOLTAGE_RANGE_IDX;
+		indio_dev->name = pac1721_chip_features.name;
+		break;
 	case PAC_PRODUCT_ID_1811:
+		info->is_pac18x1_family = true;
+		info->voltage_range_idx = PAC1711_VOLTAGE_RANGE_IDX;
+		indio_dev->name = pac1811_chip_features.name;
+		break;
 	case PAC_PRODUCT_ID_1821:
 		info->is_pac18x1_family = true;
-		return 0;
+		info->voltage_range_idx = PAC1721_VOLTAGE_RANGE_IDX;
+		indio_dev->name = pac1821_chip_features.name;
+		break;
 	default:
 		dev_info(dev, "product ID (0x%02X, 0x%02X, 0x%02X) not recognized\n",
 			 chip_rev_info[0], chip_rev_info[1], chip_rev_info[2]);
-		return 0;
+		return -ENODEV;
 	}
+
+	return 0;
 }
 
-static int pac1711_check_range(s32 *vals, bool is_vbus)
+static int pac1711_check_range(struct device *dev, s32 *vals, bool is_vbus,
+			       unsigned int voltage_range_idx)
 {
-	int num_ranges = ARRAY_SIZE(pac1711_vbus_range_tbl);
+	int num_ranges = ARRAY_SIZE(pac1711_vbus_range_tbl[PAC1711_VOLTAGE_RANGE_IDX]);
 	const int (*ranges)[3][2];
 	int i;
 
-	ranges = is_vbus ? &pac1711_vbus_range_tbl : &pac1711_vsense_range_tbl;
+	if (is_vbus)
+		switch (voltage_range_idx) {
+		case PAC1711_VOLTAGE_RANGE_IDX:
+			ranges = &pac1711_vbus_range_tbl[PAC1711_VOLTAGE_RANGE_IDX];
+			break;
+		case PAC1721_VOLTAGE_RANGE_IDX:
+			ranges = &pac1711_vbus_range_tbl[PAC1721_VOLTAGE_RANGE_IDX];
+			break;
+		default:
+			return -EINVAL;
+		}
+	else
+		ranges = &pac1711_vsense_range_tbl;
 
 	for (i = 0; i < num_ranges; i++) {
 		if (vals[0] == (*ranges)[i][0] && vals[1] == (*ranges)[i][1])
@@ -901,7 +955,7 @@ static int pac1711_init_vbus_vsense_ranges(struct pac1711_chip_info *info, bool 
 		/* Set default range to PAC1711_FULL_RANGE_UNIPOLAR */
 		ret = PAC1711_FULL_RANGE_UNIPOLAR;
 	} else {
-		ret = pac1711_check_range(vals, is_vbus);
+		ret = pac1711_check_range(dev, vals, is_vbus, info->voltage_range_idx);
 		if (ret < 0)
 			return dev_err_probe(dev, -EINVAL, "Invalid value %d, %d for prop %s\n",
 					     vals[0], vals[1], prop_name);
