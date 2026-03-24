@@ -17,6 +17,7 @@
 static const struct i3c_device_id st_lsm6dsx_i3c_ids[] = {
 	I3C_DEVICE(0x0104, 0x006C, (void *)ST_LSM6DSO_ID),
 	I3C_DEVICE(0x0104, 0x006B, (void *)ST_LSM6DSR_ID),
+	I3C_DEVICE(0x0104, 0x0070, (void *)ST_LSM6DSV_ID),
 	{ }
 };
 MODULE_DEVICE_TABLE(i3c, st_lsm6dsx_i3c_ids);
