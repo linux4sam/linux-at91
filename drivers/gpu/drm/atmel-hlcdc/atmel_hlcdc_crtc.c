@@ -180,7 +180,7 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 		     (vm.hsync_len - 1) | ((vm.vsync_len - 1) << 16));
 
 	regmap_write(regmap, ATMEL_HLCDC_CFG(2),
-		     (vm.vfront_porch - 1) | (vm.vback_porch << 16));
+		     (vm.vfront_porch - 1) | ((vm.vback_porch - 1) << 16));
 
 	regmap_write(regmap, ATMEL_HLCDC_CFG(3),
 		     (vm.hfront_porch - 1) | ((vm.hback_porch - 1) << 16));
