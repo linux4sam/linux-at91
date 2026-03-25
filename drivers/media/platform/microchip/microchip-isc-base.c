@@ -10,8 +10,10 @@
  */
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include <linux/math64.h>
 #include <linux/module.h>
+#include <linux/string.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
@@ -39,6 +41,9 @@
 	(((mbus_code) == MEDIA_BUS_FMT_Y10_1X10) | \
 	(((mbus_code) == MEDIA_BUS_FMT_Y8_1X8)))
 
+/* 4.0 in Q9 fixed-point: cap grey-world correction at 4x. */
+#define ISC_AWB_GW_GAIN_MAX	(4u << 9)
+
 static inline void isc_update_v4l2_ctrls(struct isc_device *isc)
 {
 	struct isc_ctrls *ctrls = &isc->ctrls;
@@ -61,12 +66,13 @@ static inline void isc_update_awb_ctrls(struct isc_device *isc)
 
 	/* In here we set our actual hw pipeline config */
 
+	/* Mask to 13-bit field width; s32 sign extension corrupts the adjacent field. */
 	regmap_write(isc->regmap, ISC_WB_O_RGR,
-		     ((ctrls->offset[ISC_HIS_CFG_MODE_R])) |
-		     ((ctrls->offset[ISC_HIS_CFG_MODE_GR]) << 16));
+		     ((u32)ctrls->offset[ISC_HIS_CFG_MODE_R] & GENMASK(12, 0)) |
+		     (((u32)ctrls->offset[ISC_HIS_CFG_MODE_GR] & GENMASK(12, 0)) << 16));
 	regmap_write(isc->regmap, ISC_WB_O_BGB,
-		     ((ctrls->offset[ISC_HIS_CFG_MODE_B])) |
-		     ((ctrls->offset[ISC_HIS_CFG_MODE_GB]) << 16));
+		     ((u32)ctrls->offset[ISC_HIS_CFG_MODE_B] & GENMASK(12, 0)) |
+		     (((u32)ctrls->offset[ISC_HIS_CFG_MODE_GB] & GENMASK(12, 0)) << 16));
 	regmap_write(isc->regmap, ISC_WB_G_RGR,
 		     ctrls->gain[ISC_HIS_CFG_MODE_R] |
 		     (ctrls->gain[ISC_HIS_CFG_MODE_GR] << 16));
@@ -82,6 +88,7 @@ static inline void isc_reset_awb_ctrls(struct isc_device *isc)
 	for (c = ISC_HIS_CFG_MODE_GR; c <= ISC_HIS_CFG_MODE_B; c++) {
 		/* gains have a fixed point at 9 decimals */
 		isc->ctrls.gain[c] = 1 << 9;
+		isc->ctrls.gain_smooth[c] = 1 << 9;
 		/* offsets are in 2's complements */
 		isc->ctrls.offset[c] = 0;
 	}
@@ -197,12 +204,83 @@ static void isc_start_dma(struct isc_device *isc)
 	spin_unlock(&isc->awb_lock);
 }
 
-static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
+/**
+ * isc_lut_to_hw() - Convert a 64-entry 10-bit LUT to ISC register format
+ * @lut:	64-element array of 10-bit output values (0-1023); element i
+ *		is the desired output for input range [i*16 .. (i+1)*16 - 1].
+ * @hw:		64-element output array to receive the packed hardware values.
+ * @bipartite:	true for SAMA7G5 (ISC_GAM_CTRL_BIPART active): delta is stored
+ *		as a Q9 per-step increment (multiply by 32 = 512/16).
+ *		false for SAMA5D2: delta is a plain per-segment increment.
+ *
+ * Each hardware register word packs two fields:
+ *   bits[31:16] = 10-bit output value at the start of segment i
+ *   bits[15:0]  = interpolation delta
+ *
+ * In bipartite mode the hardware uses the delta to linearly interpolate
+ * across all 16 input steps within the segment (Q9 fixed-point: delta/512
+ * per step).  In non-bipartite mode the hardware applies a constant output
+ * across the whole segment.
+ */
+static void isc_lut_to_hw(const u32 *lut, u32 *hw, bool bipartite)
+{
+	unsigned int i;
+	u32 cur, next, delta;
+
+	for (i = 0; i < GAMMA_ENTRIES; i++) {
+		cur  = lut[i];
+		next = (i < GAMMA_ENTRIES - 1) ? lut[i + 1] : 1023;
+
+		/*
+		 * Bipartite (SAMA7G5): delta = per-step increment in Q9
+		 *   = (next - cur) * 512 / 16 = (next - cur) * 32
+		 * Non-bipartite (SAMA5D2): delta = per-segment increment
+		 *   = (next - cur)
+		 */
+		delta = bipartite ? (next - cur) * 32 : (next - cur);
+
+		hw[i] = (cur << 16) | (delta & 0xffff);
+	}
+}
+
+/**
+ * isc_apply_gamma() - Write gamma LUT registers from current ctrls state
+ * @isc: ISC device
+ *
+ * Converts ctrls->gamma_lut_{b,g,r}[] to hardware format via isc_lut_to_hw()
+ * and writes all three ISC_GAM_*ENTRY register banks.  Falls back to the
+ * preset gamma_table when gamma_lut_override is false.
+ *
+ * Must be called before isc_update_profile() whenever the gamma curve changes
+ * mid-stream, since isc_update_profile() only commits whatever is already in
+ * the registers to the active pipeline shadow.
+ */
+static void isc_apply_gamma(struct isc_device *isc)
 {
 	struct regmap *regmap = isc->regmap;
 	struct isc_ctrls *ctrls = &isc->ctrls;
-	u32 val, bay_cfg;
 	const u32 *gamma;
+	u32 hw[GAMMA_ENTRIES];
+
+	if (ctrls->gamma_lut_override) {
+		isc_lut_to_hw(ctrls->gamma_lut_b, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_BENTRY, hw, GAMMA_ENTRIES);
+		isc_lut_to_hw(ctrls->gamma_lut_g, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_GENTRY, hw, GAMMA_ENTRIES);
+		isc_lut_to_hw(ctrls->gamma_lut_r, hw, isc->gamma_bipartite);
+		regmap_bulk_write(regmap, ISC_GAM_RENTRY, hw, GAMMA_ENTRIES);
+	} else {
+		gamma = &isc->gamma_table[ctrls->gamma_index][0];
+		regmap_bulk_write(regmap, ISC_GAM_BENTRY, gamma, GAMMA_ENTRIES);
+		regmap_bulk_write(regmap, ISC_GAM_GENTRY, gamma, GAMMA_ENTRIES);
+		regmap_bulk_write(regmap, ISC_GAM_RENTRY, gamma, GAMMA_ENTRIES);
+	}
+}
+
+static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
+{
+	struct regmap *regmap = isc->regmap;
+	u32 val, bay_cfg;
 	unsigned int i;
 
 	/* WB-->CFA-->CC-->GAM-->CSC-->CBC-->SUB422-->SUB420 */
@@ -222,10 +300,7 @@ static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
 
 	regmap_write(regmap, ISC_CFA_CFG, bay_cfg | ISC_CFA_CFG_EITPOL);
 
-	gamma = &isc->gamma_table[ctrls->gamma_index][0];
-	regmap_bulk_write(regmap, ISC_GAM_BENTRY, gamma, GAMMA_ENTRIES);
-	regmap_bulk_write(regmap, ISC_GAM_GENTRY, gamma, GAMMA_ENTRIES);
-	regmap_bulk_write(regmap, ISC_GAM_RENTRY, gamma, GAMMA_ENTRIES);
+	isc_apply_gamma(isc);
 
 	isc->config_dpc(isc);
 	isc->config_csc(isc);
@@ -424,6 +499,14 @@ static void isc_stop_streaming(struct vb2_queue *vq)
 		dev_err(isc->dev, "Timeout waiting for end of the capture\n");
 
 	mutex_unlock(&isc->awb_mutex);
+
+	/*
+	 * Disable the histogram so the ISR stops firing HISREQ, then drain
+	 * any work that was already queued before returning.  This must happen
+	 * after releasing awb_mutex because isc_awb_work also takes it.
+	 */
+	isc_set_histogram(isc, false);
+	cancel_work_sync(&isc->awb_work);
 
 	/* Disable DMA interrupt */
 	regmap_write(isc->regmap, ISC_INTDIS, ISC_INT_DDONE);
@@ -790,7 +873,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code)) {
 			isc->try_config.bits_pipeline = CFA_ENABLE |
 				WB_ENABLE | GAM_ENABLES | DPC_BLCENABLE |
-				DPC_GDCENABLE | CBHS_ENABLE | CC_ENABLE;
+				DPC_GDCENABLE | CC_ENABLE;
 		} else {
 			isc->try_config.bits_pipeline = 0x0;
 		}
@@ -841,7 +924,7 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 		break;
 	default:
 		if (ISC_IS_FORMAT_RAW(isc->try_config.sd_format->mbus_code))
-			isc->try_config.bits_pipeline = WB_ENABLE | DPC_BLCENABLE;
+			isc->try_config.bits_pipeline = WB_ENABLE;
 		else
 			isc->try_config.bits_pipeline = 0x0;
 	}
@@ -850,6 +933,56 @@ static int isc_try_configure_pipeline(struct isc_device *isc)
 	isc->adapt_pipeline(isc);
 
 	return 0;
+}
+
+static bool isc_format_has_chroma(u32 fourcc)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_YUV420:
+	case V4L2_PIX_FMT_YUV422P:
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/*
+ * isc_update_cbc_ctrl_activity() - Activate/deactivate CBC controls
+ *
+ * Called from isc_set_fmt(), isc_link_validate(), and isc_ctrl_init().
+ * At isc_ctrl_init() time isc->config.bits_pipeline is zero (no format
+ * has been negotiated yet), so all CBC controls are initially marked
+ * inactive.  They become active once a format that includes CBHS in the
+ * pipeline is configured via VIDIOC_S_FMT or link validation.
+ */
+static void isc_update_cbc_ctrl_activity(struct isc_device *isc)
+{
+	struct v4l2_ctrl_handler *hdl = &isc->ctrls.handler;
+	struct v4l2_ctrl *brightness;
+	struct v4l2_ctrl *contrast;
+	struct v4l2_ctrl *hue;
+	struct v4l2_ctrl *saturation;
+	bool cbc_active = isc->config.bits_pipeline & CBHS_ENABLE;
+	bool chroma_active = cbc_active && isc_format_has_chroma(isc->config.fourcc);
+
+	brightness = v4l2_ctrl_find(hdl, V4L2_CID_BRIGHTNESS);
+	if (brightness)
+		v4l2_ctrl_activate(brightness, cbc_active);
+
+	contrast = v4l2_ctrl_find(hdl, V4L2_CID_CONTRAST);
+	if (contrast)
+		v4l2_ctrl_activate(contrast, cbc_active);
+
+	hue = v4l2_ctrl_find(hdl, V4L2_CID_HUE);
+	if (hue)
+		v4l2_ctrl_activate(hue, chroma_active);
+
+	saturation = v4l2_ctrl_find(hdl, V4L2_CID_SATURATION);
+	if (saturation)
+		v4l2_ctrl_activate(saturation, chroma_active);
 }
 
 static int isc_try_fmt(struct isc_device *isc, struct v4l2_format *f)
@@ -895,6 +1028,7 @@ static int isc_set_fmt(struct isc_device *isc, struct v4l2_format *f)
 	/* make the try configuration active */
 	isc->config = isc->try_config;
 	isc->fmt = isc->try_fmt;
+	isc_update_cbc_ctrl_activity(isc);
 
 	dev_dbg(isc->dev, "ISC set_fmt to %.4s @%dx%d\n",
 		(char *)&f->fmt.pix.pixelformat,
@@ -982,6 +1116,7 @@ static int isc_link_validate(struct media_link *link)
 		return ret;
 
 	isc->config = isc->try_config;
+	isc_update_cbc_ctrl_activity(isc);
 
 	dev_dbg(isc->dev, "New ISC configuration in place\n");
 
@@ -1177,12 +1312,20 @@ irqreturn_t microchip_isc_interrupt(int irq, void *dev_id)
 	struct isc_device *isc = (struct isc_device *)dev_id;
 	struct regmap *regmap = isc->regmap;
 	u32 isc_intsr, isc_intmask, pending;
+	unsigned int snap_seq;
 	irqreturn_t ret = IRQ_NONE;
 
 	regmap_read(regmap, ISC_INTSR, &isc_intsr);
 	regmap_read(regmap, ISC_INTMASK, &isc_intmask);
 
 	pending = isc_intsr & isc_intmask;
+
+	/*
+	 * Snapshot sequence before DDONE processing increments it.
+	 * Used below to correctly attribute the histogram frame number
+	 * when both DDONE and HISDONE fire in the same IRQ cycle.
+	 */
+	snap_seq = isc->sequence;
 
 	if (likely(pending & ISC_INT_DDONE)) {
 		spin_lock(&isc->dma_queue_lock);
@@ -1212,6 +1355,18 @@ irqreturn_t microchip_isc_interrupt(int irq, void *dev_id)
 	}
 
 	if (pending & ISC_INT_HISDONE) {
+		u8 ch = isc->ctrls.hist_id;
+
+		/*
+		 * If DDONE also fired this cycle, sequence was incremented above
+		 * and the histogram belongs to snap_seq (the frame just DMA'd).
+		 * If HISDONE fires alone, sequence has not changed and the
+		 * histogram belongs to the current isc->sequence.
+		 */
+		isc->ctrls.hist_capture_frame[ch] = (pending & ISC_INT_DDONE) ?
+						     snap_seq : isc->sequence;
+		isc->ctrls.hist_capture_ts[ch] = ktime_get_ns();
+
 		schedule_work(&isc->awb_work);
 		ret = IRQ_HANDLED;
 	}
@@ -1247,7 +1402,9 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 		ctrls->total_pixels[ctrls->hist_id] = 0;
 		*min = 1;
 		*max = HIST_ENTRIES - 1;
-		dev_dbg(isc->dev, "isc wb: no pixels in histogram for channel %u", ctrls->hist_id);
+		dev_dbg(isc->dev,
+			"isc wb: no pixels in histogram for channel %u\n",
+			ctrls->hist_id);
 		return;
 	}
 
@@ -1308,7 +1465,7 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 		*min = 1;
 
 	dev_dbg(isc->dev,
-		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u",
+		"isc wb: hist_id %u, avg %u, count %u, range [%u,%u], total %u\n",
 		ctrls->hist_id, ctrls->channel_avg[ctrls->hist_id],
 		*hist_count, *min, *max, total_pixels);
 }
@@ -1316,26 +1473,37 @@ static void isc_hist_count(struct isc_device *isc, u32 *min, u32 *max)
 static void isc_wb_update(struct isc_ctrls *ctrls)
 {
 	struct isc_device *isc = container_of(ctrls, struct isc_device, ctrls);
-	u32 c, offset[4];
+	u32 c;
 	u64 avg = 0;
-	/* We compute two gains, stretch gain and grey world gain */
-	u32 s_gain[4], gw_gain[4];
+	u32 gain, gw_gain, s_gain;
+	u32 min_pixels;
+	u32 frame_pixels;
 
 	/*
 	 * According to Grey World, we need to set gains for R/B to normalize
 	 * them towards the green channel.
-	 * Thus we want to keep Green as fixed and adjust only Red/Blue
-	 * Compute the average of the both green channels first
-	 * Use channel averages for Grey World algorithm
+	 * Thus we want to keep Green as fixed and adjust only Red/Blue.
+	 * Compute the average of the both green channels first.
 	 */
 	avg = (ctrls->channel_avg[ISC_HIS_CFG_MODE_GR] +
-			ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
+		ctrls->channel_avg[ISC_HIS_CFG_MODE_GB]) >> 1;
 
 	dev_dbg(isc->dev, "isc wb: green components average %llu\n", avg);
 
 	/* Green histogram is null, nothing to do */
 	if (!avg)
 		return;
+
+	/*
+	 * Require a minimum pixel count for both black-level offset and
+	 * grey-world gain: 1/64 of the frame area, which equals ~6.25% of
+	 * one Bayer channel's expected pixel count.  This scales with sensor
+	 * resolution and prevents noise-dominated histograms (from very small
+	 * crops or a nearly-empty frame) from producing wild corrections.
+	 * A floor of 64 ensures the guard is non-zero for tiny crops.
+	 */
+	frame_pixels = isc->fmt.fmt.pix.width * isc->fmt.fmt.pix.height;
+	min_pixels = frame_pixels ? max(frame_pixels >> 6, 64u) : 64u;
 
 	for (c = ISC_HIS_CFG_MODE_GR; c <= ISC_HIS_CFG_MODE_B; c++) {
 		u32 hist_min = ctrls->hist_minmax[c][HIST_MIN_INDEX];
@@ -1344,83 +1512,65 @@ static void isc_wb_update(struct isc_ctrls *ctrls)
 		u32 total_pixels = ctrls->total_pixels[c];
 
 		/*
-		 * the color offset is the minimum value of the histogram.
-		 * we stretch this color to the full range by substracting
-		 * this value from the color component.
+		 * Convert hist_min (the 2nd-percentile bin from isc_hist_count)
+		 * into a WB offset. hist_min is in the 9-bit histogram domain;
+		 * shifting left 3 maps it to the 12-bit WB register domain.
+		 * Subtracting 1 before scaling maps hist_min = 1 to offset 0
+		 * so a sensor with no residual black produces no correction.
+		 * The result is negated because the hardware subtracts the
+		 * offset from each pixel value.
+		 *
+		 * hist_min = 0 is treated as no black level present; the
+		 * formula would yield a spurious positive offset in that case.
+		 * Require a minimum pixel count so an almost-empty histogram
+		 * does not produce an erroneous correction.
 		 */
-		if (hist_min > 5 && hist_min < 60 && total_pixels > 1000) {
-			/*
-			 * Basic adaptive black level offset correction
-			 * (Simplified version for kernel fallback)
-			 */
-			if (hist_min > 20)
-				/* Conservative for high levels */
-				offset[c] = hist_min - 4;
-			else if (hist_min > 10)
-				/* Moderate correction */
-				offset[c] = hist_min - 2;
-			else
-				/* Gentle correction */
-				offset[c] = hist_min - 1;
-
-			offset[c] = max(1U, offset[c]);  /* Ensure minimum of 1 */
-		} else {
-			/* Use default behavior for edge cases */
-			offset[c] = hist_min;
-		}
-
-		/*
-		 * The offset is always at least 1. If the offset is 1, we do
-		 * not need to adjust it, so our result must be zero.
-		 * the offset is computed in a histogram on 9 bits (0..512)
-		 * but the offset in register is based on
-		 * 12 bits pipeline (0..4096).
-		 * we need to shift with the 3 bits that the histogram is
-		 * ignoring
-		 */
-		ctrls->offset[c] = (offset[c] - 1) << 3;
-
-		/*
-		 * the offset is then taken and converted to 2's complements,
-		 * and must be negative, as we subtract this value from the
-		 * color components
-		 */
-		ctrls->offset[c] = -ctrls->offset[c];
-
-		/*
-		 * the stretch gain is the total number of histogram bins
-		 * divided by the actual range of color component (Max - Min)
-		 * If we compute gain like this, the actual color component
-		 * will be stretched to the full histogram.
-		 * We need to shift 9 bits for precision, we have 9 bits for
-		 * decimals
-		 */
-		s_gain[c] = (HIST_ENTRIES << 9) /
-			(hist_max - hist_min + 1);
-
-		/*
-		 * Grey World gain using channel averages
-		 * This is much more accurate than using hist_count
-		 */
-		if (channel_avg > 0 && total_pixels > 1000)
-			gw_gain[c] = div64_u64((avg << 9), channel_avg);
+		if (hist_min && total_pixels >= min_pixels)
+			ctrls->offset[c] = clamp_t(s32,
+				-(((s32)hist_min - 1) << 3), -4096, 4095);
 		else
-			gw_gain[c] = 1 << 9;
+			ctrls->offset[c] = 0;
+
+		/*
+		 * Stretch gain: scale the histogram range [hist_min, hist_max]
+		 * to the full 512-bin span.  Result is in Q9 fixed-point
+		 * (1.0 = 512).
+		 */
+		s_gain = (HIST_ENTRIES << 9) / (hist_max - hist_min + 1);
+
+		/*
+		 * Grey-world gain: scale each channel towards the green
+		 * average.  Require a minimum pixel count so noise-dominated
+		 * channels do not produce wild corrections.
+		 */
+		if (channel_avg > 0 && total_pixels >= min_pixels)
+			gw_gain = div64_u64((avg << 9), channel_avg);
+		else
+			gw_gain = 1 << 9;
+
+		/* Cap grey-world correction at 4x to avoid over-amplification. */
+		gw_gain = min_t(u32, gw_gain, ISC_AWB_GW_GAIN_MAX);
+
+		/* Combine stretch and grey-world gains; result stays in Q9. */
+		gain = (s_gain * gw_gain) >> 9;
+
+		/*
+		 * Smooth gain updates with an exponential weighted average
+		 * to suppress per-frame flicker:
+		 *   smooth[n] = (3 * smooth[n-1] + gain) / 4
+		 * Clamp to the hardware register width to prevent unbounded
+		 * accumulation under degenerate (near-empty histogram) inputs.
+		 */
+		ctrls->gain_smooth[c] = (3 * ctrls->gain_smooth[c] + gain) / 4;
+		ctrls->gain_smooth[c] = min_t(u32, ctrls->gain_smooth[c],
+					      GENMASK(12, 0));
+
+		ctrls->gain[c] = ctrls->gain_smooth[c];
 
 		dev_dbg(isc->dev,
-			"isc wb: component %d, black_level=%u, avg=%u, s_gain=%u, gw_gain=%u",
-			c, hist_min, channel_avg, s_gain[c], gw_gain[c]);
-
-		/* multiply both gains and adjust for decimals */
-		ctrls->gain[c] = s_gain[c] * gw_gain[c];
-		ctrls->gain[c] >>= 9;
-
-		/* make sure we are not out of range */
-		ctrls->gain[c] = clamp_val(ctrls->gain[c], 0, GENMASK(12, 0));
-
-		dev_dbg(isc->dev,
-			"isc wb: component %d, final gain %u, offset %d\n",
-			c, ctrls->gain[c], ctrls->offset[c]);
+			"isc wb: c=%u black=%u avg=%u s_gain=%u gw_gain=%u gain=%u smooth=%u\n",
+			c, hist_min, channel_avg, s_gain, gw_gain, gain,
+			ctrls->gain_smooth[c]);
 	}
 }
 
@@ -1450,15 +1600,37 @@ static void isc_awb_work(struct work_struct *w)
 	if (hist_id != ISC_HIS_CFG_MODE_B) {
 		hist_id++;
 	} else {
-		/* All 4 channels processed - notify userspace */
-		if (isc_stats_active(&isc->stats))
-			isc_stats_isr(&isc->stats);
-		else
-			dev_info(isc->dev, "No active userspace listeners\n");
+		bool ipa_active = isc_stats_active(&isc->stats);
 
-		/* Continue with AWB processing only if AWB is enabled */
-		if (ctrls->awb != ISC_WB_NONE)
-			isc_wb_update(ctrls);
+		/* All 4 channels processed — forward stats to userspace IPA */
+		if (ipa_active) {
+			ctrls->ipa_last_active = ktime_get();
+			isc_stats_isr(&isc->stats);
+		}
+
+		/*
+		 * Run kernel grey-world only when AWB is enabled and no IPA
+		 * is consuming the stats.  A holdoff of 500 ms after the last
+		 * active IPA cycle prevents the kernel AWB from overwriting
+		 * the IPA's converged WB gains during application teardown:
+		 * when mchpcam-still closes the stats device the IPA may still
+		 * have an outstanding histogram cycle in flight.  Without the
+		 * holdoff that final cycle triggers isc_wb_update(), replacing
+		 * the IPA gains with an unconverged kernel grey-world estimate.
+		 *
+		 * 500 ms covers ~15 AWB cycles at 30 fps — sufficient for the
+		 * IPA to complete teardown and for the kernel AWB to observe at
+		 * least one clean histogram cycle before it starts correcting.
+		 */
+		if (ctrls->awb != ISC_WB_NONE && !ipa_active) {
+			ktime_t holdoff = ktime_add_ms(ctrls->ipa_last_active,
+						       500);
+			if (ktime_after(ktime_get(), holdoff))
+				isc_wb_update(ctrls);
+			else
+				dev_dbg(isc->dev,
+					"isc wb: holding off kernel AWB, IPA active within 500ms\n");
+		}
 
 		hist_id = ISC_HIS_CFG_MODE_GR;
 	}
@@ -1510,7 +1682,7 @@ static void isc_awb_work(struct work_struct *w)
 	/* streaming is not active anymore */
 	if (isc->stop && !isc_stats_active(&isc->stats)) {
 		mutex_unlock(&isc->awb_mutex);
-		return;
+		goto out_pm_put;
 	}
 
 	isc_update_profile(isc);
@@ -1521,7 +1693,30 @@ static void isc_awb_work(struct work_struct *w)
 	if (ctrls->hist_stat == HIST_ENABLED)
 		regmap_write(regmap, ISC_CTRLEN, ISC_CTRL_HISREQ);
 
+out_pm_put:
 	pm_runtime_put_sync(isc->dev);
+}
+
+/*
+ * isc_update_gamma_lut_override() - Evaluate gamma LUT override flag
+ *
+ * Activates the per-channel LUT override only when at least one entry
+ * across any channel is non-zero.  An all-zero write (including the
+ * default initialisation from v4l2_ctrl_handler_setup) disables the
+ * override so the built-in gamma table remains active.
+ */
+static void isc_update_gamma_lut_override(struct isc_ctrls *ctrls)
+{
+	unsigned int i;
+	bool any_nonzero = false;
+
+	for (i = 0; i < GAMMA_ENTRIES && !any_nonzero; i++) {
+		if (ctrls->gamma_lut_b[i] ||
+		    ctrls->gamma_lut_g[i] ||
+		    ctrls->gamma_lut_r[i])
+			any_nonzero = true;
+	}
+	ctrls->gamma_lut_override = any_nonzero;
 }
 
 static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
@@ -1530,6 +1725,7 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 					     struct isc_device, ctrls.handler);
 	struct isc_ctrls *ctrls = &isc->ctrls;
 	struct regmap *regmap = isc->regmap;
+	bool apply_gamma = false;
 
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
@@ -1544,21 +1740,59 @@ static int isc_s_ctrl(struct v4l2_ctrl *ctrl)
 		regmap_write(regmap, ISC_CBC_CONTRAST + isc->offsets.cbc, ctrls->contrast);
 		break;
 	case V4L2_CID_HUE:
-		ctrls->hue = ctrl->val & ISC_CBCHS_HUE_MASK;
-		regmap_write(regmap, ISC_CBCHS_HUE, ctrls->hue);
+		if (isc->has_cbhs) {
+			ctrls->hue = ctrl->val & ISC_CBHS_HUE_MASK;
+			regmap_write(regmap, ISC_CBHS_HUE, ctrls->hue);
+		}
 		break;
 	case V4L2_CID_SATURATION:
-		ctrls->saturation = ctrl->val & ISC_CBCHS_SAT_MASK;
-		regmap_write(regmap, ISC_CBCHS_SAT, ctrls->saturation);
+		if (isc->has_cbhs) {
+			/*
+			 * The ISC CBHS SAT register holds a Q4 fixed-point
+			 * coefficient: 0 = grayscale, 16 = 1.0 (no change),
+			 * values above 16 boost saturation.  The V4L2 range
+			 * 0-100 (default 16) maps directly to this hardware
+			 * value; no unit conversion is applied.
+			 */
+			ctrls->saturation = ctrl->val & ISC_CBHS_SAT_MASK;
+			regmap_write(regmap, ISC_CBHS_SAT, ctrls->saturation);
+		}
 		break;
 	case V4L2_CID_GAMMA:
 		ctrls->gamma_index = ctrl->val;
+		ctrls->gamma_lut_override = false;
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_B_LUT:
+		memcpy(ctrls->gamma_lut_b, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_G_LUT:
+		memcpy(ctrls->gamma_lut_g, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
+		break;
+	case ISC_CID_GAMMA_R_LUT:
+		memcpy(ctrls->gamma_lut_r, ctrl->p_new.p_u32,
+		       GAMMA_ENTRIES * sizeof(u32));
+		isc_update_gamma_lut_override(ctrls);
+		apply_gamma = true;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	/*
+	 * isc_apply_gamma() writes gamma LUT registers; it must be called
+	 * under awb_mutex so it does not race with isc_awb_work() which also
+	 * calls isc_update_profile() under the same lock.
+	 */
 	mutex_lock(&isc->awb_mutex);
+	if (apply_gamma)
+		isc_apply_gamma(isc);
 	isc_update_profile(isc);
 	mutex_unlock(&isc->awb_mutex);
 
@@ -1623,10 +1857,19 @@ static int isc_s_awb_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		mutex_unlock(&isc->awb_mutex);
 
-		/* if we have autowhitebalance on, start histogram procedure */
+		/*
+		 * If AWB auto mode is requested and we are streaming RAW, start
+		 * the histogram procedure — but only if it is not already
+		 * running.  Applications such as mchpcam-still send AwbEnable=1
+		 * on every request; calling isc_set_histogram() unconditionally
+		 * would reset hist_id back to GR on every frame, preventing the
+		 * 4-channel Bayer cycle from ever reaching the B channel and thus
+		 * blocking stats delivery to userspace.
+		 */
 		if (ctrls->awb == ISC_WB_AUTO &&
 		    vb2_is_streaming(&isc->vb2_vidq) &&
-		    ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code))
+		    ISC_IS_FORMAT_RAW(isc->config.sd_format->mbus_code) &&
+		    ctrls->hist_stat != HIST_ENABLED)
 			isc_set_histogram(isc, true);
 
 		/*
@@ -1805,7 +2048,7 @@ static const struct v4l2_ctrl_ops isc_cc_ops = {
 	.g_volatile_ctrl = isc_cc_g_volatile_ctrl,
 };
 
-#define ISC_CTRL_CC(_name, _id, _name_str) \
+#define ISC_CTRL_CC(_name, _id, _name_str, _def) \
 	static const struct v4l2_ctrl_config _name = { \
 		.ops = &isc_cc_ops, \
 		.id = _id, \
@@ -1815,26 +2058,21 @@ static const struct v4l2_ctrl_ops isc_cc_ops = {
 		.min = -2048, \
 		.max = 2047, \
 		.step = 1, \
-		.def = 0, \
+		.def = _def, \
 	}
 
-ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR");
-ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG");
-
-ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB");
-ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR");
-
-ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR");
-ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG");
-
-ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB");
-ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG");
-
-ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR");
-ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG");
-
-ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB");
-ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB");
+ISC_CTRL_CC(isc_cc_rr_ctrl, ISC_CID_CC_RR, "CC RR", 256);
+ISC_CTRL_CC(isc_cc_rg_ctrl, ISC_CID_CC_RG, "CC RG", 0);
+ISC_CTRL_CC(isc_cc_rb_ctrl, ISC_CID_CC_RB, "CC RB", 0);
+ISC_CTRL_CC(isc_cc_or_ctrl, ISC_CID_CC_OR, "CC OR", 0);
+ISC_CTRL_CC(isc_cc_gr_ctrl, ISC_CID_CC_GR, "CC GR", 0);
+ISC_CTRL_CC(isc_cc_gg_ctrl, ISC_CID_CC_GG, "CC GG", 256);
+ISC_CTRL_CC(isc_cc_gb_ctrl, ISC_CID_CC_GB, "CC GB", 0);
+ISC_CTRL_CC(isc_cc_og_ctrl, ISC_CID_CC_OG, "CC OG", 0);
+ISC_CTRL_CC(isc_cc_br_ctrl, ISC_CID_CC_BR, "CC BR", 0);
+ISC_CTRL_CC(isc_cc_bg_ctrl, ISC_CID_CC_BG, "CC BG", 0);
+ISC_CTRL_CC(isc_cc_bb_ctrl, ISC_CID_CC_BB, "CC BB", 256);
+ISC_CTRL_CC(isc_cc_ob_ctrl, ISC_CID_CC_OB, "CC OB", 0);
 
 static const struct v4l2_ctrl_ops isc_awb_ops = {
 	.s_ctrl = isc_s_awb_ctrl,
@@ -1877,6 +2115,28 @@ ISC_CTRL_GAIN(isc_b_gain_ctrl, ISC_CID_B_GAIN, "Blue Component Gain");
 ISC_CTRL_GAIN(isc_gr_gain_ctrl, ISC_CID_GR_GAIN, "Green Red Component Gain");
 ISC_CTRL_GAIN(isc_gb_gain_ctrl, ISC_CID_GB_GAIN, "Green Blue Component Gain");
 
+/*
+ * Per-channel gamma LUT controls (64-element U32 arrays, range 0-1023).
+ * Setting any of these activates the custom tone curve and overrides the
+ * preset V4L2_CID_GAMMA curve.  One macro expands to a static v4l2_ctrl_config.
+ */
+#define ISC_CTRL_GAMMA_LUT(_name, _id, _name_str) \
+	static const struct v4l2_ctrl_config _name = { \
+		.ops  = &isc_ctrl_ops, \
+		.id   = _id, \
+		.name = _name_str, \
+		.type = V4L2_CTRL_TYPE_U32, \
+		.dims = { GAMMA_ENTRIES }, \
+		.min  = 0, \
+		.max  = 1023, \
+		.step = 1, \
+		.def  = 0, \
+	}
+
+ISC_CTRL_GAMMA_LUT(isc_gamma_b_lut_ctrl, ISC_CID_GAMMA_B_LUT, "Blue Gamma LUT");
+ISC_CTRL_GAMMA_LUT(isc_gamma_g_lut_ctrl, ISC_CID_GAMMA_G_LUT, "Green Gamma LUT");
+ISC_CTRL_GAMMA_LUT(isc_gamma_r_lut_ctrl, ISC_CID_GAMMA_R_LUT, "Red Gamma LUT");
+
 static int isc_ctrl_init(struct isc_device *isc)
 {
 	const struct v4l2_ctrl_ops *ops = &isc_ctrl_ops;
@@ -1887,7 +2147,12 @@ static int isc_ctrl_init(struct isc_device *isc)
 	ctrls->hist_stat = HIST_INIT;
 	isc_reset_awb_ctrls(isc);
 
-	ret = v4l2_ctrl_handler_init(hdl, 13);
+	/*
+	 * 30 controls maximum (SAMA7G5 with CBHS):
+	 *   contrast(1) + brightness(1) + hue+saturation(2) + gamma(1) +
+	 *   awb+do_wb(2) + 4×gain + 4×offset + 12×CC + 3×gamma_LUT
+	 */
+	ret = v4l2_ctrl_handler_init(hdl, 30);
 	if (ret < 0)
 		return ret;
 
@@ -1897,8 +2162,10 @@ static int isc_ctrl_init(struct isc_device *isc)
 	ctrls->brightness = 0;
 
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_BRIGHTNESS, -1024, 1023, 1, 0);
-	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HUE, -180, 180, 1, 0);
-	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_SATURATION, 0, 100, 1, 16);
+	if (isc->has_cbhs) {
+		v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HUE, -180, 180, 1, 0);
+		v4l2_ctrl_new_std(hdl, ops, V4L2_CID_SATURATION, 0, 100, 1, 16);
+	}
 	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_GAMMA, 0, isc->gamma_max, 1, 1);
 	isc->awb_ctrl = v4l2_ctrl_new_std(hdl, &isc_awb_ops,
 					  V4L2_CID_AUTO_WHITE_BALANCE,
@@ -1916,6 +2183,7 @@ static int isc_ctrl_init(struct isc_device *isc)
 	}
 
 	v4l2_ctrl_activate(isc->do_wb_ctrl, false);
+	isc_update_cbc_ctrl_activity(isc);
 
 	isc->r_gain_ctrl = v4l2_ctrl_new_custom(hdl, &isc_r_gain_ctrl, NULL);
 	isc->b_gain_ctrl = v4l2_ctrl_new_custom(hdl, &isc_b_gain_ctrl, NULL);
@@ -1939,6 +2207,11 @@ static int isc_ctrl_init(struct isc_device *isc)
 	isc->cc_bg = v4l2_ctrl_new_custom(hdl, &isc_cc_bg_ctrl, NULL);
 	isc->cc_bb = v4l2_ctrl_new_custom(hdl, &isc_cc_bb_ctrl, NULL);
 	isc->cc_ob = v4l2_ctrl_new_custom(hdl, &isc_cc_ob_ctrl, NULL);
+
+	/* Per-channel gamma LUT controls */
+	isc->gamma_b_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_b_lut_ctrl, NULL);
+	isc->gamma_g_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_g_lut_ctrl, NULL);
+	isc->gamma_r_lut_ctrl = v4l2_ctrl_new_custom(hdl, &isc_gamma_r_lut_ctrl, NULL);
 
 	/*
 	 * The cluster is in auto mode with autowhitebalance enabled

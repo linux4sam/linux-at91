@@ -26,6 +26,7 @@
  * HIS: Histogram module performs statistic counters on the frames
  */
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -160,7 +161,7 @@ static struct isc_format sama7g5_formats_list[] = {
 		.fourcc		= V4L2_PIX_FMT_SBGGR10,
 		.mbus_code	= MEDIA_BUS_FMT_SBGGR10_1X10,
 		.pfe_cfg0_bps	= ISC_PFG_CFG0_BPS_TEN,
-		.cfa_baycfg	= ISC_BAY_CFG_RGRG,
+		.cfa_baycfg	= ISC_BAY_CFG_BGBG,
 	},
 	{
 		.fourcc		= V4L2_PIX_FMT_SGBRG10,
@@ -258,8 +259,8 @@ static void isc_sama7g5_config_cbc(struct isc_device *isc)
 	regmap_write(regmap, ISC_CBC_BRIGHT + isc->offsets.cbc, isc->ctrls.brightness);
 	regmap_write(regmap, ISC_CBC_CONTRAST + isc->offsets.cbc, isc->ctrls.contrast);
 	/* Configure Hue and Saturation as neutral midpoint */
-	regmap_write(regmap, ISC_CBCHS_HUE, 0);
-	regmap_write(regmap, ISC_CBCHS_SAT, (1 << 4));
+	regmap_write(regmap, ISC_CBHS_HUE, 0);
+	regmap_write(regmap, ISC_CBHS_SAT, (1 << 4));
 }
 
 static void isc_sama7g5_config_cc(struct isc_device *isc)
@@ -290,9 +291,25 @@ static void isc_sama7g5_config_dpc(struct isc_device *isc)
 {
 	u32 bay_cfg = isc->config.sd_format->cfa_baycfg;
 	struct regmap *regmap = isc->regmap;
+	u32 bps, bloff;
+
+	/*
+	 * Scale the nominal 10-bit black level offset (64 counts) to the
+	 * actual sensor bus width.
+	 * ISC_PFE_CFG0_BPS encodes (12 - bit_depth) / 2 in bits[30:28]:
+	 *   BPS_EIGHT  = 4  →  8-bit  → bloff = 64 >> 2 = 16
+	 *   BPS_TEN    = 2  → 10-bit  → bloff = 64
+	 *   BPS_TWELVE = 0  → 12-bit  → bloff = min(64 << 2, 255) = 255
+	 * The BLOFF hardware field is 8-bit so values are clamped to 255.
+	 */
+	bps = FIELD_GET(ISC_PFE_CFG0_BPS_MASK, isc->config.sd_format->pfe_cfg0_bps);
+	if (bps >= 2)
+		bloff = 64u >> (bps - 2);
+	else
+		bloff = min(64u << (2 - bps), 255u);
 
 	regmap_update_bits(regmap, ISC_DPC_CFG, ISC_DPC_CFG_BLOFF_MASK,
-			   (64 << ISC_DPC_CFG_BLOFF_SHIFT));
+			   (bloff << ISC_DPC_CFG_BLOFF_SHIFT));
 	regmap_update_bits(regmap, ISC_DPC_CFG, ISC_DPC_CFG_BAYCFG_MASK,
 			   (bay_cfg << ISC_DPC_CFG_BAYCFG_SHIFT));
 }
@@ -461,6 +478,8 @@ static int microchip_xisc_probe(struct platform_device *pdev)
 
 	isc->gamma_table = isc_sama7g5_gamma_table;
 	isc->gamma_max = 2;
+	isc->has_cbhs = true;
+	isc->gamma_bipartite = true;
 
 	if ((of_machine_is_compatible("microchip,sam9x7"))) {
 		isc->max_width = ISC_SAM9X7_MAX_SUPPORT_WIDTH;
