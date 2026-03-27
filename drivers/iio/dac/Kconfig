@@ -515,6 +515,7 @@ config MCP47FEB02
 config MCP47FEB02_I2C
 	tristate "MCP47FxBy1/2/4/8 multi-channel DACs I2C driver"
 	depends on I2C
+	select MCP47FEB02
 	help
 	  Say yes here if you want to build the driver for the Microchip:
 	  - 8-bit DAC:
@@ -536,6 +537,7 @@ config MCP47FEB02_I2C
 config MCP47FEB02_SPI
 	tristate "MCP47FxBy1/2/4/8 multi-channel DACs SPI driver"
 	depends on SPI
+	select MCP47FEB02
 	help
 	  Say yes here if you want to build the driver for the Microchip:
 	  - 8-bit DAC:
