@@ -1550,8 +1550,6 @@ static int __maybe_unused atmel_qspi_suspend(struct device *dev)
 
 	if (aq->caps->has_gclk) {
 		ret = atmel_qspi_sama7g5_suspend(aq);
-		clk_disable_unprepare(aq->pclk);
-		return ret;
 	} else {
 		atmel_qspi_write(QSPI_CR_QSPIDIS, aq, QSPI_CR);
 	}
