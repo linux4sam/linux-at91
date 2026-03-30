@@ -1155,7 +1155,6 @@ static int atmel_qspi_sama7g5_init(struct atmel_qspi *aq)
 	atmel_qspi_write(QSPI_TOUT_TCNTM, aq, QSPI_TOUT);
 
 pm_runtime_put:
-	pm_runtime_mark_last_busy(&aq->pdev->dev);
 	pm_runtime_put_autosuspend(&aq->pdev->dev);
 	return ret;
 }
