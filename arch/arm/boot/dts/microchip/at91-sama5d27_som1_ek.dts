@@ -23,6 +23,8 @@
 		serial2 = &uart2;	/* mikro BUS 2 */
 		i2c1 = &i2c1;
 		i2c2 = &i2c3;
+		mmc0 = &sdmmc0;
+		mmc1 = &sdmmc1;
 	};
 
 	chosen {
