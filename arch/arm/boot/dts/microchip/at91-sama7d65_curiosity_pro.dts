@@ -28,6 +28,7 @@
 
 	aliases {
 		serial0 = &uart6;
+		serial1 = &uart1;
 		i2c1 = &i2c10;
 		mmc0 = &sdmmc1;
 		gmac1 = &gmac1;
