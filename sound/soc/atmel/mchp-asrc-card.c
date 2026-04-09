@@ -663,8 +663,6 @@ static int mchp_asrc_card_probe(struct platform_device *pdev)
 		dai_link->num_codecs = 1;
 		dai_link->num_platforms = 1;
 
-		dai_link->dpcm_playback = 1;
-		dai_link->dpcm_capture = 1;
 		dai_link->dynamic = 1;
 		dai_link->dpcm_loopback = 1;  // ATENTIE
 		dai_link->id = card->num_links;
@@ -834,14 +832,11 @@ static int mchp_asrc_card_probe(struct platform_device *pdev)
 			dai_link->trigger[SNDRV_PCM_STREAM_CAPTURE] = SND_SOC_DPCM_TRIGGER_POST;
 
 		if (strstr(name, "spdiftx")) {
-			dai_link->dpcm_playback = 1;
+			dai_link->playback_only = 1;
 		} else if (strstr(name, "spdifrx")) {
-			dai_link->dpcm_capture = 1;
+			dai_link->capture_only = 1;
 		} else if (strstr(name, "pdmc")) {
-			dai_link->dpcm_capture = 1;
-		} else {
-			dai_link->dpcm_playback = 1;
-			dai_link->dpcm_capture = 1;
+			dai_link->capture_only = 1;
 		}
 		dai_link->be_hw_params_fixup = mchp_asoc_card_fixup;
 		dev_info(&pdev->dev, "Found DPCM BE: %s, id %d\n",
