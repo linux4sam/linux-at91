@@ -20,6 +20,7 @@
 
 #include <linux/clk.h>
 #include <linux/clk/at91_pmc.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -54,6 +55,12 @@
 #define AT91_SHDW_WKUPT_MASK	GENMASK(31, 16)
 #define AT91_SHDW_WKUPT(x)	((1 << (x)) << AT91_SHDW_WKUPT_SHIFT \
 						& AT91_SHDW_WKUPT_MASK)
+
+#define AT91_SHDW_IER	0x10
+#define AT91_SHDW_IDR	0x14
+#define AT91_SHDW_IMR	0x18
+#define AT91_SHDW_IR_MASK	GENMASK(5, 0)
+#define AT91_SHDW_ISR	0x1c
 
 #define SHDW_WK_PIN(reg, cfg)	((reg) & AT91_SHDW_WKUPIS((cfg)->wkup_pin_input))
 #define SHDW_RTCWK(reg, cfg)	(((reg) >> ((cfg)->sr_rtcwk_shift)) & 0x1)
@@ -92,6 +99,7 @@ struct reg_config {
 struct shdwc {
 	const struct reg_config *rcfg;
 	struct clk *sclk;
+	int irq;
 	void __iomem *shdwc_base;
 	void __iomem *mpddrc_base;
 	void __iomem *pmc_base;
@@ -167,6 +175,15 @@ static void at91_poweroff(void)
 		  "r" (at91_shdwc->pmc_base),
 		  "r" (at91_shdwc->rcfg->pmc.mckr)
 		: "r6");
+}
+
+static irqreturn_t at91_shdwc_irq(int irq, void *dev_id)
+{
+	struct shdwc *shdw = dev_id;
+
+	readl(shdw->shdwc_base + AT91_SHDW_ISR);
+
+	return IRQ_HANDLED;
 }
 
 static u32 at91_shdwc_debouncer_value(struct platform_device *pdev,
@@ -255,6 +272,17 @@ static void at91_shdwc_dt_configure(struct platform_device *pdev)
 
 	input = at91_shdwc_get_wakeup_input(pdev, np);
 	writel(input, shdw->shdwc_base + AT91_SHDW_WUIR);
+
+	/*The SAMA7D6 MPUs support IRQ handling*/
+	if (shdw->irq) {
+		tmp = devm_request_irq(&pdev->dev, shdw->irq, at91_shdwc_irq, 0,
+				 dev_name(&pdev->dev), shdw);
+		if (tmp < 0)
+			dev_warn(&pdev->dev, "Setting IRQ failed \n");
+		/*Enable IRQ*/
+		writel(input & AT91_SHDW_IR_MASK, shdw->shdwc_base + AT91_SHDW_IER);
+	}
+
 }
 
 static const struct reg_config sama5d2_reg_config = {
@@ -337,6 +365,7 @@ static int at91_shdwc_probe(struct platform_device *pdev)
 	struct device_node *np;
 	u32 ddr_type;
 	int ret;
+	int irq;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
@@ -366,6 +395,12 @@ static int at91_shdwc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Could not enable slow clock\n");
 		return ret;
 	}
+	/* IRQ for the SAMA7D65 MPUs */
+	irq = platform_get_irq_optional(pdev, 0);
+	if (irq < 0)
+		return irq;
+	else
+		at91_shdwc->irq = irq;
 
 	at91_wakeup_status(pdev);
 
