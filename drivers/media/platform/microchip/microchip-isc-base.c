@@ -60,6 +60,46 @@ static inline void isc_update_v4l2_ctrls(struct isc_device *isc)
 	v4l2_ctrl_s_ctrl(isc->gb_off_ctrl, ctrls->offset[ISC_HIS_CFG_MODE_GB]);
 }
 
+static void isc_apply_gamma(struct isc_device *isc);
+
+/* commit CC shadow to hardware; called while ISC is powered */
+static void isc_update_cc_ctrls(struct isc_device *isc)
+{
+	struct isc_ctrls *ctrls = &isc->ctrls;
+	struct regmap *regmap = isc->regmap;
+	u32 m = GENMASK(11, 0);
+
+	if (!ctrls->cc_dirty)
+		return;
+
+	regmap_update_bits(regmap, ISC_CC_RR_RG, m,
+			   (u32)ctrls->cc_coeff[0] & m);
+	regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(27, 16),
+			   ((u32)ctrls->cc_coeff[1] & m) << 16);
+	regmap_update_bits(regmap, ISC_CC_RB_OR, m,
+			   (u32)ctrls->cc_coeff[2] & m);
+	regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(27, 16),
+			   ((u32)ctrls->cc_offset[0] & m) << 16);
+	regmap_update_bits(regmap, ISC_CC_GR_GG, m,
+			   (u32)ctrls->cc_coeff[3] & m);
+	regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(27, 16),
+			   ((u32)ctrls->cc_coeff[4] & m) << 16);
+	regmap_update_bits(regmap, ISC_CC_GB_OG, m,
+			   (u32)ctrls->cc_coeff[5] & m);
+	regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(27, 16),
+			   ((u32)ctrls->cc_offset[1] & m) << 16);
+	regmap_update_bits(regmap, ISC_CC_BR_BG, m,
+			   (u32)ctrls->cc_coeff[6] & m);
+	regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(27, 16),
+			   ((u32)ctrls->cc_coeff[7] & m) << 16);
+	regmap_update_bits(regmap, ISC_CC_BB_OB, m,
+			   (u32)ctrls->cc_coeff[8] & m);
+	regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(27, 16),
+			   ((u32)ctrls->cc_offset[2] & m) << 16);
+
+	ctrls->cc_dirty = false;
+}
+
 static inline void isc_update_awb_ctrls(struct isc_device *isc)
 {
 	struct isc_ctrls *ctrls = &isc->ctrls;
@@ -92,6 +132,14 @@ static inline void isc_reset_awb_ctrls(struct isc_device *isc)
 		/* offsets are in 2's complements */
 		isc->ctrls.offset[c] = 0;
 	}
+
+	/* identity matrix: diagonal = 1.0 in Q4.8 = 256, off-diagonal = 0 */
+	memset(isc->ctrls.cc_coeff, 0, sizeof(isc->ctrls.cc_coeff));
+	isc->ctrls.cc_coeff[0] = 256; /* RR */
+	isc->ctrls.cc_coeff[4] = 256; /* GG */
+	isc->ctrls.cc_coeff[8] = 256; /* BB */
+	memset(isc->ctrls.cc_offset, 0, sizeof(isc->ctrls.cc_offset));
+	isc->ctrls.cc_dirty = false;
 }
 
 static int isc_queue_setup(struct vb2_queue *vq,
@@ -305,7 +353,8 @@ static void isc_set_pipeline(struct isc_device *isc, u32 pipeline)
 	isc->config_dpc(isc);
 	isc->config_csc(isc);
 	isc->config_cbc(isc);
-	isc->config_cc(isc);
+	/* use shadow; config_cc() always resets to identity */
+	isc_update_cc_ctrls(isc);
 	isc->config_gam(isc);
 }
 
@@ -1685,6 +1734,8 @@ static void isc_awb_work(struct work_struct *w)
 		goto out_pm_put;
 	}
 
+	/* write pending CC matrix from shadow to hardware registers */
+	isc_update_cc_ctrls(isc);
 	isc_update_profile(isc);
 
 	mutex_unlock(&isc->awb_mutex);
@@ -1936,57 +1987,57 @@ static int isc_cc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct isc_device *isc = container_of(ctrl->handler,
 					     struct isc_device, ctrls.handler);
-	struct regmap *regmap = isc->regmap;
+	struct isc_ctrls *ctrls = &isc->ctrls;
 
 	dev_dbg(isc->dev, "id = 0x%x; val = 0x%x", ctrl->id, ctrl->val);
 
+	/*
+	 * CC registers need pm_runtime active for access.
+	 * Store to shadow here; isc_update_cc_ctrls() writes to hardware
+	 * from isc_awb_work() where ISC is powered.
+	 */
 	switch (ctrl->id) {
 	case ISC_CID_CC_RR:
-		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[0] = ctrl->val;
 		break;
 	case ISC_CID_CC_RG:
-		regmap_update_bits(regmap, ISC_CC_RR_RG, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_coeff[1] = ctrl->val;
 		break;
 	case ISC_CID_CC_RB:
-		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[2] = ctrl->val;
 		break;
 	case ISC_CID_CC_OR:
-		regmap_update_bits(regmap, ISC_CC_RB_OR, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_offset[0] = ctrl->val;
 		break;
 	case ISC_CID_CC_GR:
-		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[3] = ctrl->val;
 		break;
 	case ISC_CID_CC_GG:
-		regmap_update_bits(regmap, ISC_CC_GR_GG, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_coeff[4] = ctrl->val;
 		break;
 	case ISC_CID_CC_GB:
-		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[5] = ctrl->val;
 		break;
 	case ISC_CID_CC_OG:
-		regmap_update_bits(regmap, ISC_CC_GB_OG, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_offset[1] = ctrl->val;
 		break;
 	case ISC_CID_CC_BR:
-		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[6] = ctrl->val;
 		break;
 	case ISC_CID_CC_BG:
-		regmap_update_bits(regmap, ISC_CC_BR_BG, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_coeff[7] = ctrl->val;
 		break;
 	case ISC_CID_CC_BB:
-		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(11, 0), ctrl->val);
+		ctrls->cc_coeff[8] = ctrl->val;
 		break;
 	case ISC_CID_CC_OB:
-		regmap_update_bits(regmap, ISC_CC_BB_OB, GENMASK(27, 16),
-				   (ctrl->val & GENMASK(11, 0)) << 16);
+		ctrls->cc_offset[2] = ctrl->val;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	ctrls->cc_dirty = true;
 	return 0;
 }
 
@@ -2066,7 +2117,8 @@ static const struct v4l2_ctrl_ops isc_cc_ops = {
 		.id = _id, \
 		.name = _name_str, \
 		.type = V4L2_CTRL_TYPE_INTEGER, \
-		.flags = V4L2_CTRL_FLAG_SLIDER, \
+		.flags = V4L2_CTRL_FLAG_SLIDER | V4L2_CTRL_FLAG_VOLATILE | \
+			 V4L2_CTRL_FLAG_EXECUTE_ON_WRITE, \
 		.min = -2048, \
 		.max = 2047, \
 		.step = 1, \
@@ -2138,6 +2190,7 @@ ISC_CTRL_GAIN(isc_gb_gain_ctrl, ISC_CID_GB_GAIN, "Green Blue Component Gain");
 		.id   = _id, \
 		.name = _name_str, \
 		.type = V4L2_CTRL_TYPE_U32, \
+		.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE, \
 		.dims = { GAMMA_ENTRIES }, \
 		.min  = 0, \
 		.max  = 1023, \
