@@ -136,6 +136,10 @@ enum{
 
 #define GAMMA_ENTRIES		64
 
+/* CC matrix coefficients (3x3 row-major) and per-channel offsets */
+#define ISC_CC_COEFF_NUM	9
+#define ISC_CC_OFFSET_NUM	3
+
 struct isc_ctrls {
 	struct v4l2_ctrl_handler handler;
 
@@ -188,6 +192,11 @@ struct isc_ctrls {
 	u32 gamma_lut_g[GAMMA_ENTRIES];
 	u32 gamma_lut_b[GAMMA_ENTRIES];
 	bool gamma_lut_override;
+
+	/* CC matrix shadow; committed from isc_set_pipeline() and isc_awb_work() */
+	s32 cc_coeff[ISC_CC_COEFF_NUM];
+	s32 cc_offset[ISC_CC_OFFSET_NUM];
+	bool cc_dirty;
 };
 
 #define ISC_PIPE_LINE_NODE_NUM	15
