@@ -214,6 +214,10 @@
 				status = "okay";
 			};
 
+			watchdog@fffffe40 {
+				status = "okay";
+			};
+
 			pinctrl@fffff200 {
 				board {
 					pinctrl_i2c0_pu: i2c0_pu {
