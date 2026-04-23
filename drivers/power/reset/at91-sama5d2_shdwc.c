@@ -273,13 +273,9 @@ static void at91_shdwc_dt_configure(struct platform_device *pdev)
 	input = at91_shdwc_get_wakeup_input(pdev, np);
 	writel(input, shdw->shdwc_base + AT91_SHDW_WUIR);
 
-	/*The SAMA7D6 MPUs support IRQ handling*/
+	/* The SAMA7D6 MPUs support IRQ handling */
 	if (shdw->irq) {
-		tmp = devm_request_irq(&pdev->dev, shdw->irq, at91_shdwc_irq, 0,
-				 dev_name(&pdev->dev), shdw);
-		if (tmp < 0)
-			dev_warn(&pdev->dev, "Setting IRQ failed \n");
-		/*Enable IRQ*/
+		/* Enable IRQ */
 		writel(input & AT91_SHDW_IR_MASK, shdw->shdwc_base + AT91_SHDW_IER);
 	}
 
@@ -397,10 +393,19 @@ static int at91_shdwc_probe(struct platform_device *pdev)
 	}
 	/* IRQ for the SAMA7D65 MPUs */
 	irq = platform_get_irq_optional(pdev, 0);
-	if (irq < 0)
-		return irq;
-	else
+	if (irq < 0) {
+		dev_warn(&pdev->dev, "Runtime IRQs not enabled, using legacy IRQs\n");
+	} else {
 		at91_shdwc->irq = irq;
+		irq = devm_request_irq(&pdev->dev, at91_shdwc->irq, at91_shdwc_irq, 0,
+				       dev_name(&pdev->dev), at91_shdwc);
+		if (irq < 0) {
+			dev_err(&pdev->dev, "Setting IRQs failed\n");
+			return irq;
+		}
+
+		dev_info(&pdev->dev, "Using runtime and legacy IRQs\n");
+	}
 
 	at91_wakeup_status(pdev);
 

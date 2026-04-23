@@ -736,8 +736,11 @@ static void at91_pm_suspend(suspend_state_t state)
 					     at91_pm_suspend_in_sram_sz);
 
 		if (IS_ENABLED(CONFIG_SOC_SAMA7D65)) {
-			/* SHDWC.SR */
-			readl(soc_pm.data.shdwc + 0x08);
+			u32 shdwc_wuir;
+			/* SHDWC re-enable IRQs*/
+			shdwc_wuir = (readl(soc_pm.data.shdwc + 0x0c) & 0x3f);
+			writel(shdwc_wuir, soc_pm.data.shdwc + 0x10);
+
 		}
 	} else {
 		at91_suspend_finish(0);
