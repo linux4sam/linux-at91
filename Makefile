@@ -2,7 +2,7 @@
 VERSION = 6
 PATCHLEVEL = 18
 SUBLEVEL = 17
-EXTRAVERSION = -linux4microchip-2026.04
+EXTRAVERSION = -linux4microchip-2026.04.1
 NAME = Baby Opossum Posse
 
 # *DOCUMENTATION*
