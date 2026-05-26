@@ -637,6 +637,7 @@ static const struct atmel_hlcdc_dc_desc atmel_xlcdc_dc_sama7d65 = {
 	.max_hpw = 0x3ff,
 	.fixed_clksrc = false,
 	.is_xlcdc = true,
+	.srgb_cap = true,
 	.nlayers = ARRAY_SIZE(atmel_xlcdc_sama7d65_layers),
 	.layers = atmel_xlcdc_sama7d65_layers,
 	.ops = &atmel_xlcdc_ops,
