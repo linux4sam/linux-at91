@@ -43,6 +43,12 @@ properties:
           - const: microchip,mpfs
 
       - items:
+          - const: microchip,mpfs-motor-control-kit-base-rtl-v2601
+          - const: microchip,mpfs-motor-control-kit
+          - const: microchip,mpfs095-som
+          - const: microchip,mpfs
+
+      - items:
           - enum:
               - aldec,tysom-m-mpfs250t-rev2
               - aries,m100pfsevp
