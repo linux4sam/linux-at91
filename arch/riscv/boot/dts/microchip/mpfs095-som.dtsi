@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/* Copyright (c) 2026 Microchip Technology Inc */
+
+/* Clock frequency (in Hz) of the rtcclk */
+#define RTCCLK_FREQ		   1000000
+
+/ {
+	compatible = "microchip,mpfs095-som", "microchip,mpfs";
+
+	soc {
+		dma-ranges = <0x14 0x0 0x0 0x80000000 0x0 0x4000000>,
+			     <0x14 0x4000000 0x0 0xc4000000 0x0 0x6000000>,
+			     <0x14 0xa000000 0x0 0x8a000000 0x0 0x8000000>,
+			     <0x14 0x12000000 0x14 0x12000000 0x0 0x10000000>,
+			     <0x14 0x22000000 0x10 0x22000000 0x0 0x1e000000>;
+	};
+
+	cpus {
+		timebase-frequency = <RTCCLK_FREQ>;
+	};
+
+	kernel: memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x4000000>;
+	};
+
+	ddr_cached_low: memory@8a000000 {
+		device_type = "memory";
+		reg = <0x0 0x8a000000 0x0 0x8000000>;
+	};
+
+	ddr_non_cached_low: memory@c4000000 {
+		device_type = "memory";
+		reg = <0x0 0xc4000000 0x0 0x6000000>;
+	};
+
+	ddr_cached_high: memory@1022000000 {
+		device_type = "memory";
+		reg = <0x10 0x22000000 0x0 0x1e000000>;
+	};
+
+	ddr_non_cached_high: memory@1412000000 {
+		device_type = "memory";
+		reg = <0x14 0x12000000 0x0 0x10000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		hss: hss-buffer@103fc00000 {
+			compatible = "shared-dma-pool";
+			reg = <0x10 0x3fc00000 0x0 0x200000>;
+			no-map;
+		};
+
+		dma_non_cached_low: non-cached-low-buffer {
+			compatible = "shared-dma-pool";
+			size = <0x0 0x4000000>;
+			no-map;
+			alloc-ranges = <0x0 0xc4000000 0x0 0x4000000>;
+		};
+
+		dma_non_cached_high: non-cached-high-buffer {
+			compatible = "shared-dma-pool";
+			size = <0x0 0x10000000>;
+			no-map;
+			linux,dma-default;
+			alloc-ranges = <0x14 0x12000000 0x0 0x10000000>;
+		};
+
+		fabricbuf0ddrc: buffer@88000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x88000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		fabricbuf1ddrnc: buffer@c8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0xc8000000 0x0 0x2000000>;
+			no-map;
+		};
+
+		fabricbuf2ddrncwcb: buffer@d8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0xd8000000 0x0 0x2000000>;
+			no-map;
+		};
+	};
+
+	udmabuf0 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-c0";
+		minor-number = <0>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf0ddrc>;
+		sync-mode = <3>;
+	};
+
+	udmabuf1 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-nc0";
+		minor-number = <1>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf1ddrnc>;
+		sync-mode = <3>;
+	};
+
+	udmabuf2 {
+		compatible = "ikwzm,u-dma-buf";
+		device-name = "udmabuf-ddr-nc-wcb0";
+		minor-number = <2>;
+		size = <0x0 0x2000000>;
+		memory-region = <&fabricbuf2ddrncwcb>;
+		sync-mode = <3>;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	eeprom@51 {
+		compatible = "atmel,24c64";
+		reg = <0x51>;
+		status = "okay";
+	};
+};
+
+&mmc {
+	dma-noncoherent;
+	bus-width = <4>;
+	disable-wp;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	status = "okay";
+};
+
+&refclk {
+	clock-frequency = <125000000>;
+};
+
+&usb {
+	dma-noncoherent;
+	status = "okay";
+	dr_mode = "otg";
+};
+
+&rtc {
+	status = "okay";
+};
+
+&wdt1 {
+	status = "okay";
+};
+
+&mbox {
+	status = "okay";
+};
+
+&syscontroller {
+	microchip,bitstream-flash = <&sys_ctrl_flash>;
+	status = "okay";
+};
+
+&syscontroller_qspi {
+	status = "okay";
+
+	sys_ctrl_flash: flash@0 { // W25Q64JWSSIQ
+		compatible = "jedec,spi-nor";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <20000000>;
+		spi-rx-bus-width = <1>;
+		reg = <0>;
+		status = "okay";
+	};
+};
+
