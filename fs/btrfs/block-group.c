@@ -1065,7 +1065,7 @@ int btrfs_remove_block_group(struct btrfs_trans_handle *trans,
 			     struct btrfs_chunk_map *map)
 {
 	struct btrfs_fs_info *fs_info = trans->fs_info;
-	struct btrfs_path *path;
+	BTRFS_PATH_AUTO_FREE(path);
 	struct btrfs_block_group *block_group;
 	struct btrfs_free_cluster *cluster;
 	struct inode *inode;
@@ -1305,7 +1305,6 @@ out:
 	btrfs_put_block_group(block_group);
 	if (remove_rsv)
 		btrfs_dec_delayed_refs_rsv_bg_updates(fs_info);
-	btrfs_free_path(path);
 	return ret;
 }
 
@@ -4464,7 +4463,7 @@ static void check_removing_space_info(struct btrfs_space_info *space_info)
 		for (int i = 0; i < BTRFS_SPACE_INFO_SUB_GROUP_MAX; i++) {
 			if (space_info->sub_group[i]) {
 				check_removing_space_info(space_info->sub_group[i]);
-				kfree(space_info->sub_group[i]);
+				btrfs_sysfs_remove_space_info(space_info->sub_group[i]);
 				space_info->sub_group[i] = NULL;
 			}
 		}

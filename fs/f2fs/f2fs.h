@@ -96,47 +96,52 @@ extern const char *f2fs_fault_name[FAULT_MAX];
 /*
  * For mount options
  */
-#define F2FS_MOUNT_DISABLE_ROLL_FORWARD	0x00000001
-#define F2FS_MOUNT_DISCARD		0x00000002
-#define F2FS_MOUNT_NOHEAP		0x00000004
-#define F2FS_MOUNT_XATTR_USER		0x00000008
-#define F2FS_MOUNT_POSIX_ACL		0x00000010
-#define F2FS_MOUNT_DISABLE_EXT_IDENTIFY	0x00000020
-#define F2FS_MOUNT_INLINE_XATTR		0x00000040
-#define F2FS_MOUNT_INLINE_DATA		0x00000080
-#define F2FS_MOUNT_INLINE_DENTRY	0x00000100
-#define F2FS_MOUNT_FLUSH_MERGE		0x00000200
-#define F2FS_MOUNT_NOBARRIER		0x00000400
-#define F2FS_MOUNT_FASTBOOT		0x00000800
-#define F2FS_MOUNT_READ_EXTENT_CACHE	0x00001000
-#define F2FS_MOUNT_DATA_FLUSH		0x00002000
-#define F2FS_MOUNT_FAULT_INJECTION	0x00004000
-#define F2FS_MOUNT_USRQUOTA		0x00008000
-#define F2FS_MOUNT_GRPQUOTA		0x00010000
-#define F2FS_MOUNT_PRJQUOTA		0x00020000
-#define F2FS_MOUNT_QUOTA		0x00040000
-#define F2FS_MOUNT_INLINE_XATTR_SIZE	0x00080000
-#define F2FS_MOUNT_RESERVE_ROOT		0x00100000
-#define F2FS_MOUNT_DISABLE_CHECKPOINT	0x00200000
-#define F2FS_MOUNT_NORECOVERY		0x00400000
-#define F2FS_MOUNT_ATGC			0x00800000
-#define F2FS_MOUNT_MERGE_CHECKPOINT	0x01000000
-#define	F2FS_MOUNT_GC_MERGE		0x02000000
-#define F2FS_MOUNT_COMPRESS_CACHE	0x04000000
-#define F2FS_MOUNT_AGE_EXTENT_CACHE	0x08000000
-#define F2FS_MOUNT_NAT_BITS		0x10000000
-#define F2FS_MOUNT_INLINECRYPT		0x20000000
-/*
- * Some f2fs environments expect to be able to pass the "lazytime" option
- * string rather than using the MS_LAZYTIME flag, so this must remain.
- */
-#define F2FS_MOUNT_LAZYTIME		0x40000000
-#define F2FS_MOUNT_RESERVE_NODE		0x80000000
+enum f2fs_mount_opt {
+	F2FS_MOUNT_DISABLE_ROLL_FORWARD,
+	F2FS_MOUNT_DISCARD,
+	F2FS_MOUNT_NOHEAP,
+	F2FS_MOUNT_XATTR_USER,
+	F2FS_MOUNT_POSIX_ACL,
+	F2FS_MOUNT_DISABLE_EXT_IDENTIFY,
+	F2FS_MOUNT_INLINE_XATTR,
+	F2FS_MOUNT_INLINE_DATA,
+	F2FS_MOUNT_INLINE_DENTRY,
+	F2FS_MOUNT_FLUSH_MERGE,
+	F2FS_MOUNT_NOBARRIER,
+	F2FS_MOUNT_FASTBOOT,
+	F2FS_MOUNT_READ_EXTENT_CACHE,
+	F2FS_MOUNT_DATA_FLUSH,
+	F2FS_MOUNT_FAULT_INJECTION,
+	F2FS_MOUNT_USRQUOTA,
+	F2FS_MOUNT_GRPQUOTA,
+	F2FS_MOUNT_PRJQUOTA,
+	F2FS_MOUNT_QUOTA,
+	F2FS_MOUNT_INLINE_XATTR_SIZE,
+	F2FS_MOUNT_RESERVE_ROOT,
+	F2FS_MOUNT_DISABLE_CHECKPOINT,
+	F2FS_MOUNT_NORECOVERY,
+	F2FS_MOUNT_ATGC,
+	F2FS_MOUNT_MERGE_CHECKPOINT,
+	F2FS_MOUNT_GC_MERGE,
+	F2FS_MOUNT_COMPRESS_CACHE,
+	F2FS_MOUNT_AGE_EXTENT_CACHE,
+	F2FS_MOUNT_NAT_BITS,
+	F2FS_MOUNT_INLINECRYPT,
+	/*
+	 * Some f2fs environments expect to be able to pass the "lazytime" option
+	 * string rather than using the MS_LAZYTIME flag, so this must remain.
+	 */
+	F2FS_MOUNT_LAZYTIME,
+	F2FS_MOUNT_RESERVE_NODE,
+};
 
 #define F2FS_OPTION(sbi)	((sbi)->mount_opt)
-#define clear_opt(sbi, option)	(F2FS_OPTION(sbi).opt &= ~F2FS_MOUNT_##option)
-#define set_opt(sbi, option)	(F2FS_OPTION(sbi).opt |= F2FS_MOUNT_##option)
-#define test_opt(sbi, option)	(F2FS_OPTION(sbi).opt & F2FS_MOUNT_##option)
+#define clear_opt(sbi, option)		\
+	(F2FS_OPTION(sbi).opt &= ~BIT(F2FS_MOUNT_##option))
+#define set_opt(sbi, option)		\
+	(F2FS_OPTION(sbi).opt |= BIT(F2FS_MOUNT_##option))
+#define test_opt(sbi, option)		\
+	(F2FS_OPTION(sbi).opt & BIT(F2FS_MOUNT_##option))
 
 #define ver_after(a, b)	(typecheck(unsigned long long, a) &&		\
 		typecheck(unsigned long long, b) &&			\
@@ -183,7 +188,7 @@ struct f2fs_rwsem {
 };
 
 struct f2fs_mount_info {
-	unsigned int opt;
+	unsigned long long opt;
 	block_t root_reserved_blocks;	/* root reserved blocks */
 	block_t root_reserved_nodes;	/* root reserved nodes */
 	kuid_t s_resuid;		/* reserved blocks for uid */
@@ -1962,6 +1967,9 @@ struct f2fs_sb_info {
 	spinlock_t iostat_lat_lock;
 	struct iostat_lat_info *iostat_io_lat;
 #endif
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	struct lock_class_key cp_global_sem_key;
+#endif
 };
 
 /* Definitions to access f2fs_sb_info */
@@ -2996,16 +3004,6 @@ static inline struct folio *f2fs_filemap_get_folio(
 	return __filemap_get_folio(mapping, index, fgp_flags, gfp_mask);
 }
 
-static inline struct page *f2fs_pagecache_get_page(
-				struct address_space *mapping, pgoff_t index,
-				fgf_t fgp_flags, gfp_t gfp_mask)
-{
-	if (time_to_inject(F2FS_M_SB(mapping), FAULT_PAGE_GET))
-		return NULL;
-
-	return pagecache_get_page(mapping, index, fgp_flags, gfp_mask);
-}
-
 static inline void f2fs_folio_put(struct folio *folio, bool unlock)
 {
 	if (IS_ERR_OR_NULL(folio))
@@ -3888,6 +3886,8 @@ int f2fs_sanity_check_node_footer(struct f2fs_sb_info *sbi,
 					enum node_type ntype, bool in_irq);
 struct folio *f2fs_get_inode_folio(struct f2fs_sb_info *sbi, pgoff_t ino);
 struct folio *f2fs_get_xnode_folio(struct f2fs_sb_info *sbi, pgoff_t xnid);
+int f2fs_write_single_node_folio(struct folio *node_folio, int sync_mode,
+			bool mark_dirty, enum iostat_type io_type);
 int f2fs_move_node_folio(struct folio *node_folio, int gc_type);
 void f2fs_flush_inline_data(struct f2fs_sb_info *sbi);
 int f2fs_fsync_node_pages(struct f2fs_sb_info *sbi, struct inode *inode,
@@ -3930,7 +3930,7 @@ bool f2fs_is_checkpointed_data(struct f2fs_sb_info *sbi, block_t blkaddr);
 int f2fs_start_discard_thread(struct f2fs_sb_info *sbi);
 void f2fs_drop_discard_cmd(struct f2fs_sb_info *sbi);
 void f2fs_stop_discard_thread(struct f2fs_sb_info *sbi);
-bool f2fs_issue_discard_timeout(struct f2fs_sb_info *sbi);
+bool f2fs_issue_discard_timeout(struct f2fs_sb_info *sbi, bool need_check);
 void f2fs_clear_prefree_segments(struct f2fs_sb_info *sbi,
 					struct cp_control *cpc);
 void f2fs_dirty_to_prefree(struct f2fs_sb_info *sbi);

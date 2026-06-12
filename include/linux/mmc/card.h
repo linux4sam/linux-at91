@@ -330,7 +330,9 @@ struct mmc_card {
 #define MMC_QUIRK_BROKEN_CACHE_FLUSH	(1<<16)	/* Don't flush cache until the write has occurred */
 #define MMC_QUIRK_BROKEN_SD_POWEROFF_NOTIFY	(1<<17) /* Disable broken SD poweroff notify support */
 #define MMC_QUIRK_NO_UHS_DDR50_TUNING	(1<<18) /* Disable DDR50 tuning */
-#define MMC_QUIRK_HS_CLK_REVERSED	(1<<19)	/* Reversed high-speed/clock init order */
+#define MMC_QUIRK_BROKEN_MDT	(1<<19)		 /* Wrong manufacturing year */
+#define MMC_QUIRK_FIXED_SECURE_ERASE_TRIM_TIME	(1<<20) /* Secure erase/trim time is fixed regardless of size */
+#define MMC_QUIRK_HS_CLK_REVERSED	(1<<21)	/* Reversed high-speed/clock init order */
 
 	bool			written_flag;	/* Indicates eMMC has been written since power on */
 	bool			reenable_cmdq;	/* Re-enable Command Queue */
