@@ -442,7 +442,7 @@
 			reg = <0x0 0x20107000 0x0 0x1000>;
 			clocks = <&clkcfg CLK_AHB>;
 			interrupt-parent = <&plic>;
-			interrupts = <105>, <109>;
+			interrupts = <104>, <109>;
 			interrupt-names = "mvrp", "trig";
 			status = "disabled";
 		};
