@@ -188,6 +188,19 @@ config CAN_LIN
 
 	  Actual device drivers need to be enabled too.
 
+config CAN_MICROCHIP_USART_LIN
+	tristate "Microchip USART LIN controller"
+	depends on CAN_LIN
+	depends on HAS_IOMEM
+	depends on ARCH_AT91 || COMPILE_TEST
+	help
+	  LIN driver for the LIN controller in the Microchip/Atmel FLEXCOM
+	  USART found on SAM9x6, SAMA5 and SAMA7 SoCs. It offloads the LIN
+	  break, sync, identifier parity and checksum to hardware.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called microchip_usart_lin.
+
 config CAN_SLCAN
 	tristate "Serial / USB serial CAN Adaptors (slcan)"
 	depends on TTY

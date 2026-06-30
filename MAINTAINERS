@@ -17165,6 +17165,13 @@ S:	Maintained
 F:	drivers/counter/microchip-tcb-capture.c
 F:	include/uapi/linux/counter/microchip-tcb-capture.h
 
+MICROCHIP USART LIN DRIVER
+M:	Balakrishnan Sambath <balakrishnan.s@microchip.com>
+L:	linux-can@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/net/can/microchip,sama5d2-usart-lin.yaml
+F:	drivers/net/can/microchip_usart_lin.c
+
 MICROCHIP USB251XB DRIVER
 M:	Richard Leitner <richard.leitner@skidata.com>
 L:	linux-usb@vger.kernel.org
