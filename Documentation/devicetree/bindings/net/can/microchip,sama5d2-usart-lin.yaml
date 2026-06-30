@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/can/microchip,sama5d2-usart-lin.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Microchip USART LIN controller
+
+maintainers:
+  - Balakrishnan Sambath <balakrishnan.s@microchip.com>
+
+description:
+  The LIN controller in the Microchip/Atmel FLEXCOM USART, exposed as a CAN/LIN
+  network device. Break, sync, identifier parity and checksum are offloaded to
+  hardware.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - microchip,sam9x60-usart-lin
+              - microchip,sam9x7-usart-lin
+              - microchip,sama7g5-usart-lin
+              - microchip,sama7d65-usart-lin
+          - const: microchip,sama5d2-usart-lin
+      - const: microchip,sama5d2-usart-lin
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  lin-responder:
+    type: boolean
+    description:
+      The LIN role is fixed by how the board is wired. Present when the node
+      is wired as a LIN responder (client). Without it the controller is a
+      LIN commander (host).
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/at91.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    serial@200 {
+        compatible = "microchip,sama7g5-usart-lin", "microchip,sama5d2-usart-lin";
+        reg = <0x200 0x200>;
+        interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&pmc PMC_TYPE_PERIPHERAL 38>;
+        lin-responder;
+    };
