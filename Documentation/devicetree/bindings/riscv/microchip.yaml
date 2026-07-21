@@ -49,6 +49,12 @@ properties:
           - const: microchip,mpfs
 
       - items:
+          - const: microchip,rtpfs-dev-kit-reference-rtl-v2610
+          - const: microchip,rtpfs-dev-kit
+          - const: microchip,rtpfs
+          - const: microchip,mpfs
+
+      - items:
           - enum:
               - aldec,tysom-m-mpfs250t-rev2
               - aries,m100pfsevp
