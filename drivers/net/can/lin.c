@@ -443,7 +443,10 @@ int lin_rx(struct lin_device *ldev, const struct lin_frame *lf)
 	DEV_STATS_INC(ndev, rx_packets);
 	DEV_STATS_ADD(ndev, rx_bytes, cf->len);
 
-	netif_receive_skb(skb);
+	/* netif_rx() is safe from any context, including the hard irq of a
+	 * hardware LIN backend; netif_receive_skb() would require softirq.
+	 */
+	netif_rx(skb);
 
 	return 0;
 }
