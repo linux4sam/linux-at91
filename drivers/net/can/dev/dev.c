@@ -115,6 +115,8 @@ const char *can_get_ctrlmode_str(u32 ctrlmode)
 		return "fd-tdc-auto";
 	case CAN_CTRLMODE_TDC_MANUAL:
 		return "fd-tdc-manual";
+	case CAN_CTRLMODE_LIN:
+		return "lin";
 	default:
 		return "<unknown>";
 	}

@@ -1,0 +1,23 @@
+What:		/sys/class/net/<iface>/lin_ids/<id>
+Date:		2026
+KernelVersion:	6.18
+Contact:	linux-can@vger.kernel.org
+Description:
+		For a LIN interface acting as a responder (client), each file
+		<id> (hex, 00..3f) configures the answer published when the
+		commander (host) sends a header with that identifier.
+
+		Reading the file shows the stored answer:
+
+			state cksum-mode is_event event_id n data cksum
+
+		Writing configures it as a whitespace-separated list:
+
+			<active> <cksum-mode> <is_event> <event_id> <n> <data...>
+
+		where <active> and <is_event> are 0/1, <cksum-mode> is 0 for
+		classic or 1 for enhanced, <event_id> and the <n> data bytes
+		are hex, and <n> is the data length. An active answer carries
+			1..8 bytes, a backend may reject <n> of 0.
+
+		Only present on drivers that implement responder answers.
