@@ -166,8 +166,17 @@ static int mchp_crypto_probe(struct platform_device *pdev)
 			goto err_engine_stop;
 	}
 
+	if (cryp->crypto->aead_algo & CRYPTO_ALG_AES_GCM) {
+		ret = mchp_aes_gcm_register_algs(cryp);
+		if (ret)
+			goto err_aes_unreg;
+	}
+
 	return 0;
 
+err_aes_unreg:
+	if (cryp->crypto->services & CRYPTO_SERVICE_AES)
+		mchp_aes_unregister_algs(cryp);
 err_engine_stop:
 	crypto_engine_stop(cryp->engine);
 err_engine_exit:
@@ -189,6 +198,9 @@ static void mchp_crypto_remove(struct platform_device *pdev)
 	struct mchp_crypto_dev *cryp = platform_get_drvdata(pdev);
 	/* Disable crypto clock */
 	mchp_crypto_sbi_shutdown();
+
+	if (cryp->crypto->aead_algo & CRYPTO_ALG_AES_GCM)
+		mchp_aes_gcm_unregister_algs(cryp);
 
 	if (cryp->crypto->services & CRYPTO_SERVICE_AES)
 		mchp_aes_unregister_algs(cryp);

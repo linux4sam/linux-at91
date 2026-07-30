@@ -9,12 +9,12 @@ config CRYPTO_DEV_POLARFIRE_SOC
 	select CRYPTO_ENGINE
 	select CRYPTO_AES
 	select CRYPTO_AEAD
-	select CRYPTO_AKCIPHER
-	select CRYPTO_KPP
+	select CRYPTO_GCM
 	select CRYPTO_SKCIPHER
 	help
 	  Support for Microchip PolarFire SoC User crypto engine.
-	  This module provides acceleration for skcipher functions.
+	  Provides hardware acceleration for AES skciphers (ECB, CBC,
+	  OFB, CFB, CTR) and AES-GCM authenticated encryption.
 
 	  If you choose 'M' here, this module will be called microchip-crypto.
 

@@ -37,7 +37,7 @@ struct mchp_crypto_info {
 #define CRYPTO_ALG_AES_CFB		BIT(3)
 #define CRYPTO_ALG_AES_CTR		BIT(4)
 	u32 aead_algo;
-#define CRYPTO_ALG_AEAD_GCM		BIT(0)
+#define CRYPTO_ALG_AES_GCM		BIT(0)
 #define CRYPTO_ALG_AEAD_CCM		BIT(1)
 	u32 hash_algo;
 #define CRYPTO_ALG_HASH_SHA1		BIT(0)
@@ -88,3 +88,6 @@ int mchp_crypto_sbi_services(u32 service, u64 crypto_addr, u32 flags);
 
 int mchp_aes_register_algs(struct mchp_crypto_dev *cryp);
 void mchp_aes_unregister_algs(struct mchp_crypto_dev *cryp);
+
+int mchp_aes_gcm_register_algs(struct mchp_crypto_dev *cryp);
+void mchp_aes_gcm_unregister_algs(struct mchp_crypto_dev *cryp);
