@@ -106,7 +106,7 @@ static int mchp_aes_do_one_req(struct crypto_engine *engine, void *areq)
 	aes_req->key = aes_req->src + data_size + iv_size;
 
 	ret = mchp_crypto_sbi_services(CRYPTO_SERVICE_AES,
-				     dma_addr_aes_req, ctx->flags);
+				       dma_addr_aes_req, ctx->flags);
 	if (!ret)
 		sg_copy_from_buffer(req->dst, sg_nents(req->dst),
 				    kbuf, data_size);

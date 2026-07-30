@@ -22,7 +22,7 @@
 
 #define MPFS_CRYPTO_DMA_BIT_MASK		32
 
-static DEFINE_SPINLOCK(cryto_service_lock);
+static DEFINE_SPINLOCK(crypto_service_lock);
 
 static dma_addr_t dma_addr_crypto;
 static struct mchp_crypto_info *crypto_info;
@@ -61,18 +61,18 @@ int mchp_crypto_sbi_services(u32 service, u64 crypto_addr, u32 flags)
 {
 	struct sbiret ret;
 
-	spin_lock(&cryto_service_lock);
+	spin_lock(&crypto_service_lock);
 	ret = sbi_ecall(SBI_EXT_MICROCHIP_TECHNOLOGY,
 			MICROCHIP_SBI_EXT_CRYPTO_SERVICES,
 			service, crypto_addr, flags, 0, 0, 0);
-	spin_unlock(&cryto_service_lock);
+	spin_unlock(&crypto_service_lock);
 	if (ret.error)
 		return sbi_err_map_linux_errno(ret.error);
 	else
 		return ret.value;
 }
 
-static int mchp_crypto_sbi_sevices_probe(u64 crypto_addr)
+static int mchp_crypto_sbi_services_probe(u64 crypto_addr)
 {
 	struct sbiret ret;
 
@@ -140,7 +140,7 @@ static int mchp_crypto_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_free_info;
 
-	ret = mchp_crypto_sbi_sevices_probe(dma_addr_crypto);
+	ret = mchp_crypto_sbi_services_probe(dma_addr_crypto);
 	if (ret < 0)
 		goto err_crypto_shutdown;
 
