@@ -132,6 +132,7 @@ properties:
           - enum:
               - microchip,sam9x60ek
               - microchip,sam9x60-curiosity
+              - microchip,sam9x60-curiosity-pro
           - const: microchip,sam9x60
           - const: atmel,at91sam9
 
