@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Enables support for device-tree overlays
 DTC_FLAGS_at91-sam9x60_curiosity := -@
+DTC_FLAGS_at91-sam9x60_curiosity_pro := -@
 DTC_FLAGS_at91-sam9x60ek := -@
 DTC_FLAGS_at91-sam9x75_curiosity := -@
 DTC_FLAGS_at91-sam9x75_curiosity_pro := -@
@@ -65,6 +66,7 @@ dtb-$(CONFIG_SOC_AT91SAM9) += \
 	at91sam9x35ek.dtb
 dtb-$(CONFIG_SOC_SAM9X60) += \
 	at91-sam9x60_curiosity.dtb \
+	at91-sam9x60_curiosity_pro.dtb \
 	at91-sam9x60ek.dtb
 dtb-$(CONFIG_SOC_SAM9X7) += \
 	at91-sam9x75_curiosity.dtb \
