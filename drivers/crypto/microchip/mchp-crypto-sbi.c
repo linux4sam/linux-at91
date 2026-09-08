@@ -22,7 +22,7 @@
 
 #define MPFS_CRYPTO_DMA_BIT_MASK		32
 
-static DEFINE_SPINLOCK(cryto_service_lock);
+static DEFINE_SPINLOCK(crypto_service_lock);
 
 static dma_addr_t dma_addr_crypto;
 static struct mchp_crypto_info *crypto_info;
@@ -61,18 +61,18 @@ int mchp_crypto_sbi_services(u32 service, u64 crypto_addr, u32 flags)
 {
 	struct sbiret ret;
 
-	spin_lock(&cryto_service_lock);
+	spin_lock(&crypto_service_lock);
 	ret = sbi_ecall(SBI_EXT_MICROCHIP_TECHNOLOGY,
 			MICROCHIP_SBI_EXT_CRYPTO_SERVICES,
 			service, crypto_addr, flags, 0, 0, 0);
-	spin_unlock(&cryto_service_lock);
+	spin_unlock(&crypto_service_lock);
 	if (ret.error)
 		return sbi_err_map_linux_errno(ret.error);
 	else
 		return ret.value;
 }
 
-static int mchp_crypto_sbi_sevices_probe(u64 crypto_addr)
+static int mchp_crypto_sbi_services_probe(u64 crypto_addr)
 {
 	struct sbiret ret;
 
@@ -140,7 +140,7 @@ static int mchp_crypto_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_free_info;
 
-	ret = mchp_crypto_sbi_sevices_probe(dma_addr_crypto);
+	ret = mchp_crypto_sbi_services_probe(dma_addr_crypto);
 	if (ret < 0)
 		goto err_crypto_shutdown;
 
@@ -166,8 +166,17 @@ static int mchp_crypto_probe(struct platform_device *pdev)
 			goto err_engine_stop;
 	}
 
+	if (cryp->crypto->aead_algo & CRYPTO_ALG_AES_GCM) {
+		ret = mchp_aes_gcm_register_algs(cryp);
+		if (ret)
+			goto err_aes_unreg;
+	}
+
 	return 0;
 
+err_aes_unreg:
+	if (cryp->crypto->services & CRYPTO_SERVICE_AES)
+		mchp_aes_unregister_algs(cryp);
 err_engine_stop:
 	crypto_engine_stop(cryp->engine);
 err_engine_exit:
@@ -189,6 +198,9 @@ static void mchp_crypto_remove(struct platform_device *pdev)
 	struct mchp_crypto_dev *cryp = platform_get_drvdata(pdev);
 	/* Disable crypto clock */
 	mchp_crypto_sbi_shutdown();
+
+	if (cryp->crypto->aead_algo & CRYPTO_ALG_AES_GCM)
+		mchp_aes_gcm_unregister_algs(cryp);
 
 	if (cryp->crypto->services & CRYPTO_SERVICE_AES)
 		mchp_aes_unregister_algs(cryp);
