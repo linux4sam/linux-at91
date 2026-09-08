@@ -975,32 +975,19 @@ static int mchp_coretse_probe(struct platform_device *pdev)
 	if (IS_ERR(mem))
 		return PTR_ERR(mem);
 
-	pclk = devm_clk_get(&pdev->dev, "pclk");
+	pclk = devm_clk_get_enabled(&pdev->dev, "pclk");
 	if (IS_ERR(pclk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(pclk),
-				     "could not get clock\n");
+				     "could not get and enable pclk\n");
 
-	pcdma_clk = devm_clk_get(&pdev->dev, "pcdma");
+	pcdma_clk = devm_clk_get_enabled(&pdev->dev, "pcdma");
 	if (IS_ERR(pcdma_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(pcdma_clk),
-				     "could not get clock\n");
-
-	ret = clk_prepare_enable(pclk);
-	if (ret)
-		return dev_err_probe(&pdev->dev, ret,
-				     "failed to enable clock\n");
-
-	ret = clk_prepare_enable(pcdma_clk);
-	if (ret) {
-		return dev_err_probe(&pdev->dev, ret,
-				     "failed to enable clock\n");
-		goto err_disable_pclk;
-	}
+				     "could not get and enable pcdma_clk\n");
 
 	dev = alloc_etherdev_mq(sizeof(*bp), 1);
 	if (!dev) {
-		ret = -ENOMEM;
-		goto err_disable_clocks;
+		return -ENOMEM;
 	}
 
 	SET_NETDEV_DEV(dev, &pdev->dev);
@@ -1009,8 +996,6 @@ static int mchp_coretse_probe(struct platform_device *pdev)
 	bp->pdev = pdev;
 	bp->dev = dev;
 	bp->regs = mem;
-	bp->clk = pclk;
-	bp->dmaclk = pcdma_clk;
 	bp->max_tx_length = MAX_TX_LENGTH;
 
 	spin_lock_init(&bp->tx_lock);
@@ -1082,13 +1067,6 @@ err_out_phy_exit:
 err_out_free_netdev:
 	free_netdev(dev);
 
-err_disable_clocks:
-	clk_disable_unprepare(pclk);
-	clk_disable_unprepare(pcdma_clk);
-
-err_disable_pclk:
-	clk_disable_unprepare(pclk);
-
 	return ret;
 }
 
@@ -1109,9 +1087,6 @@ static void  mchp_coretse_remove(struct platform_device *pdev)
 		mdiobus_unregister(bp->mii_bus);
 		mdiobus_free(bp->mii_bus);
 	}
-
-	clk_disable_unprepare(bp->clk);
-	clk_disable_unprepare(bp->dmaclk);
 
 	free_netdev(ndev);
 }

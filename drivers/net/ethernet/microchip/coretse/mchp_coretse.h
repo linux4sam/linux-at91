@@ -333,8 +333,6 @@ struct coretse_queue {
  * @rx_irq:	s2mm RX IRQ number
  * @cmd_id:	command_id for PCDMA buffer descriptor
  * @coretse_tx_in_progress flag for tx completion
- * @clk:	CoreTSE bus clock
- * @dmaclk:	PCDMA clock
  * @pdev:       platform device structure
  * @dev:	Pointer for net_device to which it will be attached.
  * @coretse:	Hardware-collected statistics for coretse.
@@ -364,8 +362,6 @@ struct coretse {
 	u32 cmd_id;
 	u16 coretse_tx_in_progress;
 
-	struct clk		*clk;
-	struct clk		*dmaclk;
 	struct platform_device	*pdev;
 	struct net_device	*dev;
 	struct coretse_stats	coretse;
