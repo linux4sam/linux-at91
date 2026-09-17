@@ -80,6 +80,7 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 	unsigned long prate;
 	unsigned int mask = ATMEL_HLCDC_CLKDIV_MASK | ATMEL_HLCDC_CLKPOL;
 	unsigned int cfg = 0;
+	bool sync_pol;
 	int div, ret;
 
 	/* get encoder from crtc */
@@ -192,15 +193,30 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 	state = drm_crtc_state_to_atmel_hlcdc_crtc_state(c->state);
 	cfg = state->output_mode << 8;
 
-	if (!crtc->dc->desc->is_xlcdc) {
-		if (adj->flags & DRM_MODE_FLAG_NVSYNC)
-			cfg |= ATMEL_HLCDC_VSPOL;
-
-		if (adj->flags & DRM_MODE_FLAG_NHSYNC)
-			cfg |= ATMEL_HLCDC_HSPOL;
-	} else {
+	if (crtc->dc->desc->is_xlcdc) {
 		cfg |= state->dpi << 11;
+
+		/*
+		 * Enable Serial RGB mode if the SoC supports it and the
+		 * endpoint DT property "microchip,srgb-mode" is set.
+		 */
+		if (crtc->dc->desc->srgb_cap && encoder &&
+		    atmel_hlcdc_encoder_get_srgb_mode(encoder))
+			cfg |= ATMEL_XLCDC_SRGB;
 	}
+
+	/*
+	 * HSYNC/VSYNC polarity: sync signals are driven directly to the
+	 * display on non-XLCDC and on XLCDC Serial RGB output. DSI/LVDS
+	 * bridges handle polarity internally, so skip it for those.
+	 */
+	sync_pol = !crtc->dc->desc->is_xlcdc || (cfg & ATMEL_XLCDC_SRGB);
+
+	if (sync_pol && (adj->flags & DRM_MODE_FLAG_NVSYNC))
+		cfg |= ATMEL_HLCDC_VSPOL;
+
+	if (sync_pol && (adj->flags & DRM_MODE_FLAG_NHSYNC))
+		cfg |= ATMEL_HLCDC_HSPOL;
 
 	regmap_update_bits(regmap, ATMEL_HLCDC_CFG(5),
 			   ATMEL_HLCDC_HSPOL | ATMEL_HLCDC_VSPOL |
@@ -209,7 +225,8 @@ static void atmel_hlcdc_crtc_mode_set_nofb(struct drm_crtc *c)
 			   ATMEL_HLCDC_VSPSU | ATMEL_HLCDC_VSPHO |
 			   ATMEL_HLCDC_GUARDTIME_MASK |
 			   (crtc->dc->desc->is_xlcdc ? ATMEL_XLCDC_MODE_MASK |
-			   ATMEL_XLCDC_DPI : ATMEL_HLCDC_MODE_MASK),
+			   ATMEL_XLCDC_DPI | ATMEL_XLCDC_SRGB :
+			   ATMEL_HLCDC_MODE_MASK),
 			   cfg);
 
 	if (crtc->dc->hlcdc->lvds_pll_clk)

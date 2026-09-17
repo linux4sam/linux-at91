@@ -22,6 +22,7 @@
 struct atmel_hlcdc_rgb_output {
 	struct drm_encoder encoder;
 	int bus_fmt;
+	bool srgb_mode;
 };
 
 static struct atmel_hlcdc_rgb_output *
@@ -37,6 +38,15 @@ int atmel_hlcdc_encoder_get_bus_fmt(struct drm_encoder *encoder)
 	output = atmel_hlcdc_encoder_to_rgb_output(encoder);
 
 	return output->bus_fmt;
+}
+
+bool atmel_hlcdc_encoder_get_srgb_mode(struct drm_encoder *encoder)
+{
+	struct atmel_hlcdc_rgb_output *output;
+
+	output = atmel_hlcdc_encoder_to_rgb_output(encoder);
+
+	return output->srgb_mode;
 }
 
 static int atmel_hlcdc_of_bus_fmt(const struct device_node *ep)
@@ -87,6 +97,7 @@ static int atmel_hlcdc_attach_endpoint(struct drm_device *dev, int endpoint)
 		return -ENODEV;
 
 	output->bus_fmt = atmel_hlcdc_of_bus_fmt(ep);
+	output->srgb_mode = of_property_read_bool(ep, "microchip,srgb-mode");
 	of_node_put(ep);
 	if (output->bus_fmt < 0) {
 		dev_err(dev->dev, "endpoint %d: invalid bus width\n", endpoint);

@@ -414,6 +414,7 @@ extern const struct atmel_lcdc_dc_ops atmel_xlcdc_ops;
  *				each other.
  * @fixed_clksrc: true if clock source is fixed
  * @is_xlcdc: true if XLCDC IP is supported
+ * @srgb_cap: true if Serial RGB Mode is supported
  * @layers: a layer description table describing available layers
  * @nlayers: layer description table size
  * @ops: atmel lcdc dc ops
@@ -429,6 +430,7 @@ struct atmel_hlcdc_dc_desc {
 	bool conflicting_output_formats;
 	bool fixed_clksrc;
 	bool is_xlcdc;
+	bool srgb_cap;
 	const struct atmel_hlcdc_layer_desc *layers;
 	int nlayers;
 	const struct atmel_lcdc_dc_ops *ops;
@@ -501,5 +503,6 @@ int atmel_hlcdc_crtc_create(struct drm_device *dev);
 
 int atmel_hlcdc_create_outputs(struct drm_device *dev);
 int atmel_hlcdc_encoder_get_bus_fmt(struct drm_encoder *encoder);
+bool atmel_hlcdc_encoder_get_srgb_mode(struct drm_encoder *encoder);
 
 #endif /* DRM_ATMEL_HLCDC_H */
