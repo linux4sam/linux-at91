@@ -54,6 +54,13 @@ properties:
           bus-width:
             enum: [ 12, 16, 18, 24 ]
 
+          microchip,srgb-mode:
+            type: boolean
+            description:
+              When present, enables Serial RGB output mode on the XLCDC
+              controller. Valid on SoCs with Serial RGB capability
+              (e.g. sama7d65).
+
 required:
   - '#address-cells'
   - '#size-cells'
