@@ -38,6 +38,9 @@ enum {
 	SBI_EXT_RPROC_STOP,
 };
 
+#define MCHP_SBI_RPROC_OFFLINE		0
+#define MCHP_SBI_RPROC_DETACHED		6
+
 /**
  * enum mchp_ipc_rproc_mbox_messages - predefined mailbox messages
  *
@@ -353,7 +356,14 @@ static int mchp_ipc_rproc_get_state(u32 chan)
 	if (ret.error)
 		return sbi_err_map_linux_errno(ret.error);
 
-	return ret.value;
+	switch (ret.value) {
+	case MCHP_SBI_RPROC_DETACHED:
+		return RPROC_DETACHED;
+	case MCHP_SBI_RPROC_OFFLINE:
+		return RPROC_OFFLINE;
+	default:
+		return RPROC_OFFLINE;
+	}
 }
 
 static int mchp_ipc_rproc_probe(struct platform_device *pdev)
@@ -404,11 +414,12 @@ static int mchp_ipc_rproc_probe(struct platform_device *pdev)
 	 * Check if the remote cluster has been booted by another entity
 	 * (i.e. bootloader) and set rproc state accordingly
 	 */
-	rproc->state = mchp_ipc_rproc_get_state(priv->chan_id);
+	ret = mchp_ipc_rproc_get_state(priv->chan_id);
 	if (ret < 0) {
 		dev_err_probe(dev, ret, "Couldn't get cluster boot mode\n");
 		goto err_put_mbox;
 	}
+	rproc->state = ret;
 
 	if (rproc->state != RPROC_DETACHED)
 		rproc->auto_boot = false;
