@@ -675,8 +675,6 @@
 
 &sdmmc1 {
 	bus-width = <4>;
-	no-1-8-v;
-	sdhci-caps-mask = <0x0 0x00200000>;
 	full-pwr-cycle;
 	vmmc-supply = <&vmmc_sdmmc1>;
 	cd-gpios = <&pioa PIN_PB29 GPIO_ACTIVE_LOW>;
