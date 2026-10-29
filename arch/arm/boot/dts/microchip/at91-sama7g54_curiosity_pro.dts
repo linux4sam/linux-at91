@@ -23,6 +23,8 @@
 		serial0 = &uart3;
 		i2c0 = &i2c10;
 		ethernet0 = &gmac1;
+		mmc0 = &sdmmc0;
+		mmc1 = &sdmmc1;
 	};
 
 	chosen {
