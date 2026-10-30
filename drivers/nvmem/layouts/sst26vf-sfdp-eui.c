@@ -13,8 +13,6 @@
  * Author: Manikandan Muralidharan <manikandan.m@microchip.com>
  */
 
-#include <linux/etherdevice.h>
-#include <linux/minmax.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/nvmem-provider.h>
 #include <linux/of.h>
@@ -50,23 +48,6 @@ struct sfdp_parameter_header {
 #define SFDP_MCHP_EUI48_MARKER_OFFSET	0x60
 #define SFDP_MCHP_EUI48_MARKER		0x30
 #define SFDP_MCHP_EUI48_OFFSET		0x61
-
-static int sfdp_eui_read_post_process(void *priv, const char *id, int index,
-				      unsigned int offset, void *buf,
-				      size_t bytes)
-{
-	u8 *data = buf;
-	int i;
-
-	/* SFDP stores the address least-significant octet first; reverse it. */
-	for (i = 0; i < bytes / 2; i++)
-		swap(data[i], data[bytes - 1 - i]);
-
-	if (bytes == ETH_ALEN && !is_valid_ether_addr(buf))
-		return -EINVAL;
-
-	return 0;
-}
 
 static int sfdp_eui_find_vendor_table(struct nvmem_device *nvmem, u32 *ptp)
 {
@@ -136,7 +117,6 @@ static int sfdp_eui_add_cells(struct nvmem_layout *layout)
 	info.offset = base + SFDP_MCHP_EUI48_OFFSET;
 	info.bytes = ETH_ALEN;
 	info.np = of_get_child_by_name(layout_np, "mac-address");
-	info.read_post_process = sfdp_eui_read_post_process;
 
 	ret = nvmem_add_one_cell(nvmem, &info);
 	if (ret)
