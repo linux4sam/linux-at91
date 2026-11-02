@@ -23,6 +23,8 @@
 		i2c0 = &i2c0;	/* mikroBUS 1 */
 		i2c1 = &i2c1;	/* XPRO EXT1 */
 		i2c2 = &i2c2;
+		mmc0 = &sdmmc0;
+		mmc1 = &sdmmc1;
 	};
 
 	chosen {
